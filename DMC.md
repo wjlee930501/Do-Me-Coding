@@ -75,21 +75,6 @@ Evidence files live under:
 .harness/verification/
 ```
 
-## Scaffold Verification Examples
-
-For this scaffold root, the clear local verification checks are:
-
-```text
-find . -maxdepth 3 -print
-bash -n .claude/hooks/*.sh
-command -v shellcheck
-shellcheck .claude/hooks/*.sh
-```
-
-Run `shellcheck` only when it is installed. Product-specific lint, typecheck,
-test, and build commands must be detected from the target repository after
-import.
-
 Final report format:
 
 ```text
