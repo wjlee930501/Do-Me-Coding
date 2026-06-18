@@ -4,24 +4,38 @@ This file is the cross-agent project memory root. It is intentionally concise.
 
 ## Repo Overview
 
-TODO: Run `/dmc-init-deep` to fill in repo-specific facts.
+This sandbox repository contains the Do-Me-Coding v0.1 Claude Code Native Pack
+scaffold on git branch `dmc-v0.1-scaffold`. It is an operating harness for
+Claude Code/Codex-style coding work, not a standalone product application.
+
+Visible top-level contents include Do-Me-Coding docs and schemas, `.claude/`
+runtime configuration, `.harness/` workflow/evidence directories, `docs/`
+source notes, and local import backup artifacts ending in `.before-dmc`.
 
 ## Package Manager
 
-TODO: Detect from lockfiles and scripts.
+No package manager is detectable in this sandbox repo. No `package.json`,
+package lockfile, `pyproject.toml`, `Cargo.toml`, `Makefile`, or CI workflow
+was found under the inspected repository depth.
 
 ## Verification Commands
 
-TODO: Detect from `package.json`, `pyproject.toml`, `Cargo.toml`, `Makefile`, or CI config.
-
-- lint: unknown
-- typecheck: unknown
-- test: unknown
-- build: unknown
+- lint: Unknown in this sandbox repo; no lint tool config was detected.
+- typecheck: Unknown in this sandbox repo; no typed product project was detected.
+- test: `bash -n .claude/hooks/*.sh`
+- build: Unknown in this sandbox repo; no build system was detected.
 
 ## Architecture Landmarks
 
-TODO: Run `/dmc-init-deep`.
+- `.claude/settings.json`: Claude Code hook wiring.
+- `.claude/hooks/`: shell hooks for pre-tool guard, scope guard, evidence logging, and stop verification.
+- `.claude/skills/`: Do-Me-Coding Claude Code skill prompts.
+- `.claude/agents/`: planner, explorer, executor, verifier, and critic subagent prompts.
+- `.harness/`: workflow state, evidence, verification, plans, runs, decisions, memory, and schema mirrors.
+- `DMC.md`: project operating guide for Do-Me-Coding.
+- `PLAN_SCHEMA.md`, `RUN_SCHEMA.md`, `VERIFICATION_SCHEMA.md`: root schema documentation.
+- `docs/`: source URL and Notion export reference notes.
+- `*.before-dmc`: local import backup artifacts retained for reference.
 
 ## Do-Me-Coding Operating Rules
 
@@ -35,9 +49,14 @@ TODO: Run `/dmc-init-deep`.
 
 ## Risk Areas
 
-TODO: Identify migrations, auth, billing, production data, env/config, deployment, and package-management risks.
+- No product migrations, auth, billing, production data, deployment code, or package-management workflow is visible in this sandbox repo.
+- Unknown in this sandbox repo: target product architecture, target verification commands, and any repo-specific business logic outside this scaffold.
+- Claude Code hooks can block tool use or stop completion if evidence and verification expectations are not met.
+- `.before-dmc` backup artifacts are present and should not be treated as active runtime files unless intentionally restored.
+- macOS `.DS_Store` files were tracked previously; `.gitignore` now contains `.DS_Store` and `**/.DS_Store`.
 
 ## Unknowns
 
-- Project-specific verification commands are not initialized yet.
-- Architecture map is not initialized yet.
+- Unknown in this sandbox repo: target product package manager.
+- Unknown in this sandbox repo: target product lint, typecheck, test, and build commands.
+- Unknown in this sandbox repo: target product architecture and business logic.

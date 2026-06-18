@@ -87,3 +87,81 @@ Next Claude Code Test Prompt:
 ```text
 /dmc-ultrawork Inspect this repository, confirm the Do-Me-Coding scaffold is wired correctly, run the available verification checks, and write evidence under .harness/.
 ```
+
+## Rerun After Git Initialization
+
+Date: 2026-06-18
+
+Scope:
+- No unzip performed.
+- No scaffold files overwritten.
+- Only `.harness` evidence and verification logs were updated.
+
+Commands Run:
+- `bash -n .claude/hooks/*.sh`
+- `find . -maxdepth 3 -print`
+- `rg TODO AGENTS.md DMC.md`
+- `git status --short`
+- `git diff --stat`
+- `git ls-files .harness/evidence .harness/verification`
+- `sed -n '1,260p' .harness/evidence/2026-06-18-after-unzip-evidence.md`
+- `sed -n '1,260p' .harness/verification/2026-06-18-after-unzip-verification.md`
+- `sed -n '1,220p' AGENTS.md`
+
+Results:
+- `bash -n .claude/hooks/*.sh`: passed.
+- `find . -maxdepth 3 -print`: passed.
+- `rg TODO AGENTS.md DMC.md`: failed the TODO check; `AGENTS.md` still contains scaffold placeholders.
+- `git status --short`: passed with no output before this log update.
+- `git diff --stat`: passed with no output before this log update.
+
+Failure Details:
+- `AGENTS.md` contains TODO placeholders for repo overview, package manager, verification commands, architecture landmarks, and risk areas.
+
+Runtime Readiness:
+- Not ready for Claude Code runtime testing until the `AGENTS.md` placeholders are resolved or explicitly accepted as intentionally pending.
+
+## Initialization Placeholder Resolution
+
+Date: 2026-06-18
+
+Scope:
+- Removed tracked macOS metadata files from the repository with commit `62c2937`.
+- Updated `AGENTS.md` initialization placeholders with facts visible in this sandbox repo.
+- Confirmed `.gitignore` contains `.DS_Store` and `**/.DS_Store`; no duplicate entries were added.
+- No unzip performed.
+- No product source code modified.
+- No scaffold runtime files overwritten.
+
+Commands Run:
+- `git status --short`
+- `git ls-files '*DS_Store'`
+- `find . -name .DS_Store -print`
+- `sed -n '1,220p' .gitignore`
+- `sed -n '1,240p' AGENTS.md`
+- `sed -n '1,260p' DMC.md`
+- `rg --files --hidden`
+- `find . -maxdepth 4 -name package.json -print`
+- `find . -maxdepth 4 -name pyproject.toml -print`
+- `find . -maxdepth 4 -name Cargo.toml -print`
+- `find . -maxdepth 4 -name Makefile -print`
+- `find . -maxdepth 4 -type f -path './.github/workflows/*' -print`
+- `git add -u -- .DS_Store .claude.before-dmc/.DS_Store .claude.before-dmc/skills/.DS_Store .claude/.DS_Store .claude/skills/.DS_Store .harness.before-dmc/.DS_Store .harness/.DS_Store`
+- `git diff --cached --name-status`
+- `git commit -m "Remove tracked macOS metadata"`
+- `git branch --show-current`
+- `git log -1 --oneline`
+- `bash -n .claude/hooks/*.sh`
+- `rg TODO AGENTS.md DMC.md`
+- `find . -name .DS_Store -print -delete`
+
+Results:
+- Tracked `.DS_Store` files were removed in commit `62c2937 Remove tracked macOS metadata`.
+- `AGENTS.md` no longer contains TODO placeholders.
+- Hook syntax check passed.
+- `rg TODO AGENTS.md DMC.md` returned no matches.
+- `.gitignore` contains `.DS_Store` and `**/.DS_Store`.
+
+Notes:
+- `find . -name .DS_Store -print -delete` deleted ignored `.DS_Store` files outside `.git/`.
+- Deleting `.git/.DS_Store` and `.git/logs/.DS_Store` failed with "Operation not permitted" because this sandbox grants read-only access to `.git/`; these files are not repository content and do not appear in git status or git diff.
