@@ -12,6 +12,9 @@ Every doc referenced by an installed file MUST be listed here (no dangling refer
 - `evidence-log.sh`
 - `dmc-router.sh`
 - `secret-guard.sh`   # v0.1.3 — Read/Grep/Glob secret guard
+- `worker-context-guard.sh`   # v0.2 — Worker Bridge task-bundle secret/forbidden guard (fail-closed)
+- `worker-result-check.py`    # v0.2 — Worker result validator (import/review checks)
+- `lib/secret-paths.sh`       # v0.2 — shared is_secret_path detector (md5-identical to secret-guard.sh)
 
 ### Skills → `.claude/skills/`
 - `dmc-critic/SKILL.md`
@@ -23,18 +26,26 @@ Every doc referenced by an installed file MUST be listed here (no dangling refer
 - `dmc-status/SKILL.md`
 - `dmc-ultrawork/SKILL.md`
 - `dmc-verify-hard/SKILL.md`
+- `dmc-worker-plan/SKILL.md`     # v0.2 Worker Bridge
+- `dmc-worker-dispatch/SKILL.md`
+- `dmc-worker-import/SKILL.md`
+- `dmc-worker-review/SKILL.md`
+- `dmc-worker-status/SKILL.md`
+- `dmc-worker-cancel/SKILL.md`
 
 ### Agents → `.claude/agents/`
 - `critic.md`, `executor.md`, `explorer.md`, `planner.md`, `verifier.md`
 
 ### Harness skeleton → `.harness/`
 - `decisions/.gitkeep`, `evidence/.gitkeep`, `memory/.gitkeep`, `plans/.gitkeep`, `runs/.gitkeep`, `verification/.gitkeep`
+- `workers/tasks/.gitkeep`, `workers/results/.gitkeep`, `workers/reviews/.gitkeep`, `workers/sessions/.gitkeep`   # v0.2 Worker Bridge (artifacts local-only in host)
 - `schemas/plan.schema.md`, `schemas/run.schema.md`, `schemas/verification.schema.md`
 - `mode`  # written by installer: `passive` if another harness detected, else `active` (Resolved Decision #5)
 
 ### Root operating docs / schemas
 - `DMC.md`
 - `PLAN_SCHEMA.md`, `RUN_SCHEMA.md`, `VERIFICATION_SCHEMA.md`
+- `WORKER_TASK_SCHEMA.md`, `WORKER_RESULT_SCHEMA.md`, `WORKER_REVIEW_SCHEMA.md`   # v0.2 Worker Bridge
 - `CLAUDE.md`   # MERGE/append if host has one (collision-detected), never blind-overwrite
 
 ### Referenced support docs (MUST be bundled — fixes dangling references)
@@ -63,6 +74,11 @@ Every doc referenced by an installed file MUST be listed here (no dangling refer
 .harness/evidence/
 .harness/verification/
 .harness/runs/
+# Worker Bridge artifacts (host: local-only by default; commit opt-in)
+.harness/workers/tasks/
+.harness/workers/results/
+.harness/workers/reviews/
+.harness/workers/sessions/
 # Do-Me-Coding: keep secret files out of search/commit (defense-in-depth)
 .env
 .env.*

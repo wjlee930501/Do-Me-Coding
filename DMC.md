@@ -114,6 +114,18 @@ DMC installs into host repos via a manifest-driven installer, not ad-hoc copy:
 - `docs/HOST_REPO_ARTIFACT_POLICY.md` — host `.harness` plans/evidence/verification default to local-only (commit opt-in); the DMC repo itself commits durable artifacts.
 - `docs/HOST_REPO_ADAPTATION_POLICY.md` — never blind-copy `AGENTS.md`; merge/preserve host docs; generate host-specific docs only via `/dmc-init-deep`.
 
+## Worker Bridge (v0.2, mock-only)
+
+Claude/Codex orchestrates; bounded workers (e.g. GLM 5.2) produce **structured proposals only** —
+they never mutate the repo. v0.2 is **mock-only**: no live API, no credentials, no auto-apply.
+
+- Schemas: `WORKER_TASK_SCHEMA.md`, `WORKER_RESULT_SCHEMA.md`, `WORKER_REVIEW_SCHEMA.md`.
+- Skills: `/dmc-worker-plan`, `-dispatch`, `-import`, `-review`, `-status`, `-cancel`.
+- `worker-context-guard.sh` validates a task bundle before dispatch (fail-closed on any secret/forbidden path); `worker-result-check.py` validates a result at import/review.
+- **No-mutation rule:** a worker diff is a **review artifact only**. v0.2 does NOT apply worker patches with `git apply`/`patch`. If accepted, the orchestrator translates the change into scope-guarded `Edit`/`Write` under a `/dmc-start-work` scope → verify → evidence.
+- Storage `.harness/workers/{tasks,results,reviews,sessions}/` — local-only by default in host repos (commit opt-in). Workers receive clipped, secret-scrubbed context only; no `.env*`/credentials/OAuth tokens.
+- Provider Access Layer: `mock` | `api_key` | `oauth_cli` | `manual_import`. v0.2 = `mock`/`manual_import` only; API-key adapter → v0.2.1, OAuth/local-CLI → v0.2.2+.
+
 ## Evidence Policy
 
 Evidence files live under:

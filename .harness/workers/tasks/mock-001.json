@@ -1,0 +1,26 @@
+{
+  "task_id": "mock-001",
+  "objective": "Add the name \"Pikachu\" to the exported names list in src/setNames.ts.",
+  "allowed_files": ["src/setNames.ts"],
+  "forbidden_files": ["src/secrets.ts", ".env.local", "pnpm-lock.yaml"],
+  "context_summary": "setNames.ts exports a const array of names; append one entry. No other behavior changes.",
+  "relevant_snippets": [
+    { "file": "src/setNames.ts", "start_line": 1, "end_line": 3, "text": "export const names = [\n  \"Bulbasaur\",\n];" }
+  ],
+  "expected_output_type": "unified_diff",
+  "security_constraints": "no secrets; no command execution; no direct repo mutation",
+  "verification_hints": ["vitest run"],
+  "model_target": "glm-5.2",
+  "max_context_tokens": 4000,
+  "token_budget": 2000,
+  "timeout_seconds": 120,
+  "cancellation_policy": "expire",
+  "provider_target": {
+    "type": "mock",
+    "provider": "mock-local",
+    "model": "glm-5.2",
+    "execution_mode": "proposal_only",
+    "credential_policy": "no_credentials_in_repo",
+    "secret_policy": "no_secret_context"
+  }
+}

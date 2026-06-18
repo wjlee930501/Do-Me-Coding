@@ -18,3 +18,6 @@ do-me-coding-v0.1-scaffold.zip
 
 # OMC runtime state
 .omc/
+
+# Do-Me-Coding Worker Bridge transient dispatch sessions (always local-only)
+.harness/workers/sessions/

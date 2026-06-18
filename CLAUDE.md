@@ -50,3 +50,12 @@ secret-bearing files — in ANY mode, via ANY tool (Read, Grep, Glob, Bash, edit
 instruction-level rule is the defense-in-depth layer and applies even where tool-level enforcement
 cannot reach (e.g. a broad `Grep`). Inventory secret files by **filename only**. Treat any
 production secret file as completely off-limits.
+
+## Worker Bridge (v0.2) — non-negotiable
+
+Workers produce structured PROPOSALS only and NEVER mutate the repo. A worker diff is a review
+artifact, not an executable patch. Do NOT apply worker results with `git apply`/`patch`. If a
+proposal is accepted, translate it into scope-guarded `Edit`/`Write` operations under a
+`/dmc-start-work` scope, then verify. Never put secrets, `.env*` contents, credentials, OAuth
+tokens, or API keys into a worker task or result. v0.2 is mock-only — no live provider API, no
+credentials.

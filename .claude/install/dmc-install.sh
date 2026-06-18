@@ -24,11 +24,13 @@ say(){ printf '%s\n' "$*"; }
 act(){ if [ "$DRY" = 1 ]; then say "  [dry-run] $*"; else eval "$2"; say "  $1"; fi; }
 # act <label> <command-string>
 
-HOOKS="pre-tool-guard.sh scope-guard.sh stop-verify-gate.sh evidence-log.sh dmc-router.sh secret-guard.sh"
-SKILLS="dmc-critic dmc-init-deep dmc-on dmc-off dmc-plan-hard dmc-start-work dmc-status dmc-ultrawork dmc-verify-hard"
+HOOKS="pre-tool-guard.sh scope-guard.sh stop-verify-gate.sh evidence-log.sh dmc-router.sh secret-guard.sh worker-context-guard.sh"
+HOOK_EXTRA="worker-result-check.py"                 # extra hook-dir tool (non-.sh)
+HOOK_LIB="secret-paths.sh"                          # .claude/hooks/lib/
+SKILLS="dmc-critic dmc-init-deep dmc-on dmc-off dmc-plan-hard dmc-start-work dmc-status dmc-ultrawork dmc-verify-hard dmc-worker-plan dmc-worker-dispatch dmc-worker-import dmc-worker-review dmc-worker-status dmc-worker-cancel"
 AGENTS="critic.md executor.md explorer.md planner.md verifier.md"
-HARNESS_DIRS="decisions evidence memory plans runs verification"
-ROOT_DOCS="DMC.md PLAN_SCHEMA.md RUN_SCHEMA.md VERIFICATION_SCHEMA.md"
+HARNESS_DIRS="decisions evidence memory plans runs verification workers/tasks workers/results workers/reviews workers/sessions"
+ROOT_DOCS="DMC.md PLAN_SCHEMA.md RUN_SCHEMA.md VERIFICATION_SCHEMA.md WORKER_TASK_SCHEMA.md WORKER_RESULT_SCHEMA.md WORKER_REVIEW_SCHEMA.md"
 
 # ---- mode detection (Resolved Decision #5) ----
 detect_other_harness(){
@@ -59,6 +61,8 @@ say ""
 say "Install .claude surface:"
 act "mkdir .claude/{hooks,skills,agents}" "mkdir -p '$HOST/.claude/hooks' '$HOST/.claude/skills' '$HOST/.claude/agents'"
 for h in $HOOKS; do act "hook $h" "cp '$SRC/.claude/hooks/$h' '$HOST/.claude/hooks/'"; done
+act "hook tool $HOOK_EXTRA" "cp '$SRC/.claude/hooks/$HOOK_EXTRA' '$HOST/.claude/hooks/'"
+act "hook lib/$HOOK_LIB" "mkdir -p '$HOST/.claude/hooks/lib' && cp '$SRC/.claude/hooks/lib/$HOOK_LIB' '$HOST/.claude/hooks/lib/'"
 for s in $SKILLS; do act "skill $s" "cp -R '$SRC/.claude/skills/$s' '$HOST/.claude/skills/'"; done
 for a in $AGENTS; do act "agent $a" "cp '$SRC/.claude/agents/$a' '$HOST/.claude/agents/'"; done
 
@@ -113,6 +117,7 @@ else
   if [ "$DRY" = 1 ]; then say "  [dry-run] append DMC .gitignore block (host .harness local-only + .env* ignore)"; else
     { printf '\n%s\n' "$GI_MARK";
       printf '%s\n' ".harness/mode" ".harness/runs/current-*" ".harness/evidence/manual-*.md" ".harness/plans/" ".harness/evidence/" ".harness/verification/" ".harness/runs/";
+      printf '%s\n' "# Worker Bridge artifacts (host: local-only by default; commit opt-in)" ".harness/workers/tasks/" ".harness/workers/results/" ".harness/workers/reviews/" ".harness/workers/sessions/";
       printf '%s\n' "# Do-Me-Coding: keep secret files out of search/commit (defense-in-depth)" ".env" ".env.*" "!.env.example" "!.env.sample";
     } >> "$HOST/.gitignore"; say "  appended DMC .gitignore block"
   fi
