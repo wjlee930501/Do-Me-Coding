@@ -6,3 +6,9 @@ do-me-coding-v0.1-scaffold.zip
 # macOS
 .DS_Store
 **/.DS_Store
+
+# Do-Me-Coding transient run state
+.harness/runs/current-*
+
+# Do-Me-Coding transient manual evidence fallback
+.harness/evidence/manual-*.md

@@ -5,11 +5,11 @@ INPUT="$(cat)"
 json_get() {
   key="$1"
   if command -v python3 >/dev/null 2>&1; then
-    printf '%s' "$INPUT" | python3 - "$key" <<'PY' 2>/dev/null || true
-import json, sys
+    DMC_HOOK_INPUT="$INPUT" python3 - "$key" <<'PY' 2>/dev/null || true
+import json, os, sys
 key = sys.argv[1]
 try:
-    data = json.load(sys.stdin)
+    data = json.loads(os.environ.get("DMC_HOOK_INPUT", ""))
     cur = data
     for part in key.split("."):
         cur = cur.get(part, "") if isinstance(cur, dict) else ""
