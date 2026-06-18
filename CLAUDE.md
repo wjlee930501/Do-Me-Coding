@@ -35,3 +35,18 @@ Natural-activation triggers (suffix-only, exact; precedence dmc-off > dmc-plan >
 - a request ending with `dmc-off` → set mode `off`.
 
 Explicit switches: `/dmc-on [active|passive]`, `/dmc-off`, `/dmc-status`. For OMC in the same repo, see `docs/OMC_COEXISTENCE.md` (prefer a separate branch/worktree; do not assume OMC has a universal off switch).
+
+## Secret Protection (v0.1.3) — non-negotiable
+
+NEVER read, grep, print, edit, summarize, quote, copy, or otherwise expose the contents of
+secret-bearing files — in ANY mode, via ANY tool (Read, Grep, Glob, Bash, editor):
+
+- `.env`, `.env.local`, `.env.prod.local`, `.env.production`, any `.env*` (EXCEPT `.env.example` / `.env.sample` / `.env.template`)
+- private keys / certs (`*.pem`, `*.key`, `id_rsa`, `id_ed25519`, `*.p12`, `*.pfx`, `*.keystore`)
+- credential / token files (`.npmrc`, `.netrc`, `.pgpass`, `credentials.json`, `*service-account*.json`, `*secret*` config)
+- `**/.ssh/*`, `**/.aws/credentials`
+
+`secret-guard.sh` enforces this for Read/Grep/Glob and `pre-tool-guard.sh` for Bash, but this
+instruction-level rule is the defense-in-depth layer and applies even where tool-level enforcement
+cannot reach (e.g. a broad `Grep`). Inventory secret files by **filename only**. Treat any
+production secret file as completely off-limits.

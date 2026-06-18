@@ -86,6 +86,34 @@ Triggers are suffix-only and exact (the token must end the prompt). Switch expli
 
 See `docs/OMC_COEXISTENCE.md` for running OMC in the same repo (separate branch/worktree, run-in-progress warning, no assumed OMC off switch).
 
+## Secret Protection (v0.1.3)
+
+DMC denies access to secret-bearing files at two layers:
+
+1. **Bash** — `pre-tool-guard.sh` denies `cat .env`, `printenv`, etc. (all modes; security floor).
+2. **Read / Grep / Glob** — `secret-guard.sh` (PreToolUse matcher `Read|Grep|Glob`) denies tool access to secret-bearing **paths**, deciding by path only (it never opens files). Enforced in **all modes**.
+
+Secret-bearing patterns: `.env`, `.env.*` (e.g. `.env.local`, `.env.prod.local`, `.env.production`),
+`*.pem`, `*.key`, `id_rsa`/`id_ed25519`, `*.p12`/`*.pfx`/`*.keystore`/`*.jks`, `.npmrc`/`.netrc`/`.pgpass`,
+`credentials.json`, `*service-account*.json`, `*secret*.{json,yaml,yml,env}`, `**/.ssh/*`, `**/.aws/credentials`.
+**Allowed (not secrets):** `.env.example`, `.env.sample`, `.env.template`, and non-secret source files with env-like names.
+
+Defense-in-depth: a broad `Grep` with no path can't be path-blocked, but Grep respects `.gitignore`
+(gitignored secrets are skipped) and the CLAUDE.md instruction-level rule remains required. `Glob`
+does NOT respect `.gitignore`, so `secret-guard` also blocks secret-targeting glob patterns.
+
+## Install & Host Adaptation (v0.1.3)
+
+DMC installs into host repos via a manifest-driven installer, not ad-hoc copy:
+
+- `INSTALL_MANIFEST.md` — exact host-install surface (and what is deliberately NOT copied).
+- `.claude/install/dmc-install.sh` — `--dry-run`, default-mode detection (passive when another harness
+  is present, else active; overridable `--mode`), collision detection (merge/append/skip, never overwrite),
+  bundles referenced docs (`docs/OMC_COEXISTENCE.md` → no dangling references), appends the host `.gitignore`.
+- `.claude/install/dmc-uninstall.sh` — reverses the install.
+- `docs/HOST_REPO_ARTIFACT_POLICY.md` — host `.harness` plans/evidence/verification default to local-only (commit opt-in); the DMC repo itself commits durable artifacts.
+- `docs/HOST_REPO_ADAPTATION_POLICY.md` — never blind-copy `AGENTS.md`; merge/preserve host docs; generate host-specific docs only via `/dmc-init-deep`.
+
 ## Evidence Policy
 
 Evidence files live under:
