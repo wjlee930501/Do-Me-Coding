@@ -66,6 +66,26 @@ Runs strict verification and writes a report under `.harness/verification/`.
 
 Builds or refreshes `AGENTS.md` project memory from repo facts only.
 
+## Modes & Natural Activation (v0.1.1)
+
+Do-Me-Coding has a mode switch in `.harness/mode` (gitignored; absent means `active`):
+
+- **active** — full enforcement (destructive + secret deny, `ask` prompts, scope lock, stop/verify gate, evidence logging).
+- **passive** — full destructive + secret-exposure deny remain; `ask` prompts and scope/stop/evidence gates stand down (less intrusive while OMC drives).
+- **off** — catastrophic-destructive + secret-exposure deny only; everything else passes through. Not fully inert.
+
+### Natural activation (append a trigger to a request)
+
+```text
+<task> dmc        # route to /dmc-ultrawork and set mode active
+<task> dmc-plan   # route to /dmc-plan-hard (planning only; mode unchanged)
+dmc-off           # set mode off (for OMC coexistence)
+```
+
+Triggers are suffix-only and exact (the token must end the prompt). Switch explicitly with `/dmc-on [active|passive]`, `/dmc-off`, `/dmc-status`.
+
+See `docs/OMC_COEXISTENCE.md` for running OMC in the same repo (separate branch/worktree, run-in-progress warning, no assumed OMC off switch).
+
 ## Evidence Policy
 
 Evidence files live under:

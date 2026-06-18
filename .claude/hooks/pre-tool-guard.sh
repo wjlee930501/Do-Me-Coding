@@ -2,6 +2,14 @@
 set -u
 INPUT="$(cat)"
 
+# Do-Me-Coding mode gate (v0.1.1): active | passive | off. Absent => active (backward compatible).
+DMC_MODE_FILE="${CLAUDE_PROJECT_DIR:-$PWD}/.harness/mode"
+DMC_MODE="active"
+if [ -f "$DMC_MODE_FILE" ]; then
+  DMC_MODE="$(head -n1 "$DMC_MODE_FILE" | tr -d '[:space:]' | tr 'A-Z' 'a-z')"
+  case "$DMC_MODE" in active|passive|off) ;; *) DMC_MODE="active" ;; esac
+fi
+
 json_get() {
   key="$1"
   if command -v python3 >/dev/null 2>&1; then
@@ -61,20 +69,33 @@ if printf '%s' "$CMD_ONE_LINE" | grep -Eiq '(^|[;&|`$()[:space:]])rm[[:space:]]+
   deny "Do-Me-Coding blocked destructive rm -rf command. Narrow the target and get explicit approval."
 fi
 
-if printf '%s' "$CMD_ONE_LINE" | grep -Eiq 'sudo[[:space:]]+rm[[:space:]]+-rf|git[[:space:]]+reset[[:space:]]+--hard|git[[:space:]]+push[[:space:]].*--force|prisma[[:space:]]+migrate[[:space:]]+reset|rails[[:space:]]+db:drop|python[[:space:]]+manage\.py[[:space:]]+flush|kubectl[[:space:]]+delete|terraform[[:space:]]+destroy'; then
+# Block A — catastrophic destructive (enforced in ALL modes: active, passive, off)
+if printf '%s' "$CMD_ONE_LINE" | grep -Eiq 'sudo[[:space:]]+rm[[:space:]]+-rf|git[[:space:]]+push[[:space:]].*--force|prisma[[:space:]]+migrate[[:space:]]+reset|rails[[:space:]]+db:drop|python[[:space:]]+manage\.py[[:space:]]+flush|kubectl[[:space:]]+delete|terraform[[:space:]]+destroy'; then
   deny "Do-Me-Coding blocked a high-risk destructive command. Create an approved plan and request explicit human approval."
 fi
 
+# Block A — secret exposure (treated as catastrophic; enforced in ALL modes including off)
 if printf '%s' "$CMD_ONE_LINE" | grep -Eiq '(^|[;&|[:space:]])(printenv|cat[[:space:]]+\.env|cat[[:space:]]+.*\.env|cat[[:space:]]+~/.ssh|cat[[:space:]]+~/.aws)'; then
   deny "Do-Me-Coding blocked a command that may expose secrets. Use targeted, redacted inspection instead."
 fi
 
-if printf '%s' "$CMD_ONE_LINE" | grep -Eiq '(DROP[[:space:]]+DATABASE|TRUNCATE[[:space:]]+TABLE|DELETE[[:space:]]+FROM)'; then
-  deny "Do-Me-Coding blocked a potentially destructive database command. Require explicit approval and rollback plan."
+# Block A — catastrophic database (enforced in ALL modes)
+if printf '%s' "$CMD_ONE_LINE" | grep -Eiq '(DROP[[:space:]]+DATABASE|TRUNCATE[[:space:]]+TABLE)'; then
+  deny "Do-Me-Coding blocked a catastrophic database command. Require explicit approval and rollback plan."
 fi
 
-if printf '%s' "$CMD_ONE_LINE" | grep -Eiq '(npm|pnpm|yarn|bun)[[:space:]]+publish|npm[[:space:]]+audit[[:space:]]+fix[[:space:]]+--force|schema[[:space:]]+push|migrate[[:space:]]+(deploy|dev|reset)|npm[[:space:]]+install|pnpm[[:space:]]+install|yarn[[:space:]]+install|bun[[:space:]]+install'; then
-  ask "Do-Me-Coding detected a package, migration, publish, or schema-changing command. Confirm this is intended."
+# Block B — full deny tier (enforced in active and passive; stands down in off)
+if [ "$DMC_MODE" != "off" ]; then
+  if printf '%s' "$CMD_ONE_LINE" | grep -Eiq 'git[[:space:]]+reset[[:space:]]+--hard|(DELETE[[:space:]]+FROM)'; then
+    deny "Do-Me-Coding blocked a destructive command (use /dmc-off only when intentionally stepping aside). Require explicit approval."
+  fi
+fi
+
+# Block C — ask tier (active mode only; less intrusive in passive/off)
+if [ "$DMC_MODE" = "active" ]; then
+  if printf '%s' "$CMD_ONE_LINE" | grep -Eiq '(npm|pnpm|yarn|bun)[[:space:]]+publish|npm[[:space:]]+audit[[:space:]]+fix[[:space:]]+--force|schema[[:space:]]+push|migrate[[:space:]]+(deploy|dev|reset)|npm[[:space:]]+install|pnpm[[:space:]]+install|yarn[[:space:]]+install|bun[[:space:]]+install'; then
+    ask "Do-Me-Coding detected a package, migration, publish, or schema-changing command. Confirm this is intended."
+  fi
 fi
 
 exit 0

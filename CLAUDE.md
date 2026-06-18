@@ -23,3 +23,15 @@ For complex work, prefer:
 
 For normal work, still follow:
 plan → scope → execute → verify → evidence.
+
+## Mode & Natural Activation Routing (v0.1.1)
+
+`.harness/mode` controls enforcement: `active` (full), `passive` (deny tier only, gates stand down), `off` (catastrophic + secret-exposure deny only). Absent ⇒ `active`.
+
+Natural-activation triggers (suffix-only, exact; precedence dmc-off > dmc-plan > dmc):
+
+- a request ending with `dmc` → run `/dmc-ultrawork` (mode set `active`).
+- a request ending with `dmc-plan` → run `/dmc-plan-hard` (planning only).
+- a request ending with `dmc-off` → set mode `off`.
+
+Explicit switches: `/dmc-on [active|passive]`, `/dmc-off`, `/dmc-status`. For OMC in the same repo, see `docs/OMC_COEXISTENCE.md` (prefer a separate branch/worktree; do not assume OMC has a universal off switch).

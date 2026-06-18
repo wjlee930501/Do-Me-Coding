@@ -2,6 +2,15 @@
 set -u
 INPUT="$(cat)"
 
+# Do-Me-Coding mode gate (v0.1.1): evidence logging in active only; no-op in passive/off.
+DMC_MODE_FILE="${CLAUDE_PROJECT_DIR:-$PWD}/.harness/mode"
+DMC_MODE="active"
+if [ -f "$DMC_MODE_FILE" ]; then
+  DMC_MODE="$(head -n1 "$DMC_MODE_FILE" | tr -d '[:space:]' | tr 'A-Z' 'a-z')"
+  case "$DMC_MODE" in active|passive|off) ;; *) DMC_MODE="active" ;; esac
+fi
+[ "$DMC_MODE" = "active" ] || exit 0
+
 json_get() {
   key="$1"
   if command -v python3 >/dev/null 2>&1; then

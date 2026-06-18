@@ -10,6 +10,9 @@ do-me-coding-v0.1-scaffold.zip
 # Do-Me-Coding transient run state
 .harness/runs/current-*
 
+# Do-Me-Coding local mode switch (transient/local; absent => active)
+.harness/mode
+
 # Do-Me-Coding transient manual evidence fallback
 .harness/evidence/manual-*.md
 
