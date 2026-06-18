@@ -1,0 +1,9 @@
+{
+  "summary": "Adversarial fixture: proposes an out-of-scope file change (must be REJECTED at import).",
+  "files_considered": ["src/other.ts"],
+  "files_changed": ["src/other.ts"],
+  "proposed_patch": "--- a/src/other.ts\n+++ b/src/other.ts\n@@ -1 +1 @@\n-a\n+b\n",
+  "model_claimed": "glm-5.2",
+  "generated_at": "2026-06-19T00:00:00Z",
+  "invocation_id": "glm-mock-bad-scope"
+}

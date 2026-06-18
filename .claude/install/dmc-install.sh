@@ -64,6 +64,9 @@ for h in $HOOKS; do act "hook $h" "cp '$SRC/.claude/hooks/$h' '$HOST/.claude/hoo
 act "hook tool $HOOK_EXTRA" "cp '$SRC/.claude/hooks/$HOOK_EXTRA' '$HOST/.claude/hooks/'"
 act "hook lib/$HOOK_LIB" "mkdir -p '$HOST/.claude/hooks/lib' && cp '$SRC/.claude/hooks/lib/$HOOK_LIB' '$HOST/.claude/hooks/lib/'"
 for s in $SKILLS; do act "skill $s" "cp -R '$SRC/.claude/skills/$s' '$HOST/.claude/skills/'"; done
+if [ -d "$SRC/.claude/workers/providers" ]; then
+  act "provider adapters .claude/workers/providers/" "mkdir -p '$HOST/.claude/workers' && cp -R '$SRC/.claude/workers/providers' '$HOST/.claude/workers/'"
+fi
 for a in $AGENTS; do act "agent $a" "cp '$SRC/.claude/agents/$a' '$HOST/.claude/agents/'"; done
 
 # settings.json: copy if absent; else python-merge DMC hooks (never overwrite host hooks)
@@ -117,7 +120,7 @@ else
   if [ "$DRY" = 1 ]; then say "  [dry-run] append DMC .gitignore block (host .harness local-only + .env* ignore)"; else
     { printf '\n%s\n' "$GI_MARK";
       printf '%s\n' ".harness/mode" ".harness/runs/current-*" ".harness/evidence/manual-*.md" ".harness/plans/" ".harness/evidence/" ".harness/verification/" ".harness/runs/";
-      printf '%s\n' "# Worker Bridge artifacts (host: local-only by default; commit opt-in)" ".harness/workers/tasks/" ".harness/workers/results/" ".harness/workers/reviews/" ".harness/workers/sessions/";
+      printf '%s\n' "# Worker Bridge artifacts (host: local-only by default; commit opt-in)" ".harness/workers/tasks/" ".harness/workers/results/" ".harness/workers/reviews/" ".harness/workers/sessions/" ".harness/workers/providers/";
       printf '%s\n' "# Do-Me-Coding: keep secret files out of search/commit (defense-in-depth)" ".env" ".env.*" "!.env.example" "!.env.sample";
     } >> "$HOST/.gitignore"; say "  appended DMC .gitignore block"
   fi

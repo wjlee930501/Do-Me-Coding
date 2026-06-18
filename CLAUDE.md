@@ -59,3 +59,8 @@ proposal is accepted, translate it into scope-guarded `Edit`/`Write` operations 
 `/dmc-start-work` scope, then verify. Never put secrets, `.env*` contents, credentials, OAuth
 tokens, or API keys into a worker task or result. v0.2 is mock-only — no live provider API, no
 credentials.
+
+The v0.2.1 `glm-api` adapter is **mock-first**: default mode makes no network call. Its `--live` path
+is strongly opt-in (`--live` + `--allow-network` + `GLM_API_KEY` env + not-CI). NEVER print, log,
+commit, or serialize `GLM_API_KEY` (or any provider key) — it is read from the environment only; the
+`Authorization` header is redacted in any log. Do NOT call the live provider during build/verification.

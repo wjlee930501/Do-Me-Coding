@@ -36,6 +36,10 @@ Every doc referenced by an installed file MUST be listed here (no dangling refer
 ### Agents → `.claude/agents/`
 - `critic.md`, `executor.md`, `explorer.md`, `planner.md`, `verifier.md`
 
+### Provider adapters → `.claude/workers/providers/`   # v0.2.1 Worker Bridge live providers
+- `glm-api/glm-api-adapter.py`, `glm-api/README.md`, `glm-api/CONFIG.md`, `glm-api/fixtures/*.json`
+  (mock-first; `--live` is multi-gated and unexercised by build/CI; reads `GLM_API_KEY` from env only)
+
 ### Harness skeleton → `.harness/`
 - `decisions/.gitkeep`, `evidence/.gitkeep`, `memory/.gitkeep`, `plans/.gitkeep`, `runs/.gitkeep`, `verification/.gitkeep`
 - `workers/tasks/.gitkeep`, `workers/results/.gitkeep`, `workers/reviews/.gitkeep`, `workers/sessions/.gitkeep`   # v0.2 Worker Bridge (artifacts local-only in host)
@@ -79,6 +83,7 @@ Every doc referenced by an installed file MUST be listed here (no dangling refer
 .harness/workers/results/
 .harness/workers/reviews/
 .harness/workers/sessions/
+.harness/workers/providers/
 # Do-Me-Coding: keep secret files out of search/commit (defense-in-depth)
 .env
 .env.*

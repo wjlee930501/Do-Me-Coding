@@ -21,3 +21,6 @@ do-me-coding-v0.1-scaffold.zip
 
 # Do-Me-Coding Worker Bridge transient dispatch sessions (always local-only)
 .harness/workers/sessions/
+
+# Do-Me-Coding Worker Bridge provider runtime (live tasks/results/logs — always local-only)
+.harness/workers/providers/

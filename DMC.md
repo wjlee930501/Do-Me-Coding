@@ -125,6 +125,7 @@ they never mutate the repo. v0.2 is **mock-only**: no live API, no credentials, 
 - **No-mutation rule:** a worker diff is a **review artifact only**. v0.2 does NOT apply worker patches with `git apply`/`patch`. If accepted, the orchestrator translates the change into scope-guarded `Edit`/`Write` under a `/dmc-start-work` scope → verify → evidence.
 - Storage `.harness/workers/{tasks,results,reviews,sessions}/` — local-only by default in host repos (commit opt-in). Workers receive clipped, secret-scrubbed context only; no `.env*`/credentials/OAuth tokens.
 - Provider Access Layer: `mock` | `api_key` | `oauth_cli` | `manual_import`. v0.2 = `mock`/`manual_import` only; API-key adapter → v0.2.1, OAuth/local-CLI → v0.2.2+.
+- **v0.2.1 `glm-api` adapter** (`.claude/workers/providers/glm-api/`, `provider_target.type=api_key`): mock-first — default `--mock`/no-network; `--live` is multi-gated (`--live` + `--allow-network` + `GLM_API_KEY` env + not-CI). Key read from env ONLY, non-printing, never serialized into logs/results/evidence/`.harness/`; Authorization header redacted; raw provider responses local-only. Output is still validated by `worker-result-check.py`. See `.claude/workers/providers/glm-api/README.md` + `CONFIG.md`.
 
 ## Evidence Policy
 
