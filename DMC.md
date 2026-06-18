@@ -48,7 +48,7 @@ Use for substantial engineering tasks. It forces workflow-style execution with p
 
 ### `/dmc-plan-hard <task>`
 
-Planning only. No product code edits. Writes or proposes a plan under `.harness/plans/`.
+Planning only. No product code edits. May create or update plan files only under `.harness/plans/`.
 
 ### `/dmc-critic <plan-path>`
 
