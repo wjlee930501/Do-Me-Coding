@@ -12,3 +12,6 @@ do-me-coding-v0.1-scaffold.zip
 
 # Do-Me-Coding transient manual evidence fallback
 .harness/evidence/manual-*.md
+
+# OMC runtime state
+.omc/
