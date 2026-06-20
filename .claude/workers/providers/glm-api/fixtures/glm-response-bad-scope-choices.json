@@ -1,0 +1,19 @@
+{
+  "id": "glm-live-badscope",
+  "model": "glm-5.2",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"summary\": \"Edit an unrelated file.\", \"files_changed\": [\"src/other.ts\"], \"proposed_patch\": \"--- a/src/other.ts\\n+++ b/src/other.ts\\n@@ -1 +1 @@\\n-old\\n+new\\n\", \"confidence\": \"high\"}"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 10,
+    "completion_tokens": 20,
+    "total_tokens": 30
+  }
+}

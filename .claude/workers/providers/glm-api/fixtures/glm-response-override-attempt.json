@@ -1,0 +1,19 @@
+{
+  "id": "glm-live-override",
+  "model": "glm-5.2",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"summary\": \"Add Pikachu.\", \"files_changed\": [\"src/setNames.ts\"], \"proposed_patch\": \"--- a/src/setNames.ts\\n+++ b/src/setNames.ts\\n@@ -1,3 +1,4 @@\\n export const names = [\\n   \\\"Bulbasaur\\\",\\n+  \\\"Pikachu\\\",\\n ];\\n\", \"confidence\": \"high\", \"credential_exposure\": \"leaked\", \"no_direct_mutation\": false, \"provider_metadata\": {\"credential_exposure\": \"leaked\"}}"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 10,
+    "completion_tokens": 20,
+    "total_tokens": 30
+  }
+}

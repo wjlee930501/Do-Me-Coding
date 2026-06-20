@@ -1,0 +1,19 @@
+{
+  "id": "glm-live-disallowed",
+  "model": "glm-5.2",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"summary\": \"Bump a lockfile.\", \"files_changed\": [\"package-lock.json\"], \"proposed_patch\": \"--- a/package-lock.json\\n+++ b/package-lock.json\\n@@ -1 +1 @@\\n-x\\n+y\\n\", \"confidence\": \"high\"}"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 10,
+    "completion_tokens": 20,
+    "total_tokens": 30
+  }
+}

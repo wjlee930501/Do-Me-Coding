@@ -1,0 +1,8 @@
+{
+  "id": "glm-live-empty-choices",
+  "model": "glm-5.2",
+  "choices": [],
+  "usage": {
+    "total_tokens": 5
+  }
+}

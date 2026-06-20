@@ -24,6 +24,12 @@ SECRET_VALUE = re.compile(
     r'(sk-[A-Za-z0-9_-]{8,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----'
     r'|xox[baprs]-[0-9A-Za-z-]+|ghp_[A-Za-z0-9]{20,})')
 
+# Bound on model content (chars) before parsing/mapping: an over-long response cannot blow up memory or
+# downstream checks. Clipping is applied to raw content (and any derived instructions/summary), never to a
+# well-formed JSON object of reasonable size (the happy path is far under this cap).
+MAX_CONTENT_LEN = 8000
+CONFIDENCE_VALUES = ("low", "med", "high")
+
 
 def die(msg, code=1):
     # Error messages NEVER include the key value (the value is not interpolated anywhere).
@@ -55,6 +61,123 @@ def build_payload(task):
     if SECRET_VALUE.search(json.dumps(payload)):
         die("built payload contains a secret value — refusing (reject unsafe context, not redact)")
     return payload
+
+
+def _strip_code_fence(text):
+    """If text is wrapped in a single markdown code fence (```json … ``` or bare ``` … ```), return the inner
+    block; otherwise return the whitespace-stripped text unchanged."""
+    s = text.strip()
+    m = re.match(r'^```[A-Za-z0-9_+-]*[ \t]*\r?\n(.*?)\r?\n?```[ \t]*$', s, re.DOTALL)
+    return m.group(1).strip() if m else s
+
+
+def _first_json_object(text):
+    """Isolate the first balanced top-level {…} object, respecting JSON string literals/escapes so braces inside
+    strings don't affect depth. Returns the substring or None. Drops leading/trailing prose."""
+    start = text.find('{')
+    if start == -1:
+        return None
+    depth, in_str, esc = 0, False, False
+    for i in range(start, len(text)):
+        c = text[i]
+        if in_str:
+            if esc:
+                esc = False
+            elif c == '\\':
+                esc = True
+            elif c == '"':
+                in_str = False
+        elif c == '"':
+            in_str = True
+        elif c == '{':
+            depth += 1
+        elif c == '}':
+            depth -= 1
+            if depth == 0:
+                return text[start:i + 1]
+    return None
+
+
+def _parse_content(content):
+    """Parse model content into a JSON object dict, or None if none can be isolated/parsed.
+    Strategy: strip a code fence, try json.loads directly, then isolate the first balanced {…} and retry.
+    json.loads ONLY — never eval/exec. Never raises."""
+    if not content:
+        return None
+    candidate = _strip_code_fence(content)
+    for cand in (candidate, _first_json_object(candidate)):
+        if not cand:
+            continue
+        try:
+            parsed = json.loads(cand)
+        except (ValueError, TypeError):
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+    return None
+
+
+def normalize_response(resp):
+    """Normalize a provider response into the TOP-LEVEL structured shape map_to_result consumes.
+
+    - Mock fixtures are already top-level structured (no `choices` key) -> passed through unchanged
+      (mock-first backward compatibility).
+    - Live GLM chat completions carry the answer in choices[0].message.content (a string). Extract it
+      defensively (C2: no IndexError/KeyError/TypeError may escape) and parse it robustly (C1: tolerate markdown
+      fences / surrounding prose; json.loads only). On any failure -> graceful low-confidence plain-text/empty
+      fallback. Adapter-enforced fields (credential_exposure/no_direct_mutation) are NEVER read from the model
+      here; map_to_result stamps them."""
+    if not isinstance(resp, dict) or "choices" not in resp:
+        return resp  # top-level structured mock -> unchanged
+
+    # ---- defensive envelope extraction (C2) ----
+    content, finish_reason = "", None
+    try:
+        choices = resp.get("choices")
+        if isinstance(choices, list) and choices:
+            first = choices[0]
+            if isinstance(first, dict):
+                finish_reason = first.get("finish_reason")
+                msg = first.get("message")
+                if isinstance(msg, dict) and isinstance(msg.get("content"), str):
+                    content = msg["content"]
+    except Exception:
+        content = ""
+
+    content = content[:MAX_CONTENT_LEN]  # bound length BEFORE parsing/mapping
+
+    # Non-stop finish (length/content_filter/…) => content likely truncated => prefer the plain-text fallback.
+    parsed = _parse_content(content) if finish_reason in (None, "stop") else None
+
+    if isinstance(parsed, dict):
+        fc = parsed.get("files_changed")
+        if not (isinstance(fc, list) and all(isinstance(x, str) for x in fc)):
+            fc = []
+        fcons = parsed.get("files_considered")
+        norm = {
+            "summary": parsed["summary"] if isinstance(parsed.get("summary"), str) else "",
+            "files_considered": fcons if isinstance(fcons, list) and all(isinstance(x, str) for x in fcons) else [],
+            "files_changed": fc,
+            "proposed_patch": parsed["proposed_patch"] if isinstance(parsed.get("proposed_patch"), str) else "",
+            "instructions": parsed["instructions"] if isinstance(parsed.get("instructions"), str) else "",
+            "confidence": parsed["confidence"] if parsed.get("confidence") in CONFIDENCE_VALUES else "med",
+        }
+    else:
+        # plain-text / empty / malformed / non-stop fallback -> schema-valid, safe (empty file set, no patch)
+        stripped = content.strip()
+        first_line = next((ln.strip() for ln in stripped.splitlines() if ln.strip()), "")
+        norm = {
+            "summary": first_line[:280],
+            "files_considered": [],
+            "files_changed": [],
+            "proposed_patch": "",
+            "instructions": stripped,
+            "confidence": "low",
+        }
+
+    norm["model_claimed"] = resp.get("model") or "glm-5.2"
+    norm["invocation_id"] = resp.get("id") or "glm-live"
+    return norm
 
 
 def map_to_result(task, resp):
@@ -96,8 +219,13 @@ def live_call(payload):
     import urllib.request
     base = os.environ.get("GLM_API_BASE", "https://open.bigmodel.cn/api/paas/v4").rstrip("/")
     timeout = float(os.environ.get("GLM_API_TIMEOUT_SECONDS", "60"))
+    system_msg = ("Return ONLY a single JSON object with keys: summary (string), files_changed (array of file "
+                  "paths you changed), proposed_patch (unified diff string), confidence (one of low|med|high). "
+                  "No prose, no markdown code fences. If you cannot produce a patch, return files_changed: [] and "
+                  "put your analysis in an instructions field.")
     body = json.dumps({"model": payload["model"],
-                       "messages": [{"role": "user", "content": json.dumps(payload)}]}).encode()
+                       "messages": [{"role": "system", "content": system_msg},
+                                    {"role": "user", "content": json.dumps(payload)}]}).encode()
     req = urllib.request.Request(base + "/chat/completions", data=body,
                                  headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"})
     # Log WITHOUT the Authorization header / key value:
@@ -133,6 +261,7 @@ def main():
             die("--live blocked: CI environment detected (defense-in-depth). Refusing automatic live call.")
         resp = live_call(payload)
 
+    resp = normalize_response(resp)    # live choices[].message.content -> structured; mock top-level -> unchanged
     result = map_to_result(task, resp)
     if a.out:
         json.dump(result, open(a.out, "w"), indent=2); open(a.out, "a").write("\n")
