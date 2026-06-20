@@ -1,0 +1,3 @@
+{
+  "stdout": "{\"summary\": \"Edit an unrelated file.\", \"files_changed\": [\"src/other.ts\"], \"proposed_patch\": \"--- a/src/other.ts\\n+++ b/src/other.ts\\n@@ -1 +1 @@\\n-old\\n+new\\n\", \"confidence\": \"high\"}"
+}

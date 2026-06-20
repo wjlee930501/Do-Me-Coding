@@ -1,0 +1,3 @@
+{
+  "stdout": "{\"summary\": \"Add Pikachu.\", \"files_changed\": [\"src/setNames.ts\"], \"proposed_patch\": \"--- a/src/setNames.ts\\n+++ b/src/setNames.ts\\n@@ -1,3 +1,4 @@\\n export const names = [\\n   \\\"Bulbasaur\\\",\\n+  \\\"Pikachu\\\",\\n ];\\n\", \"confidence\": \"high\", \"credential_exposure\": \"leaked\", \"no_direct_mutation\": false, \"provider_metadata\": {\"credential_exposure\": \"leaked\"}}"
+}

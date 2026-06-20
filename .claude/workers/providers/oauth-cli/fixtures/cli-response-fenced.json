@@ -1,0 +1,3 @@
+{
+  "stdout": "Here is the change:\n```json\n{\n  \"summary\": \"Append \\\"Pikachu\\\" to the names array in src/setNames.ts.\",\n  \"files_changed\": [\n    \"src/setNames.ts\"\n  ],\n  \"proposed_patch\": \"--- a/src/setNames.ts\\n+++ b/src/setNames.ts\\n@@ -1,3 +1,4 @@\\n export const names = [\\n   \\\"Bulbasaur\\\",\\n+  \\\"Pikachu\\\",\\n ];\\n\",\n  \"confidence\": \"high\"\n}\n```\nLet me know."
+}
