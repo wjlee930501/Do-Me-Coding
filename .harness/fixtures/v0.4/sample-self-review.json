@@ -1,0 +1,10 @@
+{
+  "review_id": "dmc-v0.4-sample-run",
+  "risk_level": "low",
+  "files_touched": ["docs/README_AUTONOMY_QUICKSTART.md"],
+  "tests_run": [{"command": "bash .harness/evidence/dmc-v0.4.1-goal-plan-compiler.sh --self-test", "result": "7 PASS / 0 FAIL"}],
+  "evidence_refs": [".harness/evidence/dmc-v0.4.1-goal-plan-compiler.sh"],
+  "findings": [{"severity": "info", "title": "docs-only change; all guards green"}],
+  "open_questions": [],
+  "auto_apply": false
+}
