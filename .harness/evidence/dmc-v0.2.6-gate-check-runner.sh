@@ -49,9 +49,15 @@ run_checks() {
   while IFS= read -r f; do [ -z "$f" ] && continue; printf '%s\n' "$staged" | grep -qxF "$f" || missing="$missing $f"; done <<< "$allow"
   if [ -z "${missing// /}" ]; then echo "  G2 PASS allowlist fully staged"; else echo "  G2 FAIL approved files not staged:$missing"; fail=1; fi
 
-  # G3 no excluded-evidence file staged
+  # G3 no excluded-evidence file staged — explicit list OR the auto-log PATTERN `.harness/evidence/*.md`.
+  # The pattern rule does not go stale each milestone (every future dmc-vX.Y.Z-*.md auto-log is caught); the explicit
+  # list stays for known files / DMC_GATE_EXCLUDED override. `.harness/evidence/*.sh` tools and `.harness/verification/*.md`
+  # reports are NOT auto-excluded and remain stage-able when explicitly approved.
   local exhit=""
   while IFS= read -r e; do [ -z "$e" ] && continue; printf '%s\n' "$staged" | grep -qxF "$e" && exhit="$exhit $e"; done <<< "$excluded"
+  while IFS= read -r s; do [ -z "$s" ] && continue
+    case "$s" in .harness/evidence/*.md) printf ' %s ' "$exhit" | grep -qF " $s " || exhit="$exhit $s";; esac
+  done <<< "$staged"
   if [ -z "${exhit// /}" ]; then echo "  G3 PASS no excluded-evidence file staged"; else echo "  G3 FAIL excluded evidence staged:$exhit"; fail=1; fi
 
   # G4 no protected-path change (staged OR worktree-modified)
@@ -139,6 +145,24 @@ self_test() {
   printf '%s\n' '.claude/workers/providers/PROVIDER_CONTRACT.md' > "$TT/allowpc"
   local outpc; outpc="$(bash "$0" --allowlist "$TT/allowpc" --repo "$rpc" --gate commit 2>&1)"; local rcpc=$?
   printf '%s' "$outpc" | grep -q 'G4 FAIL' && [ "$rcpc" = 1 ] && ok "S10 (F4a) PROVIDER_CONTRACT.md -> G4 FAIL" || no "S10 (F4a) got rc=$rcpc"
+  # S11 (Codex PR#2 REVISE) a FUTURE auto-log .md under evidence/ -> G3 FAIL even when allowlisted (pattern, not stale list)
+  local r11; r11="$(mkrepo futurelog)"; ( cd "$r11" && mkdir -p .harness/evidence \
+    && echo x > .harness/evidence/dmc-v0.9.9-future-auto-log.md && git add .harness/evidence/dmc-v0.9.9-future-auto-log.md )
+  printf '%s\n' '.harness/evidence/dmc-v0.9.9-future-auto-log.md' > "$TT/allow11"
+  local out11; out11="$(bash "$0" --allowlist "$TT/allow11" --repo "$r11" --gate commit 2>&1)"; local rc11=$?
+  printf '%s' "$out11" | grep -q 'G3 FAIL' && [ "$rc11" = 1 ] && ok "S11 future evidence/*.md auto-log -> G3 FAIL (allowlisted but pattern-excluded)" || no "S11 (rc=$rc11)"
+  # S12 (Codex PR#2 REVISE) evidence/*-verify.sh is NOT auto-excluded -> passes G3 when allowlisted (no other gate fails)
+  local r12; r12="$(mkrepo verifysh)"; ( cd "$r12" && mkdir -p .harness/evidence \
+    && printf 'echo ok\n' > .harness/evidence/dmc-v0.9.9-verify.sh && git add .harness/evidence/dmc-v0.9.9-verify.sh )
+  printf '%s\n' '.harness/evidence/dmc-v0.9.9-verify.sh' > "$TT/allow12"
+  local out12; out12="$(bash "$0" --allowlist "$TT/allow12" --repo "$r12" --gate commit 2>&1)"; local rc12=$?
+  printf '%s' "$out12" | grep -q 'G3 PASS' && [ "$rc12" = 0 ] && ok "S12 evidence/*-verify.sh allowlisted -> G3 PASS + overall PASS" || no "S12 (rc=$rc12)"
+  # S13 (Codex PR#2 REVISE) verification/*.md is NOT auto-excluded -> passes G3 when allowlisted (no other gate fails)
+  local r13; r13="$(mkrepo verifmd)"; ( cd "$r13" && mkdir -p .harness/verification \
+    && printf 'report ok\n' > .harness/verification/dmc-v0.9.9-report.md && git add .harness/verification/dmc-v0.9.9-report.md )
+  printf '%s\n' '.harness/verification/dmc-v0.9.9-report.md' > "$TT/allow13"
+  local out13; out13="$(bash "$0" --allowlist "$TT/allow13" --repo "$r13" --gate commit 2>&1)"; local rc13=$?
+  printf '%s' "$out13" | grep -q 'G3 PASS' && [ "$rc13" = 0 ] && ok "S13 verification/*.md allowlisted -> G3 PASS + overall PASS" || no "S13 (rc=$rc13)"
   # M-real: self-test (incl. CLI sub-invocations on temp repos) mutated nothing in the real repo
   [ "$ST_PRE" = "$(git -C "$ROOTDIR" status --porcelain 2>/dev/null | md5)" ] && ok "M-real repo byte-identical (self-test mutated nothing)" || no "M-real repo changed"
 

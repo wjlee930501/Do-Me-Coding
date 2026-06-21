@@ -30,7 +30,7 @@ signal** for the human / Codex auditor — it is NOT an action and must never be
 |---|---|---|
 | **G1** | Staged ⊆ allowlist | a staged file is not in the allowlist |
 | **G2** | Allowlist fully staged | an approved file is not staged |
-| **G3** | No excluded-evidence file staged | an excluded auto-logged evidence file is staged |
+| **G3** | No excluded-evidence file staged | an explicitly-excluded file **or** any auto-logged markdown `.harness/evidence/*.md` is staged |
 | **G4** | No protected-path change | a protected path is staged or worktree-modified |
 | **G5** | `git diff --cached --check` clean | trailing whitespace / conflict marker in the staged diff |
 | **G6** | Ahead/behind reported (push gate: not behind) | `--gate push` and HEAD is behind upstream (or upstream missing) |
@@ -40,8 +40,11 @@ signal** for the human / Codex auditor — it is NOT an action and must never be
 
 ## Default lists (overridable)
 
-- **Excluded auto-logged evidence** (`DMC_GATE_EXCLUDED`, newline-separated):
-  `.harness/evidence/dmc-v0.2.{2,3,4,5}-*.md`.
+- **Excluded auto-logged evidence**: any markdown under `.harness/evidence/*.md` is excluded **by pattern** — a
+  structural rule that never goes stale per-milestone (every future `dmc-vX.Y.Z-*.md` auto-log is caught even if
+  accidentally allowlisted) — **plus** an explicit list (`DMC_GATE_EXCLUDED`, newline-separated; default
+  `.harness/evidence/dmc-v0.2.{2,3,4,5}-*.md`). `.harness/evidence/*.sh` tools and `.harness/verification/*.md` reports
+  are **not** auto-excluded and may be staged when explicitly approved.
 - **Protected paths** (`DMC_GATE_PROTECTED`, newline-separated): `.claude/workers/providers/glm-api`,
   `.../oauth-cli`, `.../provider-router.py`, `.../ROUTING.md`, `.../PROVIDER_CONTRACT.md`, `.claude/hooks`,
   `WORKER_{TASK,RESULT,REVIEW}_SCHEMA.md`, `dmc-glm-smoke`.
