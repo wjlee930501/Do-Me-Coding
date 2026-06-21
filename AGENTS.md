@@ -33,6 +33,7 @@ was found under the inspected repository depth.
 - `.claude/agents/`: planner, explorer, executor, verifier, and critic subagent prompts.
 - `.harness/`: workflow state, evidence, verification, plans, runs, decisions, memory, and schema mirrors.
 - `DMC.md`: project operating guide for Do-Me-Coding.
+- `AUTONOMY.md`: autonomous-mode charter (v0.4 levels/stop-conditions); `docs/CONTEXT_MAP.md`: compact single-source context map.
 - `PLAN_SCHEMA.md`, `RUN_SCHEMA.md`, `VERIFICATION_SCHEMA.md`: root schema documentation.
 - `docs/`: source URL and Notion export reference notes.
 - `*.before-dmc`: local import backup artifacts retained for reference.
