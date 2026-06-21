@@ -1,0 +1,6 @@
+{
+  "goal_id": "sample-docs-section",
+  "objective": "add an Autonomous Mode quickstart section to the README docs",
+  "context": "docs-only, low-risk, reversible",
+  "declared_scope": ["docs/README_AUTONOMY_QUICKSTART.md"]
+}

@@ -1,0 +1,43 @@
+{
+  "goal_plan_version": "v0.4",
+  "goal_id": "sample-docs-section",
+  "objective": "add an Autonomous Mode quickstart section to the README docs",
+  "intake": {
+    "dimensions": [
+      "docs-only"
+    ],
+    "stop_and_ask": false,
+    "required_human_gates": [
+      "approval",
+      "commit",
+      "push",
+      "staging"
+    ]
+  },
+  "autonomy_level": "autonomous-local-commit",
+  "approved_scope": [
+    "docs/README_AUTONOMY_QUICKSTART.md"
+  ],
+  "autonomous_edit_permitted": true,
+  "human_gates": [
+    "closure",
+    "push"
+  ],
+  "acceptance_criteria": [
+    "verification harness must PASS (offline self-test)",
+    "Codex/Kim release audit ACCEPT before stage/commit",
+    "approved-scope-only diff; no protected-surface change beyond plan"
+  ],
+  "stop_conditions": [
+    "dirty-worktree",
+    "branch-is-main-outside-closure",
+    "scope-violation",
+    "protected-surface-diff",
+    "secret-or-credential-exposure",
+    "live-call-or-network",
+    "verification-fail",
+    "ambiguity",
+    "over-eager-bound-exceeded"
+  ],
+  "basis": "deterministic; mock-first; from goal + v0.2.8 policy ONLY (not env/secrets); preserves human gates"
+}
