@@ -56,6 +56,12 @@ presented as a no-gate default. Only **fail-closed** nulls the proposal and reco
 - **No env/secret inference**: the manifest is a pure function of (task + policy), inherited from the v0.3.4 selector.
   The generator reads **no** env var and **no** `.env*`/credential file; output is byte-identical under `env -i` and across
   a credential-var matrix (proven in the self-test).
+- **Free-form task-text redaction** (v0.3.9.1): the task's free-form fields embedded in the manifest (`objective`,
+  `context_summary`, `task_id`, `provider_target_hint` — at the top level **and** in the echoed `selection` object) are
+  passed through a **value-blind** sanitizer: a token/secret shape becomes `[redacted:unsafe-metadata]` (the matched value
+  is **never** re-emitted); safe text is preserved. The sanitizer is a pure regex (no env), so `env -i` byte-identity is
+  preserved. Same scanner as the review-packet/closure tools (structured token shapes + sentinels; prefixless
+  high-entropy blobs out of scope).
 - **Grants no gate**: `side_effects: "none (read-only; executes nothing; grants no gate)"`. The exit code is informational
   and must never be wired to execute.
 

@@ -37,7 +37,7 @@ recorder (v2 embeds no git hash / ahead-count / wall-clock). Three gating states
 ## Commands Run
 | Command | Result |
 |---|---|
-| `bash .harness/evidence/dmc-v0.3.5-execution-manifest.sh --self-test` | **16 PASS / 0 FAIL**, exit 0 |
+| `bash .harness/evidence/dmc-v0.3.5-execution-manifest.sh --self-test` | **17 PASS / 0 FAIL**, exit 0 (incl. AC8 metadata redaction) |
 | functional run (`--task <docs-only> --verify-script ...`) | correct: proposed=manual_import import-only, adapter realpath, executable_default=true, 5 closure criteria, verification_expectations complete |
 | `git diff --stat` over `.claude/` + v0.2.9 policy + the v0.3.4 selector | empty (read-only over all composed components) |
 | `find .claude -name '*.pyc'` | none (`PYTHONDONTWRITEBYTECODE=1`) |
@@ -69,6 +69,12 @@ live/network/credential/model-API call. No env/secret inference (`env -i` + diff
 nothing (only `--print-dispatch`). No `__pycache__` artifacts. Advisory: selects/executes/grants nothing.
 
 ## Final Status
-**PASS** — 16/16 self-test assertions green; only the 4 approved additive files present; all composed components
+**v0.3.9.1 review-branch hardening (F3):** the manifest now passes every free-form task field (`objective`,
+`context_summary`, `task_id`, `provider_target_hint` — top-level + embedded `selection`) through a value-blind sanitizer
+(`[redacted:unsafe-metadata]` on a token/secret shape; never re-emits the matched value; pure regex, so `env -i`
+byte-identity preserved). New self-test **AC8** asserts a token-shaped objective/context_summary never reaches the
+manifest (stdout AND --out). Adversarial verification panel: PASS (embedded-selection channel proven clean end-to-end).
+
+**PASS** — 17/17 self-test assertions green; only the 4 approved additive files present; all composed components
 byte-unchanged. **Codex Independent Release Audit: ACCEPT** (first pass; safe-to-stage yes, safe-to-commit yes). Staged
 the approved additive set (gate-check carving the auto-log evidence `.md`), committed; **push deferred** to the human gate.

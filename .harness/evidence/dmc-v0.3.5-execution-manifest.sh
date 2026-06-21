@@ -54,7 +54,17 @@ router_print_dispatch() { # <task_fixture.json> -> the --print-dispatch JSON (ex
 # --- assemble the manifest. Inputs via argv/files ONLY (never the environment). ---
 #     args: <task.json> <selection.json|""> <adapter.txt|""> <verify_script|""> <milestone|""> <selector_present:0|1>
 emit_manifest() { python3 - "$1" "$2" "$3" "$4" "$5" "$6" <<'PY'
-import json,sys
+import json,sys,re
+# v0.3.9.1 hardening — value-blind free-form-metadata sanitizer: redact a field to a deterministic placeholder if it
+# carries a token/secret shape (same pattern set as v0.3.6/v0.3.7); never re-emit a matched value; safe text preserved.
+UNSAFE=re.compile(r'sk-[A-Za-z0-9_-]{16,}|AKIA[0-9A-Z]{12,}|(BEGIN|END)[A-Z ]*PRIVATE KEY|xox[baprs]-[A-Za-z0-9-]{8,}|gh[opsu]_[A-Za-z0-9]{20,}|eyJ[A-Za-z0-9_-]{6,}\.eyJ[A-Za-z0-9_-]{6,}|[Bb]earer\s+[A-Za-z0-9._-]{12,}|ya29\.[A-Za-z0-9._-]{8,}|(access_token|refresh_token|id_token)\s*[=:]|SENTINEL', re.IGNORECASE)
+def safe(v):
+    s = "" if v is None else str(v)
+    return "[redacted:unsafe-metadata]" if UNSAFE.search(s) else v
+def safe_deep(v):  # recursive: sanitize dict KEYS + VALUES and list elements (a token in a key position is redacted too)
+    if isinstance(v,dict): return {safe(k): safe_deep(x) for k,x in v.items()}
+    if isinstance(v,list): return [safe_deep(x) for x in v]
+    return safe(v)
 def load(p):
     if not p: return {}
     try: return json.load(open(p))
@@ -87,14 +97,18 @@ else:
     blocked=False
     executable_default = (not human_gate_required)                   # gated high-risk => false; low-risk => true
 
+# sanitize the embedded selection's echoed free-form task fields (task_id + provider_target_hint) too
+if isinstance(sel,dict):
+    if "task_id" in sel: sel["task_id"]=safe(sel.get("task_id"))
+    if sel.get("provider_target_hint"): sel["provider_target_hint"]=safe_deep(sel.get("provider_target_hint"))
 manifest={
   "manifest_version":"v2",
-  "milestone":milestone,
+  "milestone":safe(milestone),
   "task":{
-    "task_id":task_id,
-    "objective":(task.get("objective","") if isinstance(task,dict) else ""),
-    "context_summary":(task.get("context_summary","") if isinstance(task,dict) else ""),
-    "provider_target_hint":hint,
+    "task_id":safe(task_id),
+    "objective":safe(task.get("objective","") if isinstance(task,dict) else ""),
+    "context_summary":safe(task.get("context_summary","") if isinstance(task,dict) else ""),
+    "provider_target_hint":safe_deep(hint),
   },
   "selection": sel if sel else {"fail_closed":True},
   "proposed_provider_target": proposed,
@@ -301,6 +315,22 @@ assert ve["self_test_or_harness"] and ve["must_pass"] is True and ve["gate_check
     && out_refused "$TT/sub/../benign.json" \
     && { ln -sf "$ROOTDIR/.claude/hooks" "$TT/sub/hooks" 2>/dev/null; out_refused "$TT/sub/hooks/x"; } \
     && ! out_refused "$TT/benign.json" && ok "AC7 --out guard: protected/secret/traversal(incl benign ..)/symlink refused, benign allowed" || no "AC7 --out guard"
+
+  # AC8 — free-form task-text redaction (value-blind): a token-shaped objective / context_summary is NEVER emitted in the
+  # manifest (stdout AND --out); the field is replaced by the deterministic placeholder.
+  local OBJTOK="sk-OBJLEAK0123456789abcdefghijklmnop" CTXTOK="ghp_CTXLEAK0123456789ABCDEFGHIJ"
+  local HVALTOK="sk-HVALLEAK0123456789abcdefghijklmnop" HKEYTOK="ghp_HKEYLEAK0123456789ABCDEFGHIJ"
+  printf '{"task_id":"meta-1","objective":"refactor %s here","context_summary":"note %s end","provider_target":{"type":"%s","provider":"glm-api"}}' "$OBJTOK" "$CTXTOK" "$HVALTOK" > "$TT/meta.json"
+  printf '{"task_id":"meta-2","objective":"x","provider_target":{"%s":"glm-api"}}' "$HKEYTOK" > "$TT/metak.json"
+  local mm OUTM="$TT/meta.out" mk
+  mm="$(generate_manifest "$TT/meta.json" "" "")"
+  generate_manifest "$TT/meta.json" "" "" > "$OUTM" 2>/dev/null
+  mk="$(generate_manifest "$TT/metak.json" "" "")"   # token in a provider_target KEY position (recursive safe_deep)
+  if ! printf '%s' "$mm" | grep -Eq 'OBJLEAK|CTXLEAK|HVALLEAK' && ! grep -Eq 'OBJLEAK|CTXLEAK|HVALLEAK' "$OUTM" \
+     && ! printf '%s' "$mk" | grep -Eq 'HKEYLEAK' \
+     && printf '%s' "$mm" | grep -q 'redacted:unsafe-metadata'; then
+    ok "AC8 free-form task-text redacted: objective/context_summary/hint-value/hint-KEY token never emitted (stdout AND --out)"
+  else no "AC8 task-text redaction leaked"; fi
 
   # AC1(a) FINAL — the whole self-test mutated nothing in the real repo
   local st; st="$(git -C "$ROOTDIR" status --porcelain 2>/dev/null | md5)"

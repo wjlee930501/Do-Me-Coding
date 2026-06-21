@@ -29,6 +29,14 @@ The packet **never reads or prints the contents of any secret-bearing file, nor 
 - **Commit-message body** — commit info uses the **hash (`%H`)** and **subject (`%s`)** only; the `Review-Verdict:` line
   is grepped (single-line, anchored `^Review-Verdict:`). The free-form body (`%b`) is **never** emitted.
 - **`--verify-report` path** — a report path matching a secret pattern is **refused unread**.
+- **Free-form metadata values** (v0.3.9.1) — every free-form field printed (commit **subject**, the `Review-Verdict:` line,
+  the report **Run ID**, the milestone/ref label) is passed through a **value-blind** sanitizer first: if the field
+  carries a token/secret shape it is replaced by the deterministic placeholder `[redacted:unsafe-metadata]` (the matched
+  value is **never** re-emitted); otherwise it is printed verbatim. Names-only path output is unchanged (paths are the
+  deliverable, already run through the forbidden/secret scan). The scanner covers the common **structured** token shapes
+  (`sk-`, `AKIA`, PEM `PRIVATE KEY`, `xox*`, `gh[opsu]_`, JWT `eyJ…`, `Bearer …`, `ya29.`, `*_token` assignments) + the
+  test sentinels; a **prefixless** high-entropy blob with no recognizable marker is out of scope (entropy heuristics
+  false-positive on legit identifiers/hashes).
 
 The self-test proves non-emission with three distinct sentinels (a `.env` file, a commit-message body, and a
 secret-pathed `--verify-report`) via `grep -F` over **both** stdout and the `--out` artifact, plus a structural source

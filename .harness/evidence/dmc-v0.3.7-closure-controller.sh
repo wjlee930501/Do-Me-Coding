@@ -74,6 +74,12 @@ judge_closure_recorded() { # <milestones_file> <milestone_id>  — whole-token m
   local esc; esc="$(printf '%s' "$id" | sed 's/[.[\\*^$()+?{|]/\\&/g')"
   grep -qE "(^|[^0-9.])${esc}([^0-9]|$)" "$mf" 2>/dev/null && echo MET || echo NOT-MET; }
 
+# --- value-blind free-form-metadata sanitizer (v0.3.9.1 hardening): echoes the value if SAFE, else a deterministic
+#     placeholder; NEVER echoes a matched (unsafe) value (consumed by `grep -q`, never re-emitted). Same pattern set as
+#     v0.3.6 (token/secret shapes + explicit self-test sentinels). Applied before writing the closure-entry candidate. ---
+UNSAFE_META_RE='sk-[A-Za-z0-9_-]{16,}|AKIA[0-9A-Z]{12,}|(BEGIN|END)[A-Z ]*PRIVATE KEY|xox[baprs]-[A-Za-z0-9-]{8,}|gh[opsu]_[A-Za-z0-9]{20,}|eyJ[A-Za-z0-9_-]{6,}\.eyJ[A-Za-z0-9_-]{6,}|[Bb]earer[[:space:]]+[A-Za-z0-9._-]{12,}|ya29\.[A-Za-z0-9._-]{8,}|(access_token|refresh_token|id_token)[[:space:]]*[=:]|SENTINEL'
+safe_meta() { local v="$1"; if printf '%s' "$v" | grep -qiE "$UNSAFE_META_RE"; then printf '%s' '[redacted:unsafe-metadata]'; else printf '%s' "$v"; fi; }
+
 # --- run the controller: write the packet to <outfile>; return 0 if E2E-DONE else 1 ---
 run_closure() { # <outfile> <repo> <milestone> <ref> <verify_report> <milestones_file> <date>
   local outfile="$1" repo="$2" ms="$3" ref="$4" vr="$5" mf="$6" date="$7"
@@ -89,7 +95,7 @@ run_closure() { # <outfile> <repo> <milestone> <ref> <verify_report> <milestones
   count="$( { [ -n "$vr" ] && ! is_secret_path "$vr" && [ -f "$vr" ]; } && { grep -m1 -oE '[0-9]+ PASS / [0-9]+ FAIL' "$vr" 2>/dev/null || grep -m1 -oE '[0-9]+/[0-9]+' "$vr" 2>/dev/null; } || true)"
 
   {
-    echo "# DMC Closure Controller — $ms"
+    echo "# DMC Closure Controller — $(safe_meta "$ms")"
     echo
     echo "_read-only · advisory · judges 5 closure conditions · writes/commits/pushes NOTHING · grants no gate_"
     echo
@@ -108,9 +114,9 @@ run_closure() { # <outfile> <repo> <milestone> <ref> <verify_report> <milestones
     echo
     echo "## MILESTONES.md closure-entry CANDIDATE (append-only — the tool writes nothing)"
     echo '```markdown'
-    echo "## $ms — ${date}"
-    echo "- commit: \`$(git -C "$repo" rev-parse --short "$ref" 2>/dev/null || echo unknown)\` — $subj"
-    [ -n "$rvline" ] && echo "- $rvline"
+    echo "## $(safe_meta "$ms") — $(safe_meta "${date}")"
+    echo "- commit: \`$(git -C "$repo" rev-parse --short "$ref" 2>/dev/null || echo unknown)\` — $(safe_meta "$subj")"
+    [ -n "$rvline" ] && echo "- $(safe_meta "$rvline")"
     [ -n "$count" ] && echo "- self-test: $count"
     echo "- closure: verified=$v reviewed=$rv committed=$c pushed=$p closure-recorded=$cr"
     echo '```'
@@ -212,6 +218,20 @@ self_test() {
   [ "$(judge_committed "$R" badref)" = NOT-MET ] || a=0
   [ "$(judge_closure_recorded "$TT/absent.md" "v0.3.7")" = NOT-MET ] || a=0
   [ "$a" = 1 ] && ok "AC5 fail-closed: absent/secret verify-report, bogus ref, absent MILESTONES => NOT-MET" || no "AC5 fail-closed"
+
+  # AC8 — free-form metadata redaction (value-blind): a token-shaped commit subject + Review-Verdict suffix never reach
+  # the closure-entry candidate (the field is replaced by the deterministic placeholder).
+  local SUBJTOK="ghp_SUBJLEAK0123456789ABCDEFGHIJ" RVTOK="sk-RVLEAK0123456789abcdefghijklmnop"
+  local MTR="$TT/mrepo"; mkdir -p "$MTR"; git -C "$MTR" init -q; git -C "$MTR" config user.email t@t.t; git -C "$MTR" config user.name t
+  echo z > "$MTR/f"; git -C "$MTR" add -A
+  GIT_AUTHOR_DATE='2020-01-01T00:00:00 +0000' GIT_COMMITTER_DATE='2020-01-01T00:00:00 +0000' git -C "$MTR" commit -q -m "fix $SUBJTOK leak"
+  local HM; HM="$(git -C "$MTR" rev-parse HEAD)"
+  printf '%s\n' '## dmc-meta — recorded' > "$TT/ms_meta.md"
+  printf '%s\n' '# Verification Report' "Review-Verdict: critic=PASS codex=ACCEPT $RVTOK" '## Run ID' 'rid' '| x | 9 PASS / 0 FAIL |' '## Final Status' '**PASS**' > "$TT/rep_tok.md"
+  local PKM="$TT/closurem.md"; run_closure "$PKM" "$MTR" dmc-meta "$HM" "$TT/rep_tok.md" "$TT/ms_meta.md" "2026-06-21" >/dev/null 2>&1
+  if ! grep -Eq 'SUBJLEAK|RVLEAK' "$PKM" && grep -q '\[redacted:unsafe-metadata\]' "$PKM"; then
+    ok "AC8 free-form metadata redacted: token-shaped subject / Review-Verdict never reach the candidate (value-blind)"
+  else no "AC8 metadata redaction leaked"; fi
 
   # AC7 — structural audit (operative source ONLY; AUDIT_BLOCK + comments excluded so patterns don't self-match)
   local OP="$TT/op.src"; sed '/AUDIT_BLOCK_START/,/AUDIT_BLOCK_END/d' "$SELFPATH" | grep -vE '^[[:space:]]*#' > "$OP"

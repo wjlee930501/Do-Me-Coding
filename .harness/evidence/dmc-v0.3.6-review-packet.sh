@@ -67,6 +67,13 @@ changed_counts() { # <repo> <mode> <ref> -> "ins del"
   printf '%s\n' "$src" | awk '$1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ {i+=$1; d+=$2} END{printf "%d %d", i+0, d+0}'
 }
 
+# --- value-blind free-form-metadata sanitizer (v0.3.9.1 hardening): echoes the value if SAFE, else a deterministic
+#     placeholder. It NEVER echoes a matched (unsafe) value — on a match it prints ONLY the placeholder (the candidate
+#     value is consumed by `grep -q`, never re-emitted). Covers token/secret shapes (sk-/AKIA/private-key/xox/gh[opsu]_/
+#     JWT/Bearer/ya29/*_token assignments) + explicit self-test sentinels. ---
+UNSAFE_META_RE='sk-[A-Za-z0-9_-]{16,}|AKIA[0-9A-Z]{12,}|(BEGIN|END)[A-Z ]*PRIVATE KEY|xox[baprs]-[A-Za-z0-9-]{8,}|gh[opsu]_[A-Za-z0-9]{20,}|eyJ[A-Za-z0-9_-]{6,}\.eyJ[A-Za-z0-9_-]{6,}|[Bb]earer[[:space:]]+[A-Za-z0-9._-]{12,}|ya29\.[A-Za-z0-9._-]{8,}|(access_token|refresh_token|id_token)[[:space:]]*[=:]|SENTINEL'
+safe_meta() { local v="$1"; if printf '%s' "$v" | grep -qiE "$UNSAFE_META_RE"; then printf '%s' '[redacted:unsafe-metadata]'; else printf '%s' "$v"; fi; }
+
 # --- verification summary from a verify-report .md (3 cases; real tokens; secret-path refused unread) ---
 verify_summary() { # <verify_report_path|"">
   local vr="$1"
@@ -80,10 +87,10 @@ verify_summary() { # <verify_report_path|"">
   [ -z "$count" ] && count="$(grep -m1 -oE '[0-9]+/[0-9]+' "$vr" 2>/dev/null || true)"
   final="$(awk '/^## Final Status/{f=1} f && match($0,/\*\*(PASS|FAIL|PARTIAL)\*\*/){print substr($0,RSTART,RLENGTH); exit}' "$vr" 2>/dev/null || true)"
   runid="$(awk '/^## Run ID/{getline; gsub(/^[[:space:]]+|[[:space:]]+$/,""); print; exit}' "$vr" 2>/dev/null || true)"
-  [ -n "$rv" ] && echo "$rv" || echo "Review-Verdict: not present"
+  [ -n "$rv" ] && echo "$(safe_meta "$rv")" || echo "Review-Verdict: not present"
   echo "counts: ${count:-unknown}"
   echo "final-status: ${final:-unknown}"
-  [ -n "$runid" ] && echo "run-id: $runid"
+  [ -n "$runid" ] && echo "run-id: $(safe_meta "$runid")"
   echo "(self-attested by the report; advisory — not independently re-verified)"
 }
 
@@ -105,14 +112,14 @@ run_packet() { # <outfile> <repo> <mode> <ref> <milestone> <verify_report>
   behind="$(git -C "$repo" rev-list --count HEAD..origin/main 2>/dev/null || echo '?')"
 
   {
-    echo "# DMC Review Packet — ${milestone:-$ref}"
+    echo "# DMC Review Packet — $(safe_meta "${milestone:-$ref}")"
     echo
     echo "_read-only · advisory · names-only · executes nothing · grants no gate_"
     echo
     echo "## 1. Changeset summary"
     echo "- ref: \`$hash\`"
-    echo "- subject: $subj"
-    [ -n "$rvline" ] && echo "- $rvline"
+    echo "- subject: $(safe_meta "$subj")"
+    [ -n "$rvline" ] && echo "- $(safe_meta "$rvline")"
     echo "- files: $(printf '%s\n' "$paths" | grep -c . ) (+${counts%% *} / -${counts##* })"
     echo "- changed paths (names only):"
     printf '%s\n' "$paths" | grep . | sed 's/^/  - /'
@@ -212,6 +219,21 @@ self_test() {
      && printf '%s' "$v3" | grep -q 'no verification report provided'; then
     ok "AC5 verify-summary: 3 cases (Review-Verdict present / absent / no-report) with real tokens"
   else no "AC5 verify-summary"; fi
+
+  # AC2(4) — free-form metadata redaction (value-blind): a token-shaped commit subject, Review-Verdict suffix, and report
+  # Run ID are NEVER emitted (stdout AND --out); the field is replaced by the deterministic placeholder.
+  local SUBJTOK="ghp_SUBJLEAK0123456789ABCDEFGHIJ" RVTOK="sk-RVLEAK0123456789abcdefghijklmnop" RIDTOK="AKIARUNIDLEAK01234567"
+  local RM="$TT/mrepo"; mkdir -p "$RM"; git -C "$RM" init -q; git -C "$RM" config user.email t@t.t; git -C "$RM" config user.name t
+  echo z > "$RM/f"; git -C "$RM" add -A
+  GIT_AUTHOR_DATE='2020-01-01T00:00:00 +0000' GIT_COMMITTER_DATE='2020-01-01T00:00:00 +0000' \
+    git -C "$RM" commit -q -m "fix $SUBJTOK leak"$'\n\n'"Review-Verdict: critic=PASS codex=ACCEPT $RVTOK"
+  printf '%s\n' '# Verification Report' "Review-Verdict: critic=PASS codex=ACCEPT $RVTOK" '## Run ID' "$RIDTOK" '| x | 9 PASS / 0 FAIL |' '## Final Status' '**PASS**' > "$TT/rep_tok.md"
+  local PKM="$TT/packm.md"; run_packet "$PKM" "$RM" commit HEAD "v0.3.6-meta" "$TT/rep_tok.md" >/dev/null 2>&1
+  local MO; MO="$(cat "$PKM")"
+  if ! printf '%s' "$MO" | grep -Eq 'SUBJLEAK|RVLEAK|RUNIDLEAK' && ! grep -Eq 'SUBJLEAK|RVLEAK|RUNIDLEAK' "$PKM" \
+     && printf '%s' "$MO" | grep -q '\[redacted:unsafe-metadata\]'; then
+    ok "AC2(4) free-form metadata redacted: token-shaped subject / Review-Verdict / Run ID never emitted (value-blind)"
+  else no "AC2(4) metadata redaction leaked"; fi
 
   # AC2 STRUCTURAL audit — operative source ONLY (exclude the audit block markers + comments) so the forbidden-primitive
   # patterns below do not self-match. Then assert no content-dumping git primitive is present.

@@ -34,6 +34,11 @@ Every condition is fail-closed: any ambiguous or absent signal ⇒ NOT-MET. Two 
 
 - **Writes nothing**: the MILESTONES.md candidate is **text to append** — the controller never writes/modifies
   `MILESTONES.md`, never rewrites existing entries, never `git add/commit/push`.
+- **Free-form metadata redaction** (v0.3.9.1): the closure-entry candidate's free-form fields (commit **subject**, the
+  `Review-Verdict:` line, the milestone id, the date) are passed through a **value-blind** sanitizer — a token/secret
+  shape is replaced by `[redacted:unsafe-metadata]` (the matched value is **never** re-emitted); safe text prints
+  verbatim. Same scanner as the review-packet (structured token shapes + sentinels; prefixless high-entropy blobs are out
+  of scope).
 - **No secret content**: the `--verify-report` path is **refused unread** if it matches a secret pattern; git is read with
   **metadata-only** primitives (`rev-parse`, `merge-base`, `show -s --format='%s'`) — no content-dumping `show`/`diff`,
   no `-p`/patch family, no `log -p`/`diff-tree`/`format-patch`/`cat-file`; the commit **body (`%b`) is never read** (only

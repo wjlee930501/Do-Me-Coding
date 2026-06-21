@@ -37,7 +37,7 @@ no secret content (`--verify-report` secret-path-guarded; metadata-only git; no 
 ## Commands Run
 | Command | Result |
 |---|---|
-| `bash …dmc-v0.3.7-closure-controller.sh --self-test` | **11 PASS / 0 FAIL**, exit 0 |
+| `bash …dmc-v0.3.7-closure-controller.sh --self-test` | **12 PASS / 0 FAIL**, exit 0 (incl. AC8 metadata redaction) |
 | functional run (`--milestone dmc-v0.3.6 --commit 4e2c3e7 --verify-report …v0.3.6…md`) | correct: verified/reviewed/committed MET, **pushed NOT-MET** (unpushed), **closure-recorded NOT-MET** (unrecorded) ⇒ NOT DONE, exit 1; candidate well-formed |
 | `git diff --stat` over `.claude/` + `docs/MILESTONES.md` + the v0.2.9 policy | empty (read-only; MILESTONES.md untouched) |
 
@@ -64,7 +64,12 @@ content read or printed (filename-only verify-report guard; metadata-only git; n
 MILESTONES.md pre==post). No live call; no `__pycache__`. Fail-closed — ambiguity never yields a false E2E-DONE.
 
 ## Final Status
-**PASS** — 11/11 self-test assertions green (incl. the two post-Codex false-MET tightenings); only the 4 approved
+**v0.3.9.1 review-branch hardening (F2):** the closure-entry candidate's free-form fields (commit **subject**, the
+`Review-Verdict:` line, the milestone id, the date) now pass through a value-blind sanitizer (`[redacted:unsafe-metadata]`
+on a token/secret shape; never re-emits the matched value). New self-test **AC8** asserts a token-shaped subject /
+Review-Verdict never reaches the candidate (stdout AND --out). Adversarial verification panel: PASS.
+
+**PASS** — 12/12 self-test assertions green (incl. the two post-Codex false-MET tightenings); only the 4 approved
 additive files present; all composed surfaces + `docs/MILESTONES.md` byte-unchanged. **Codex Independent Release Audit:
 ACCEPT** (after the verified-equal-ratio + reviewed-exact-line fixes; safe-to-stage yes, safe-to-commit yes). Staged the
 approved additive set (gate-check carving the auto-log evidence `.md`), committed; **push deferred** to the human gate.

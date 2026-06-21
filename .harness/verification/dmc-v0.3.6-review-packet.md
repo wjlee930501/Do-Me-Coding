@@ -37,7 +37,7 @@ section + advisory exit `3`.
 ## Commands Run
 | Command | Result |
 |---|---|
-| `bash .harness/evidence/dmc-v0.3.6-review-packet.sh --self-test` | **9 PASS / 0 FAIL**, exit 0 |
+| `bash .harness/evidence/dmc-v0.3.6-review-packet.sh --self-test` | **10 PASS / 0 FAIL**, exit 0 (incl. AC2(4) metadata redaction) |
 | functional run (`--commit HEAD --verify-report …v0.3.5…md`) | correct: 4 files, no protected/forbidden, verification summary `16 PASS / 0 FAIL` / `**PASS**`, ahead 5 |
 | older-report run (`--verify-report …v0.2.6…md`) | correct: `Review-Verdict: not present` (case ii) + count, no crash |
 | `git diff --stat` over `.claude/` + the v0.2.9 policy | empty (read-only) |
@@ -64,6 +64,12 @@ and a content-dumping-primitive structural audit. Read-only (HEAD/branch/config/
 call; no network. No `__pycache__`.
 
 ## Final Status
-**PASS** — 9/9 self-test assertions green; only the 4 approved additive files present; all composed surfaces
+**v0.3.9.1 review-branch hardening (F1):** every free-form metadata field printed (commit **subject**, the
+`Review-Verdict:` line, the report **Run ID**, the milestone/ref label) now passes through a value-blind sanitizer
+(`[redacted:unsafe-metadata]` on a token/secret shape; never re-emits the matched value). Names-only path behavior is
+unchanged. New self-test **AC2(4)** asserts a token-shaped subject / Review-Verdict / Run ID never reaches stdout OR
+`--out`. Adversarial verification panel: PASS (every print site wrapped; falsifiable).
+
+**PASS** — 10/10 self-test assertions green; only the 4 approved additive files present; all composed surfaces
 byte-unchanged. **Codex Independent Release Audit: ACCEPT** (first pass; safe-to-stage yes, safe-to-commit yes). Staged
 the approved additive set (gate-check carving the auto-log evidence `.md`), committed; **push deferred** to the human gate.
