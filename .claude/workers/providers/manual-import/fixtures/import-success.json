@@ -1,0 +1,14 @@
+{
+  "summary": "Add Pikachu to the set-names map",
+  "files_considered": [
+    "src/app.ts"
+  ],
+  "files_changed": [
+    "src/app.ts"
+  ],
+  "proposed_patch": "--- a/src/app.ts\n+++ b/src/app.ts\n@@ -1 +1 @@\n-old\n+new\n",
+  "confidence": "med",
+  "risks": [
+    "none material"
+  ]
+}

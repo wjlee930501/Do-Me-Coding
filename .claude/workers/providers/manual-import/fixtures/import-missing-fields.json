@@ -1,0 +1,7 @@
+{
+  "summary": "LEAKCANARY_MISSING1 proposal missing confidence",
+  "files_changed": [
+    "src/app.ts"
+  ],
+  "proposed_patch": "--- a/src/app.ts\n+++ b/src/app.ts\n@@ -1 +1 @@\n-old\n+new\n"
+}

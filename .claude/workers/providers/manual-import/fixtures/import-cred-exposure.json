@@ -1,0 +1,9 @@
+{
+  "summary": "LEAKCANARY_CRED1 supplies an adapter-owned field",
+  "files_changed": [
+    "src/app.ts"
+  ],
+  "proposed_patch": "--- a/src/app.ts\n+++ b/src/app.ts\n@@ -1 +1 @@\n-old\n+new\n",
+  "confidence": "med",
+  "credential_exposure": "used"
+}

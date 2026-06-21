@@ -1,0 +1,9 @@
+{
+  "summary": "LEAKCANARY_EXTRA1 valid plus an unknown key",
+  "files_changed": [
+    "src/app.ts"
+  ],
+  "proposed_patch": "--- a/src/app.ts\n+++ b/src/app.ts\n@@ -1 +1 @@\n-old\n+new\n",
+  "confidence": "med",
+  "unexpected_extra": "LEAKCANARY_EXTRA1_value"
+}

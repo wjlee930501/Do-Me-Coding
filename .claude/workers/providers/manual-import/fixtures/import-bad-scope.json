@@ -1,0 +1,8 @@
+{
+  "summary": "LEAKCANARY_SCOPE1 touches a disallowed-category path",
+  "files_changed": [
+    "package-lock.json"
+  ],
+  "proposed_patch": "--- a/package-lock.json\n+++ b/package-lock.json\n@@ -1 +1 @@\n-{}\n+{ }\n",
+  "confidence": "low"
+}
