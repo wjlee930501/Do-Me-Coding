@@ -55,3 +55,47 @@ A running, append-only log of shipped DMC milestones. One short entry per releas
   `manual_import` (deferred).
 
 **Next:** v0.3 multi-worker orchestration (planned).
+
+## v0.2.6–v0.3.0 — DMC Operating Rails (read-only gate / manifest / intake / policy / E2E tooling) — CLOSED (2026-06-21)
+
+- **Published:** fast-forwarded to `origin/main` (`37ef16c..d4142e9`); local `main` == `origin/main` == `d4142e9`.
+  Shipped as a delegated, batch-reviewed stack; external review (Codex/Kim) → **ACCEPT** after the PR #2 fix commit.
+- **Review branch / PR:** `review/dmc-v0.2.6-v0.3.0-stack` (head `d4142e9`); **PR #2** merged via fast-forward
+  (2026-06-21), closure note recorded on the PR. Review branch retained (not deleted).
+- **What shipped** (every tool is **advisory / read-only** — none stages, commits, pushes, grants a gate, or mutates the
+  provider surface; the only writes are canonicalization-guarded `--out` files and `mktemp` self-test repos):
+  - **v0.2.6 Gate Check Runner** (`f8eb277`) — `dmc-v0.2.6-gate-check-runner.sh` + `docs/DMC_GATE_CHECKS.md`. Read-only
+    PASS/FAIL gate report: G1 staged⊆allowlist · G2 allowlist staged · G3 no excluded-evidence (now a `.harness/evidence/
+    *.md` **pattern** rule) · G4 no protected-path change · G5 whitespace · G6 ahead/behind. Self-test **19 PASS / 0 FAIL**.
+  - **v0.2.7 Run Manifest Generator** (`6fba01d`) — recorder-only JSON snapshot of a milestone run; guarded `--out`.
+    Self-test **8 PASS / 0 FAIL**.
+  - **v0.2.8 Task Intake Classifier** (`f31cc9a`) — advisory, **fail-closed** classifier (risk dimensions, required human
+    gates, stop_and_ask); inert-data matching, canonicalized `--out` guard. Self-test **33 PASS / 0 FAIL**.
+  - **v0.2.9 Effort & Provider Policy** (`0468aa6`) — **guidance, not enforcement** policy doc + read-only structure-check
+    **15 PASS / 0 FAIL**; changes no routing, edits no code.
+  - **v0.3.0 E2E Completion Controller** (`532b0ce`) — report-only, **fail-closed** reporter of E2E-done
+    (verified · reviewed · committed · pushed · closure-recorded); **offline** (no `git fetch`). Self-test **16 PASS / 0 FAIL**.
+  - **v0.3.0.1 Rails Hardening** (`0bbeea9`) — cross-tool consistency fixes from a Codex holistic deep re-review + 3
+    adversarial critic rounds: F1 v0.2.7 `--out` guard, F2 v0.3.0 `--out` write, F3 v0.2.6 `--gate` enum, F4a–f
+    `PROVIDER_CONTRACT.md` added to all six protected-set enumerations.
+  - **Rails hardening / PR #2 review fix** (`d4142e9`) — G3 now pattern-excludes any `.harness/evidence/*.md` auto-log
+    (structural rule, never stale per-milestone) while keeping `.sh` tools and `.harness/verification/*.md` stage-able;
+    +3 falsifiable self-tests (Codex PR #2 REVISE → ACCEPT).
+- **Verification posture:** **91 self-test / structure-check assertions, 0 FAIL** across the five tools (19 + 8 + 33 + 16 +
+  15), all exit 0 — re-confirmed on published `main`. **Offline / mock / read-only** where applicable; self-tests run only
+  in `mktemp` temp repos (real repo byte-identical). **No live provider call; no `.env*` / credential read; no network /
+  model-API call.** Each milestone passed a separate critic pass + an independent Codex release audit (ACCEPT) before
+  commit; the stack then passed an external holistic Codex review (ACCEPT after `d4142e9`).
+- **Protected surface:** byte-unchanged across the whole stack — adapters, `provider-router.py`, `ROUTING.md`,
+  `PROVIDER_CONTRACT.md`, `WORKER_*_SCHEMA.md`, `.claude/hooks/*`, `dmc-glm-smoke` (F4 only *references* these paths in
+  deny-lists; it never edits them).
+- **Intentionally not committed:** the untracked auto-logged evidence files `.harness/evidence/dmc-v0.2.{6,7,8,9}-*.md`,
+  `dmc-v0.3.0-*.md`, `dmc-v0.3.0.1-*.md` (excluded by design — the v0.2.6 G3 `.harness/evidence/*.md` pattern now enforces
+  this structurally even if a file is accidentally allowlisted).
+- **Provider / agent rail status after v0.3.0:** provider access layer unchanged from v0.2.3 — `mock` ✓ · `api_key`
+  (glm-api) ✓ · `oauth_cli` (oauth-cli) ✓ · routing ✓ · `manual_import` deferred. New **operating-rails layer** (read-only
+  gate / manifest / intake / policy / E2E tooling) ✓. No provider-feature milestone has begun.
+- **Note:** v0.2.4–v0.2.5 closure entries are not in this log — a separate, pre-existing backfill, out of scope for this entry.
+
+**Next:** v0.3.1 Manual Import Provider (planned; touches the provider surface — requires an explicitly-scoped approved
+plan + human gate before it begins).
