@@ -10,7 +10,10 @@ adapter scripts. **Mock-first** (default requires `--mock`; live is opt-in and g
 |---|---|---|---|
 | `api_key`   | `glm-api`   | `glm-api/glm-api-adapter.py`     | `--allow-network` |
 | `oauth_cli` | `oauth-cli` | `oauth-cli/oauth-cli-adapter.py` | `--allow-exec` |
-| `mock` / `manual_import` / empty type | — | (none — refuse) | — |
+| `manual_import` | `manual-import` | `manual-import/manual-import-adapter.py` | — (no live; input via `--import`) |
+| `mock` / empty type | — | (none — refuse) | — |
+
+*`manual_import` routing added in v0.3.2 (standalone pure-validation importer; no live mode).*
 
 ## Selection contract — task-only, never env/secret
 
@@ -18,15 +21,16 @@ adapter scripts. **Mock-first** (default requires `--mock`; live is opt-in and g
   **nothing else** — not environment variables, not secret/key presence, not model-name heuristics — to pick a provider.
 - Matching is **exact** on `(type, provider)`. If `provider` is empty, the route resolves **only** if the type has
   exactly one registered adapter; otherwise the router **refuses** (ambiguous → deterministic error, no guess).
-- Unknown `(type, provider)`, missing `provider_target`, or `mock` / `manual_import` (no live adapter) → **refuse** with
-  a clear message. No adapter is executed on a refusal.
+- Unknown `(type, provider)`, missing `provider_target`, or `mock` / empty type → **refuse** with a clear message. No
+  adapter is executed on a refusal. (`manual_import` routes to `manual-import` — a standalone validation importer with
+  **no live mode**.)
 
 ## Dispatch contract
 
 - The registered adapter path is resolved to an **absolute path under** `.claude/workers/providers/` and the router
   **refuses if it is missing or escapes that directory**.
 - Dispatch is `subprocess.run([...], shell=False)` — an **argv list**, no shell, no interpolation.
-- **Argv hygiene:** only operator-provided paths (`--task`/`--mock`/`--out`) and **fixed registry-derived flags** (the
+- **Argv hygiene:** only operator-provided paths (`--task`/`--mock`/`--import`/`--out`) and **fixed registry-derived flags** (the
   adapter path + the entry's live opt-in flag) reach the child argv. **No task-derived string** (objective, snippets,
   file lists, provider strings) is ever placed on the command line.
 - **Environment passthrough:** the parent environment is passed to the adapter **unchanged** — the adapter, not the
@@ -40,6 +44,10 @@ adapter scripts. **Mock-first** (default requires `--mock`; live is opt-in and g
 
 - On `--live`, the router forwards **only** the selected adapter's registry live flag. A mismatched/cross opt-in flag
   (e.g. `--allow-exec` for `glm-api`) is **refused before dispatch**.
+- `manual_import` has **no live mode** (no `live_flag`); `--live` against it is **refused before dispatch**.
+- **Input-flag contract (v0.3.2):** the router refuses `--mock` for `manual_import` and `--import` for the network/exec
+  providers **before dispatch** (the router owns its input-flag contract; the target adapter's argparse rejection remains
+  as defense-in-depth).
 - **Defense in depth:** even if the router forwarded the wrong flag, the target adapter's own argparse independently
   rejects an unrecognized flag (`glm-api` ✗ `--allow-exec`; `oauth-cli` ✗ `--allow-network`), so cross-forwarding fails
   closed at the adapter layer too.
