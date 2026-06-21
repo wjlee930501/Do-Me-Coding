@@ -99,3 +99,66 @@ A running, append-only log of shipped DMC milestones. One short entry per releas
 
 **Next:** v0.3.1 Manual Import Provider (planned; touches the provider surface — requires an explicitly-scoped approved
 plan + human gate before it begins).
+
+## v0.3.1–v0.3.9 — Manual-Import Provider + Advisory Rails Loop (selection · manifest · review · closure · delegation · E2E) — CLOSED (2026-06-22)
+
+- **Published:** fast-forwarded to `origin/main` (`00a3480..5aecdbc`); local `main` == `origin/main` == `5aecdbc`.
+  Shipped as a delegated, batch-reviewed stack; external review (Codex/Kim) → **ACCEPT** at `5aecdbc` (after the
+  metadata-redaction hardening fix). `origin/main` and `origin/review/dmc-v0.3.1-v0.3.9-stack` point to the same commit.
+- **Review branch:** `review/dmc-v0.3.1-v0.3.9-stack` (head `5aecdbc`) — retained (not deleted).
+- **What shipped** (each milestone: DRAFT plan → adversarial critic panel (REVISE→fix→focused re-pass PASS) → human
+  APPROVED → approved-scope-only implementation → self-test → independent Codex release audit (ACCEPT) → commit; push +
+  this closure are the human gates):
+  - **v0.3.1 Manual Import Provider** (`a28f37e`) — standalone pure-validation `manual_import` importer ("manual-import
+    envelope v1" → normalized `WORKER_RESULT_SCHEMA`, fail-closed; OAuth/token/secret guard semantics reused from
+    oauth-cli; deterministic stamps). Additive adapter + fixtures. Self-test **17 PASS / 0 FAIL**.
+  - **v0.3.2 Manual Import Router Wiring** (`4c2963c`) — registers `(manual_import, manual-import)` in `provider-router.py`
+    + `ROUTING.md`; no-live guard (no `live_flag`); router-side cross-flag refusal. Verification **8 PASS / 0 FAIL**.
+  - **v0.3.3 Three-Provider Contract** (`b7ba433`) — unified `PROVIDER_CONTRACT` C1–C11 suite over glm-api / oauth-cli /
+    manual-import **+ the router path**, per-provider input-flag threading + pinned rejection stages (authorized
+    `PROVIDER_CONTRACT.md` doc edit). **34 PASS / 0 FAIL**.
+  - **v0.3.4 Provider Selection Runner** (`241f012`) — read-only/advisory ranked `provider_target` candidates
+    (offline-first; `mock` is a run-mode, not a candidate; **no env/secret inference** — `env -i` byte-identical;
+    executes nothing). Self-test **14 PASS / 0 FAIL**.
+  - **v0.3.5 Execution Manifest v2** (`96f912e`) — forward-looking manifest binding task → proposed provider_target →
+    selected adapter → verification expectations → gates → closure criteria; executes nothing; no env inference.
+    Self-test **17 PASS / 0 FAIL** (incl. the v0.3.9.1 metadata-redaction test).
+  - **v0.3.6 Review Packet Generator** (`4e2c3e7`) — names-only review pack (changeset · protected scan · forbidden/secret
+    scan · verification summary · residual risks); load-bearing **secret protection** (no file content / commit body /
+    secret-pathed report). Self-test **10 PASS / 0 FAIL** (incl. v0.3.9.1 metadata redaction).
+  - **v0.3.7 Closure Controller** (`8cd3435`) — mechanically judges the 5 closure conditions, emits an **append-only**
+    `MILESTONES.md` candidate (writes nothing); **fail-closed** (no false E2E-DONE). Self-test **12 PASS / 0 FAIL** (incl.
+    v0.3.9.1 metadata redaction). *(This very entry was prepared with that controller's discipline.)*
+  - **v0.3.8 Autonomous Delegation Harness** (`7012cb7`) — handbook-faithful allowed-autonomy / gated-action matrix
+    (STAGE/COMMIT/PUSH/CLOSURE gated; Codex ACCEPT is an advisory input, never a grant) + role/critic-handoff templates +
+    run-transcript checklist + a read-only compliance validator. Self-test **8 PASS / 0 FAIL**.
+  - **v0.3.9 E2E Dry-Run Acceptance Suite** (`abe11cc`) — capstone: drives the full rails loop offline (regression →
+    intake → select → manifest → review → closure → delegation), asserts the **compose** invariant and **no false-green**;
+    no live / commit / push / real-repo mutation. Self-test **5 PASS / 0 FAIL** (8/8 stages ACCEPTED).
+  - **v0.3.9.1 Metadata-Redaction Hardening** (`5aecdbc`) — closes the external review's REVISE on **free-form metadata
+    carriers**: a value-blind sanitizer added to the v0.3.5 / v0.3.6 / v0.3.7 advisory tools redacts token/secret-shaped
+    free-form fields (commit subject, `Review-Verdict:` line, Run ID, task `objective`/`context_summary`/`task_id`/hint —
+    recursively over hint keys+values) to `[redacted:unsafe-metadata]` and **never re-emits a matched value**; pure regex,
+    so determinism / `env -i` byte-identity is preserved. Adversarial verification panel + Codex audit → **ACCEPT**.
+- **Verification posture:** **125 self-test / contract assertions, 0 FAIL** across the batch (17 + 8 + 34 + 14 + 17 + 10 +
+  12 + 8 + 5), all exit 0 — re-confirmed on published `main`. Each milestone passed a separate adversarial critic pass +
+  an independent Codex release audit (ACCEPT) before commit; the hardening also passed an adversarial verification panel +
+  Codex ACCEPT; the whole stack then passed an external holistic Codex/Kim review → **ACCEPT** at `5aecdbc`.
+  **Offline / mock / read-only**: self-tests run only in `mktemp` temp repos (real repo byte-identical). **No live
+  provider call; no `.env*` / credential read; no network / model-API call** (verified across this session's work).
+- **Protected surface:** byte-unchanged across the batch **except the authorized edits** — `provider-router.py` +
+  `ROUTING.md` (v0.3.2 manual_import wiring) and `PROVIDER_CONTRACT.md` (v0.3.3 doc). The glm-api / oauth-cli adapters,
+  `WORKER_*_SCHEMA.md`, `.claude/hooks/*`, validators/guards, `dmc-glm-smoke`, and the handbooks are byte-unchanged. The
+  v0.3.4–v0.3.9 milestones + the v0.3.9.1 hardening are fully **additive** (no protected edit).
+- **Intentionally not committed:** the untracked auto-logged evidence files `.harness/evidence/dmc-v0.3.{1..9}-*.md`
+  (excluded by design — the v0.2.6 G3 `.harness/evidence/*.md` pattern enforces this structurally).
+- **GLM normalization note (provenance, not a v0.3.x deliverable):** the GLM chat-completion normalization fix
+  (`1c3e294`, "normalize glm chat-completion content into worker result schema") is a **pre-existing earlier glm-api
+  milestone** (v0.2.1.x), already in published history at/before `00a3480`; the glm-api adapter is **byte-unchanged**
+  across the v0.3.1–v0.3.9 batch. Recorded here only for traceability.
+- **Provider Access Layer status:** `mock` ✓ · `api_key` (glm-api) ✓ · `oauth_cli` (oauth-cli) ✓ · `manual_import`
+  (manual-import) ✓ + routed under contract ✓ — the **provider-access layer is now complete across all three real
+  providers**. New **advisory rails loop** (selection → manifest → review → closure → delegation → E2E) ✓, all read-only.
+
+**Next:** (open) — provider-access layer complete and the read-only advisory rails loop is shipped + externally accepted;
+no further milestone has begun.
