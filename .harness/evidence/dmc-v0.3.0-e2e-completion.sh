@@ -158,6 +158,15 @@ self_test() {
   out_refused ".env" && out_refused ".claude/hooks/secret-guard.sh" && out_refused "x/../.claude/hooks/secret-guard.sh" \
     && out_refused ".claude/workers/providers/oauth-cli/x" && out_refused "PROVIDER_CONTRACT.md" && ! out_refused "$TT/benign.json" \
     && ok "M3 --out guard: protected/secret/traversal refused, benign allowed" || no "M3 --out guard"
+  # M-F2 (F2) --out actually writes the report (byte-equal to stdout); protected --out refused + file not created
+  local rf cf so fo
+  rf="$(newrepo f2)"; add_verif "$rf" foo; add_review "$rf" foo; add_plan "$rf" foo; cf="$(add_commit "$rf" foo)"; set_origin "$rf" "$cf"; add_closure "$rf" foo "${cf:0:7}"
+  so="$(bash "$0" --milestone foo --repo "$rf" --commit "$cf" 2>/dev/null)"
+  bash "$0" --milestone foo --repo "$rf" --commit "$cf" --out "$TT/f2.out" >/dev/null 2>&1
+  fo="$(cat "$TT/f2.out" 2>/dev/null)"
+  { [ -f "$TT/f2.out" ] && [ -n "$so" ] && [ "$so" = "$fo" ]; } && ok "M-F2 (F2) --out file byte-equal to stdout report" || no "M-F2 (F2) --out not written / mismatch"
+  bash "$0" --milestone foo --repo "$rf" --commit "$cf" --out "$TT/sub/.claude/hooks/evil" >/dev/null 2>&1; local rcf2=$?
+  { [ "$rcf2" = 2 ] && [ ! -e "$TT/sub/.claude/hooks/evil" ]; } && ok "M-F2neg (F2) protected --out refused (exit 2, not created)" || no "M-F2neg (F2) rc=$rcf2"
   # M1/M5 real repo untouched
   [ "$ST_PRE" = "$(git -C "$ROOTDIR" status --porcelain 2>/dev/null | md5)" ] && ok "M1/M5 real repo byte-identical (self-test mutated nothing)" || no "M1/M5 repo changed"
   echo "  ---- self-test: PASS=$P_ FAIL=$F_ ----"; [ "$F_" = 0 ]
@@ -178,5 +187,7 @@ fi
 [ -n "$MS" ] || { echo "e2e: --milestone <id> required" >&2; exit 2; }
 if [ -n "$OUT" ] && out_refused "$OUT"; then echo "e2e: --out target is protected/secret — REFUSED (writing nothing)" >&2; exit 2; fi
 evaluate "$REPO" "$MS" "$COMMITARG" "$BRANCH"
-emit
+# F2: when --out is set (and the guard above passed), write the report there; the wrote-notice goes to stderr so the
+# file's bytes equal the stdout report. The default (no --out) path keeps emitting to stdout.
+if [ -n "$OUT" ]; then emit > "$OUT"; echo "e2e: wrote $OUT" >&2; else emit; fi
 [ "$OVERALL" = done ]; exit $?

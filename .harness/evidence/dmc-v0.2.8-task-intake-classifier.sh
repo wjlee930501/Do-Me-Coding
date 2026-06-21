@@ -40,7 +40,7 @@ classify() {
 
   # independent protected-path-substring scan (catches low-vocabulary-only risk)
   if m "$task" '\.harness/|provider-router|routing|worker_(task|result|review)_schema|\.claude/hooks|secret-guard|scope-guard|dmc-glm-smoke|provider_contract|provider[ _-]contract|glm-api|oauth-cli|oauth_cli|manual_import'; then
-    prot=1; PROT_PATHS=".claude/workers/providers, .claude/hooks, WORKER_*_SCHEMA.md, dmc-glm-smoke (as matched)"
+    prot=1; PROT_PATHS=".claude/workers/providers, .claude/hooks, WORKER_*_SCHEMA.md, PROVIDER_CONTRACT.md, dmc-glm-smoke (as matched)"
     printf '%s' "$DIMS" | grep -q 'change' || add guard-hook-validator-change
   fi
   # gated-action-request scan
@@ -164,6 +164,14 @@ self_test() {
   chk "T19 protected no-keyword" "touch a file under .claude/hooks please"          "" 1 guard-hook-validator-change
   chk "T20 gated in docs"       "update the README docs and push it upstream"       "" 1 docs-only
   chk "T21 pure docs carve-out" "rewrite the README onboarding section for clarity" "" 0 docs-only
+
+  # M12 (F4e) provider_contract task: emitted protected_paths (text + JSON) names PROVIDER_CONTRACT.md (revert F4e => omitted => fail)
+  classify "edit PROVIDER_CONTRACT.md provider contract" ""
+  local etext ejson; etext="$(emit_text)"; ejson="$(emit_json)"
+  if printf '%s' "$etext" | grep -q 'PROVIDER_CONTRACT.md' \
+     && printf '%s' "$ejson" | python3 -c 'import json,sys; sys.exit(0 if "PROVIDER_CONTRACT.md" in json.load(sys.stdin)["protected_paths"] else 1)'; then
+    ok "M12 (F4e) emitted protected_paths names PROVIDER_CONTRACT.md (text+JSON)"
+  else no "M12 (F4e) protected_paths omits PROVIDER_CONTRACT.md"; fi
 
   # M4 aggregate (signal-keyed): every classification with a risk/protected/gated signal => stop=1
   local agg_ok=1

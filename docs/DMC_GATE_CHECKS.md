@@ -18,6 +18,7 @@ dmc-v0.2.6-gate-check-runner.sh --self-test
   expected in the staged set. Lines starting with `#` and blanks are ignored.
 - `--repo <dir>` (default `.`): the git repo to inspect (read-only).
 - `--gate stage|commit|push` (default `commit`): the push gate additionally requires HEAD to be **not behind** upstream.
+  An unrecognized `--gate` value is rejected with a usage error (exit 2) — a typo must not silently downgrade strictness.
 - `--self-test`: runs the built-in scenarios in **throwaway temp repos** (the real/target index is never touched).
 
 **Exit code:** `0` = all checks PASS, `1` = at least one FAIL, `2` = usage error. The exit code is an **advisory report
@@ -42,8 +43,8 @@ signal** for the human / Codex auditor — it is NOT an action and must never be
 - **Excluded auto-logged evidence** (`DMC_GATE_EXCLUDED`, newline-separated):
   `.harness/evidence/dmc-v0.2.{2,3,4,5}-*.md`.
 - **Protected paths** (`DMC_GATE_PROTECTED`, newline-separated): `.claude/workers/providers/glm-api`,
-  `.../oauth-cli`, `.../provider-router.py`, `.../ROUTING.md`, `.claude/hooks`, `WORKER_{TASK,RESULT,REVIEW}_SCHEMA.md`,
-  `dmc-glm-smoke`.
+  `.../oauth-cli`, `.../provider-router.py`, `.../ROUTING.md`, `.../PROVIDER_CONTRACT.md`, `.claude/hooks`,
+  `WORKER_{TASK,RESULT,REVIEW}_SCHEMA.md`, `dmc-glm-smoke`.
 - **Upstream** for G6 (`DMC_GATE_UPSTREAM`, default `origin/main`).
 
 ## What this runner is NOT

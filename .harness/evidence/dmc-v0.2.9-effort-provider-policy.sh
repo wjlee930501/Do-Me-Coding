@@ -53,7 +53,7 @@ pats=[r"sk-[A-Za-z0-9_-]{8,}",r"AKIA[0-9A-Z]{16}",r"ghp_[A-Za-z0-9]{20,}",r"eyJ[
 sys.exit(1 if any(re.search(p,s) for p in pats) else 0)' "$DOC" && ok "H3 no secret/token shapes in doc" || no "H3 secret shape found"
 
 echo "== H4 protected files byte-unchanged =="
-ch="$(git -C "$ROOT" diff --name-only -- .claude/workers/providers/provider-router.py .claude/workers/providers/ROUTING.md .claude/workers/providers/glm-api .claude/workers/providers/oauth-cli .claude/hooks WORKER_TASK_SCHEMA.md WORKER_RESULT_SCHEMA.md WORKER_REVIEW_SCHEMA.md dmc-glm-smoke)"
+ch="$(git -C "$ROOT" diff --name-only -- .claude/workers/providers/provider-router.py .claude/workers/providers/ROUTING.md .claude/workers/providers/PROVIDER_CONTRACT.md .claude/workers/providers/glm-api .claude/workers/providers/oauth-cli .claude/hooks WORKER_TASK_SCHEMA.md WORKER_RESULT_SCHEMA.md WORKER_REVIEW_SCHEMA.md dmc-glm-smoke)"
 [ -z "$ch" ] && ok "H4 router/adapters/hooks/schemas/smoke-runner byte-unchanged" || no "H4 changed: $ch"
 
 echo "== H5 self-audit: no dangerous exec/live/network/.env-open in the check (needles concatenated) =="

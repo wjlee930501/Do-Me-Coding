@@ -23,6 +23,7 @@ DEFAULT_PROTECTED='.claude/workers/providers/glm-api
 .claude/workers/providers/oauth-cli
 .claude/workers/providers/provider-router.py
 .claude/workers/providers/ROUTING.md
+.claude/workers/providers/PROVIDER_CONTRACT.md
 .claude/hooks
 WORKER_TASK_SCHEMA.md
 WORKER_RESULT_SCHEMA.md
@@ -125,6 +126,22 @@ self_test() {
   DMC_GATE_UPSTREAM=up expect "S7 push gate behind upstream -> FAIL" "$r7" "$TT/allow7" push FAIL
   DMC_GATE_UPSTREAM=up expect "S7b commit gate behind upstream -> PASS (behind not fatal off-push)" "$r7" "$TT/allow7" commit PASS
 
+  # S8 (F3) --gate enum: invalid/empty/whitespace via CLI -> exit 2 (valid allowlist, so the enum is the sole exit-2 cause)
+  local rg; rg="$(mkrepo gate)"; ( cd "$rg" && echo a > a.txt && git add a.txt ); printf '%s\n' 'a.txt' > "$TT/allowg"
+  for bad in bogus "" " "; do bash "$0" --allowlist "$TT/allowg" --repo "$rg" --gate "$bad" >/dev/null 2>&1
+    [ $? -eq 2 ] && ok "S8 --gate '$bad' -> exit 2" || no "S8 --gate '$bad' not exit 2"; done
+  # S9 (F3) positive control: stage|commit|push do NOT exit 2 (CLI)
+  for g in stage commit push; do bash "$0" --allowlist "$TT/allowg" --repo "$rg" --gate "$g" >/dev/null 2>&1; local rc9=$?
+    [ "$rc9" != 2 ] && ok "S9 --gate $g not exit 2 (rc=$rc9)" || no "S9 --gate $g exit 2"; done
+  # S10 (F4a) PROVIDER_CONTRACT.md staged AND allowed -> only G4 FAIL (gate-attributed; revert F4a => G4 PASS => green)
+  local rpc; rpc="$(mkrepo pcontract)"; ( cd "$rpc" && mkdir -p .claude/workers/providers \
+    && echo x > .claude/workers/providers/PROVIDER_CONTRACT.md && git add .claude/workers/providers/PROVIDER_CONTRACT.md )
+  printf '%s\n' '.claude/workers/providers/PROVIDER_CONTRACT.md' > "$TT/allowpc"
+  local outpc; outpc="$(bash "$0" --allowlist "$TT/allowpc" --repo "$rpc" --gate commit 2>&1)"; local rcpc=$?
+  printf '%s' "$outpc" | grep -q 'G4 FAIL' && [ "$rcpc" = 1 ] && ok "S10 (F4a) PROVIDER_CONTRACT.md -> G4 FAIL" || no "S10 (F4a) got rc=$rcpc"
+  # M-real: self-test (incl. CLI sub-invocations on temp repos) mutated nothing in the real repo
+  [ "$ST_PRE" = "$(git -C "$ROOTDIR" status --porcelain 2>/dev/null | md5)" ] && ok "M-real repo byte-identical (self-test mutated nothing)" || no "M-real repo changed"
+
   echo "  ---- self-test: PASS=$P FAIL=$F ----"
   [ "$F" = 0 ]
 }
@@ -140,9 +157,12 @@ while [ $# -gt 0 ]; do case "$1" in
   *) echo "gate-check: unknown arg $1" >&2; exit 2;;
 esac; done
 
+ROOTDIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 if [ "$MODE" = selftest ]; then
   echo "==== DMC GATE CHECK RUNNER — SELF-TEST (temp-repo only; real repo untouched) ===="
-  self_test; exit $?
+  ST_PRE="$(git -C "$ROOTDIR" status --porcelain 2>/dev/null | md5)"; self_test; exit $?
 fi
+# F3: validate --gate enum — first exit-2 source, before the allowlist guard (a typo must not silently downgrade strictness)
+case "$GATE" in stage|commit|push) ;; *) echo "gate-check: --gate must be stage|commit|push (got '$GATE')" >&2; exit 2;; esac
 [ -n "$ALLOWLIST" ] || { echo "gate-check: --allowlist <file> is required for a gate report" >&2; exit 2; }
 gate_report "$REPO" "$ALLOWLIST" "$GATE"; exit $?

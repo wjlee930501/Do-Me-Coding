@@ -21,6 +21,7 @@ DEFAULT_PROTECTED='.claude/workers/providers/glm-api
 .claude/workers/providers/oauth-cli
 .claude/workers/providers/provider-router.py
 .claude/workers/providers/ROUTING.md
+.claude/workers/providers/PROVIDER_CONTRACT.md
 .claude/hooks
 WORKER_TASK_SCHEMA.md
 WORKER_RESULT_SCHEMA.md
@@ -82,6 +83,23 @@ print(json.dumps(m, indent=2))
 PY
 }
 
+# --- --out write-target guard (canonicalized; refuse on protected/secret OR canonicalization failure) — ported verbatim from v0.2.8 ---
+PROT_RE='(^|/)(\.env)(\.|$)|\.pem$|\.key$|id_rsa|id_ed25519|credentials|secret|\.p12$|\.pfx$|\.keystore$|\.claude/hooks|provider-router\.py|/ROUTING\.md$|WORKER_(TASK|RESULT|REVIEW)_SCHEMA\.md|PROVIDER_CONTRACT\.md|workers/providers/(glm-api|oauth-cli)|(^|/)dmc-glm-smoke$'
+out_refused() { # path -> 0 if must refuse
+  local raw="$1"
+  printf '%s' "$raw" | grep -qiE "$PROT_RE" && return 0
+  case "$raw" in *.env|*.env.local|*.env.*) case "$raw" in *.example|*.sample|*.template) ;; *) return 0;; esac;; esac
+  # canonicalize parent (resolves symlinks); failure => refuse (fail-closed)
+  local parent base cparent canon
+  parent="$(dirname "$raw")"; base="$(basename "$raw")"
+  cparent="$(cd "$parent" 2>/dev/null && pwd -P)" || return 0
+  canon="$cparent/$base"
+  printf '%s' "$canon" | grep -qiE "$PROT_RE" && return 0
+  # if the target itself is an existing symlink, resolve and re-check
+  if [ -L "$raw" ]; then local tgt; tgt="$(readlink -f "$raw" 2>/dev/null)" || return 0; printf '%s' "$tgt" | grep -qiE "$PROT_RE" && return 0; fi
+  return 1
+}
+
 # ---------------------------------------------------------------- self-test (temp-repo only; real repo untouched)
 self_test() {
   local P=0 F=0; ok(){ echo "  PASS $1"; P=$((P+1)); }; no(){ echo "  FAIL $1"; F=$((F+1)); }
@@ -110,6 +128,24 @@ print("ok")' >/dev/null 2>&1 && ok "R2/R3/R4/R5 fields populated + typed + disal
   generate "$r" "x" "$TT/plan.md" "$TT/allow" "v" 1 0 "deferred" > "$TT/m.json"
   local after; after="$(git -C "$r" diff --cached --name-only | wc -l | tr -d ' ')"
   [ -f "$TT/m.json" ] && [ "$before" = "$after" ] && ok "R7 --out wrote manifest only; repo index unchanged (no git add)" || no "R7 index changed"
+  # R8 (F1) --out guard: protected/secret/traversal target -> exit 2 AND target not created (CLI; guard runs before the redirect)
+  local g_ok=1
+  for tgt in "$TT/x/../.claude/hooks/evil" "$r/.claude/workers/providers/provider-router.py" "$TT/my.env" "$TT/has-secret.json"; do
+    rm -f "$tgt" 2>/dev/null
+    bash "$0" --milestone m --plan "$TT/plan.md" --repo "$r" --out "$tgt" >/dev/null 2>&1; local rcg=$?
+    { [ "$rcg" = 2 ] && [ ! -e "$tgt" ]; } || g_ok=0
+  done
+  [ "$g_ok" = 1 ] && ok "R8 (F1) --out protected/secret/traversal refused (exit 2, target not created)" || no "R8 (F1) guard leak"
+  # R9 (F1) benign --out (no PROT_RE substring) still writes valid JSON
+  rm -f "$TT/benign.json"
+  bash "$0" --milestone m --plan "$TT/plan.md" --repo "$r" --out "$TT/benign.json" >/dev/null 2>&1; local rcb=$?
+  { [ "$rcb" = 0 ] && [ -f "$TT/benign.json" ] && python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$TT/benign.json" 2>/dev/null; } \
+    && ok "R9 (F1) benign --out writes valid JSON" || no "R9 (F1) benign --out failed (rc=$rcb)"
+  # R10 (F4b) manifest protected_paths includes the full PROVIDER_CONTRACT.md path (revert F4b => absent => fail)
+  printf '%s' "$out" | python3 -c 'import json,sys; m=json.load(sys.stdin); sys.exit(0 if ".claude/workers/providers/PROVIDER_CONTRACT.md" in m["protected_paths"] else 1)' \
+    && ok "R10 (F4b) protected_paths includes PROVIDER_CONTRACT.md" || no "R10 (F4b) PROVIDER_CONTRACT.md missing"
+  # M-real: self-test (incl. CLI sub-invocations on temp repos) mutated nothing in the real repo
+  [ "$ST_PRE" = "$(git -C "$ROOTDIR" status --porcelain 2>/dev/null | md5)" ] && ok "M-real repo byte-identical (self-test mutated nothing)" || no "M-real repo changed"
   echo "  ---- self-test: PASS=$P FAIL=$F ----"; [ "$F" = 0 ]
 }
 
@@ -123,10 +159,14 @@ while [ $# -gt 0 ]; do case "$1" in
   *) echo "run-manifest: unknown arg $1" >&2; exit 2;;
 esac; done
 
+ROOTDIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 if [ "$MODE" = selftest ]; then
   echo "==== DMC RUN MANIFEST — SELF-TEST (temp-repo only; real repo untouched) ===="
-  self_test; exit $?
+  ST_PRE="$(git -C "$ROOTDIR" status --porcelain 2>/dev/null | md5)"; self_test; exit $?
 fi
 [ -n "$MS" ] && [ -n "$PLAN" ] || { echo "run-manifest: --milestone and --plan are required" >&2; exit 2; }
-if [ -n "$OUT" ]; then generate "$REPO" "$MS" "$PLAN" "$ALLOW" "$VSCRIPT" "$VPASS" "$VFAIL" "$PUSH" > "$OUT"; echo "run-manifest: wrote $OUT" >&2
+if [ -n "$OUT" ]; then
+  # F1: refuse a protected/secret/traversal/symlink --out target BEFORE the redirect opens/truncates it (write nothing)
+  out_refused "$OUT" && { echo "run-manifest: --out target is protected/secret — REFUSED (writing nothing)" >&2; exit 2; }
+  generate "$REPO" "$MS" "$PLAN" "$ALLOW" "$VSCRIPT" "$VPASS" "$VFAIL" "$PUSH" > "$OUT"; echo "run-manifest: wrote $OUT" >&2
 else generate "$REPO" "$MS" "$PLAN" "$ALLOW" "$VSCRIPT" "$VPASS" "$VFAIL" "$PUSH"; fi
