@@ -27,7 +27,8 @@ PROT_RE='(^|/)(\.env)(\.|$)|\.pem$|\.key$|id_rsa|id_ed25519|credentials|secret|\
 out_refused() { local raw="$1"
   [ -z "$raw" ] && return 0
   printf '%s' "$raw" | grep -qE '(^|/)\.\.(/|$)' && return 0
-  case "$raw" in *.env|*.env.local|*.env.*) case "$raw" in *.example|*.sample|*.template) ;; *) return 0;; esac;; esac
+  # .env-class (case-INSENSITIVE: .env/.ENV/prod.env/prod.ENV/.env.local/.ENV.LOCAL) => REFUSE, except .example/.sample/.template
+  printf '%s' "$raw" | grep -qiE '\.env($|\.)' && ! printf '%s' "$raw" | grep -qiE '\.(example|sample|template)$' && return 0
   printf '%s' "$raw" | grep -qiE "$PROT_RE" && return 0
   [ -e "$raw" ] && return 0
   [ -L "$raw" ] && return 0
@@ -264,6 +265,15 @@ self_test() {
     && printf '%s' "$pkt2" | grep -q 'docs/\[redacted\].md' \
     && printf '%s' "$pkt2" | grep -q 'rotate \[redacted\]'; } \
     && ok "AC15 C5 broadening: Stripe synstrp_ / npm_ / credential-URL / AccountKey redacted in paths+subjects (no raw secret); names-only intact" || no "AC15 broadened-secret leak"
+
+  # AC16 (C7 / case-insensitive .env) uppercase/mixed-case .env-class --out paths are refused exactly like lowercase
+  local re_up re_lo re_lc re_mix
+  out_refused "$C7D/prod.ENV"; re_up=$?
+  out_refused "$C7D/.ENV.LOCAL"; re_lo=$?
+  out_refused "$C7D/prod.env"; re_lc=$?
+  out_refused "$C7D/foo.Env.local"; re_mix=$?
+  { [ "$re_up" = 0 ] && [ "$re_lo" = 0 ] && [ "$re_lc" = 0 ] && [ "$re_mix" = 0 ]; } \
+    && ok "AC16 C7 .env-class refused case-insensitively (prod.ENV / .ENV.LOCAL / prod.env / foo.Env.local all REFUSED)" || no "AC16 .env case bypass (ENV=$re_up LOCAL=$re_lo env=$re_lc mix=$re_mix)"
 
   # AC10 read-only: real repo byte-unchanged (fixture work confined to $TMPDIR)
   { [ -n "$PRE" ] && [ "$(repo_hash)" = "$PRE" ]; } && ok "AC10 read-only: real repo byte-unchanged (deterministic sha256)" || no "AC10 repo changed"
