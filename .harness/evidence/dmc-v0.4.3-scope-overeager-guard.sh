@@ -18,11 +18,11 @@ set -o pipefail
 ROOTDIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 SELFPATH="$(cd "$(dirname "$0")" 2>/dev/null && pwd)/$(basename "$0")"
 PROTECTED_RE='\.claude/workers/providers/(glm-api|oauth-cli|manual-import)|provider-router\.py|/ROUTING\.md$|PROVIDER_CONTRACT\.md|WORKER_(TASK|RESULT|REVIEW)_SCHEMA\.md|\.claude/hooks|(^|/)dmc-glm-smoke$'
-DANGER_GIT_RE='push[[:space:]]+(-f|--force)|push[[:space:]]+--force-with-lease|branch[[:space:]]+(-D|--delete|-d)|push[[:space:]]+[^[:space:]]*[[:space:]]*:[^[:space:]]|update-ref[[:space:]]+-d|reflog[[:space:]]+expire|filter-branch|filter-repo|push[[:space:]].*review/'
+DANGER_GIT_RE='push[[:space:]]+(-f|--force)|push[[:space:]]+--force-with-lease|branch[[:space:]]+(-D|--delete|-d)|push[[:space:]]+[^[:space:]]*[[:space:]]*:[^[:space:]]|update-ref[[:space:]]+-d|reflog[[:space:]]+expire|filter-branch|filter-repo|push[[:space:]].*review/|push[[:space:]].*[[:space:]](-f|--force|--force-with-lease)([[:space:]]|$)|push[[:space:]].*\\[[:space:]]*$'
 
 inscope() { # <path> <scope_csv> -> 0 if path is within an approved-scope entry (exact or dir-prefix)
   local p="$1" scope="$2" e OLDIFS="$IFS"; IFS=','
-  for e in $scope; do [ -z "$e" ] && continue; case "$p" in "$e"|"$e"/*) IFS="$OLDIFS"; return 0;; esac; done
+  for e in $scope; do e="${e%/}"; [ -z "$e" ] && continue; case "$p" in "$e"|"$e"/*) IFS="$OLDIFS"; return 0;; esac; done
   IFS="$OLDIFS"; return 1
 }
 
@@ -58,7 +58,7 @@ EOF
 
   # published-milestone-entry mutation: docs/MILESTONES.md must be append-only (0 deletions) unless --closure
   local msdel; msdel="$("${DIFF[@]}" --numstat -- docs/MILESTONES.md 2>/dev/null | awk '$2 ~ /^[0-9]+$/{d+=$2} END{print d+0}')"
-  if [ "${msdel:-0}" -gt 0 ] 2>/dev/null; then blocked="$blocked milestones-entry-mutated(non-append-only)"; fi
+  if [ "${msdel:-0}" -gt 0 ] 2>/dev/null && [ "$cl" != 1 ]; then blocked="$blocked milestones-entry-mutated(non-append-only)"; fi
 
   # branch/review-branch mutation attempt added in a changed script (value-blind: grep -q, never echo the line)
   if "${DIFF[@]}" 2>/dev/null | grep -E '^\+' | grep -qE "$DANGER_GIT_RE"; then
@@ -137,6 +137,31 @@ self_test() {
   local i; for i in $(seq 1 30); do echo x > "$R/src/f$i.js"; done; git -C "$R" add -A
   run_guard "$R" 1 "src/" "" 25 200 100000 0 >/dev/null; [ $? = 1 ] && ok "AC8 over-eager: file-count bound exceeded => BLOCKED" || no "AC8 file-count not blocked"
   git -C "$R" reset -q --hard 2>/dev/null
+
+  # AC10 (F5) force flag AFTER refspec => BLOCKED (not just adjacent to 'push')
+  printf 'a\nb\nc\ngit push origin main --force\n' > "$R/src/app.js"
+  run_guard "$R" 0 "$SCOPE" "" 25 200 800 0 >/dev/null; [ $? = 1 ] && ok "AC10 force flag after refspec (git push origin main --force) => BLOCKED" || no "AC10 force-after-refspec not blocked"
+  git -C "$R" checkout -q -- .
+
+  # AC11 (F5) --force-with-lease after refspec => BLOCKED
+  printf 'a\nb\nc\ngit push origin review/foo --force-with-lease\n' > "$R/src/app.js"
+  run_guard "$R" 0 "$SCOPE" "" 25 200 800 0 >/dev/null; [ $? = 1 ] && ok "AC11 --force-with-lease after refspec => BLOCKED" || no "AC11 force-with-lease not blocked"
+  git -C "$R" checkout -q -- .
+
+  # AC12 (F5) git push split across a line-continuation => BLOCKED
+  printf 'a\nb\nc\ngit push \\\n  --force origin main\n' > "$R/src/app.js"
+  run_guard "$R" 0 "$SCOPE" "" 25 200 800 0 >/dev/null; [ $? = 1 ] && ok "AC12 git push line-continuation (push \\ + --force) => BLOCKED" || no "AC12 line-continuation not blocked"
+  git -C "$R" checkout -q -- .
+
+  # AC13 (F7) trailing-slash scope entry normalized => in-scope edit ALLOWED
+  printf 'a\nb\nc\nd\n' > "$R/src/app.js"
+  run_guard "$R" 0 "src/" "" 25 200 800 0 >/dev/null; [ $? = 0 ] && ok "AC13 trailing-slash scope 'src/' => in-scope edit ALLOWED" || no "AC13 trailing-slash wrongly blocked"
+  git -C "$R" checkout -q -- .
+
+  # AC14 (F7) MILESTONES.md mutation WITH --closure => ALLOWED (closure append/edit authorized)
+  printf '# Milestones\n\n## v1 DONE-edited\n' > "$R/docs/MILESTONES.md"
+  run_guard "$R" 0 "$SCOPE" "" 25 200 800 1 >/dev/null; [ $? = 0 ] && ok "AC14 MILESTONES.md mutation under --closure => ALLOWED" || no "AC14 --closure not honored"
+  git -C "$R" checkout -q -- docs/MILESTONES.md
 
   # AC9 read-only: real repo byte-unchanged
   [ "$(git -C "$ROOTDIR" status --porcelain 2>/dev/null | md5)" = "$PRE" ] && ok "AC9 read-only: real repo byte-unchanged" || no "AC9 repo changed"

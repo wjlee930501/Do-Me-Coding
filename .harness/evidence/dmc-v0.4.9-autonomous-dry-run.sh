@@ -19,7 +19,21 @@ T3="$EV/dmc-v0.4.3-scope-overeager-guard.sh"; T4="$EV/dmc-v0.4.4-evidence-harnes
 T6="$EV/dmc-v0.4.6-reviewer-loop.sh"; T7="$EV/dmc-v0.4.7-context-audit.sh"; T8="$EV/dmc-v0.4.8-interop-doc-check.sh"
 TOOLS="$T0 $T1 $T2 $T3 $T4 $T5 $T6 $T7 $T8"
 
-out_refused() { case "$1" in *..*|*/.env|.env|*.pem|*.key|*credentials*|*secret*) return 0;; esac; return 1; }
+# F4: resolve a hashing tool ONCE; hard-fail if none — so the byte-unchanged check can never collapse to '' == ''
+HASH_CMD="${DMC_HASH_CMD-$(command -v md5sum 2>/dev/null || command -v md5 2>/dev/null || true)}"
+require_hash() { [ -n "$HASH_CMD" ] || { echo "autonomous-dry-run: no md5sum/md5 hash tool — refusing (byte-unchanged check would be vacuous)" >&2; exit 2; }; }
+repo_hash() { git -C "$ROOTDIR" status --porcelain 2>/dev/null | "$HASH_CMD"; }
+
+out_refused() { local raw="$1"
+  case "$raw" in *..*|*/.env|.env|*.pem|*.key|*credentials*|*secret*) return 0;; esac
+  # F4: refuse any --out path that resolves INSIDE the git work tree (would risk overwriting a tracked production file)
+  local parent base cparent canon
+  parent="$(dirname "$raw" 2>/dev/null)"; base="$(basename "$raw")"
+  cparent="$(cd "$parent" 2>/dev/null && pwd -P)" || return 1
+  canon="$cparent/$base"
+  case "$canon/" in "$ROOTDIR"/*) return 0;; esac
+  return 1
+}
 regression_ok() { local t rc; for t in "$@"; do bash "$t" --self-test >/dev/null 2>&1; rc=$?; [ "$rc" = 0 ] || return 1; done; return 0; }
 
 acceptance_run() { # <outfile>
@@ -94,9 +108,10 @@ sys.exit(0 if (o["autonomy_level"]=="autonomous-local-commit" and "push" in g an
 }
 
 self_test() {
+  require_hash
   local P=0 F=0; ok(){ echo "  PASS $1"; P=$((P+1)); }; no(){ echo "  FAIL $1"; F=$((F+1)); }
   local TT; TT="$(mktemp -d)"; trap 'rm -rf "$TT"' RETURN
-  local PRE; PRE="$(git -C "$ROOTDIR" status --porcelain 2>/dev/null | md5)"
+  local PRE; PRE="$(repo_hash)"
   STAGE_FAIL=0
   acceptance_run "$TT/report.md"
   { [ "$STAGE_FAIL" = 0 ] && grep -q 'ACCEPTED' "$TT/report.md"; } && ok "AC1 all lifecycle stages PASS (goal->plan->isolation->scoped-edit->guards->evidence->self-review->no-push)" || no "AC1 stages (STAGE_FAIL=$STAGE_FAIL)"
@@ -109,14 +124,25 @@ self_test() {
   # >>>AUDIT_BLOCK_START
   if ! grep -nE '(^|[^A-Za-z])(curl|wget)([[:space:]])| --live | --allow-network' "$OP" >/dev/null; then ok "AC4 no curl/wget/--live opt-in in the dry-run source"; else no "AC4 live/net present"; fi
   # >>>AUDIT_BLOCK_END
-  [ "$(git -C "$ROOTDIR" status --porcelain 2>/dev/null | md5)" = "$PRE" ] && ok "AC5 read-only: production repo byte-unchanged" || no "AC5 repo changed"
+  local POST; POST="$(repo_hash)"
+  { [ -n "$PRE" ] && [ -n "$POST" ] && [ "$POST" = "$PRE" ]; } && ok "AC5 read-only: production repo byte-unchanged (non-empty hashes asserted)" || no "AC5 repo changed (PRE='$PRE' POST='$POST')"
+
+  # AC6 (F4) --out guard refuses an in-work-tree / tracked path; out-of-tree tmp path allowed
+  { out_refused "$ROOTDIR/DMC.md" && out_refused "$ROOTDIR/.harness/x.md" && ! out_refused "$TT/ok.md"; } \
+    && ok "AC6 --out guard: in-work-tree path REFUSED (no tracked-file overwrite); tmp path allowed" || no "AC6 --out work-tree guard"
+
+  # AC7 (F4) no hash tool => hard-fail exit 2 (byte-unchanged check can never pass vacuously)
+  DMC_HASH_CMD="" bash "$SELFPATH" --self-test >/dev/null 2>&1; [ $? = 2 ] \
+    && ok "AC7 hash-absence => hard-fail exit 2 (no vacuous empty==empty pass)" || no "AC7 hash-absence not hard-failed"
+
   echo "  ---- self-test: PASS=$P FAIL=$F ----"; [ "$F" = 0 ]
 }
 
 OUT=""; MODE=run
 while [ $# -gt 0 ]; do case "$1" in --out) OUT="$2"; shift 2;; --self-test) MODE=selftest; shift;; -h|--help) sed -n '2,12p' "$0"; exit 0;; *) echo "autonomous-dry-run: unknown arg $1" >&2; exit 2;; esac; done
 if [ "$MODE" = selftest ]; then echo "==== DMC AUTONOMOUS DRY-RUN — SELF-TEST ===="; self_test; exit $?; fi
-if [ -n "$OUT" ]; then out_refused "$OUT" && { echo "autonomous-dry-run: --out refused" >&2; exit 2; }; fi
+if [ -n "$OUT" ]; then out_refused "$OUT" && { echo "autonomous-dry-run: --out refused (traversal/secret/in-work-tree)" >&2; exit 2; }; fi
+require_hash
 STAGE_FAIL=0; PACK="$(mktemp)"; acceptance_run "$PACK"
 if [ -n "$OUT" ]; then cp "$PACK" "$OUT"; echo "autonomous-dry-run: wrote $OUT" >&2; else cat "$PACK"; fi
 rm -f "$PACK"; [ "$STAGE_FAIL" = 0 ] && exit 0 || exit 1

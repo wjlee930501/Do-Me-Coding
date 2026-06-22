@@ -35,8 +35,14 @@ def redact(t):
     t=re.sub(r'sk-[A-Za-z0-9_-]{16,}|AKIA[0-9A-Z]{12,}|(?:BEGIN|END)[A-Z ]*PRIVATE KEY|xox[baprs]-[A-Za-z0-9-]{8,}|gh[opsu]_[A-Za-z0-9]{20,}|eyJ[A-Za-z0-9_-]{6,}\.eyJ[A-Za-z0-9_-]{6,}|[Bb]earer\s+[A-Za-z0-9._-]{12,}|ya29\.[A-Za-z0-9._-]{8,}', '[redacted:secret]', t)
     t=re.sub(r'([A-Za-z_][A-Za-z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL))\s*[=:]\s*\S+', r'\1=[redacted:env-value]', t, flags=re.IGNORECASE)
     t=re.sub(r'\b(access_token|refresh_token|id_token)\b\s*[=:]\s*\S+', r'\1=[redacted:env-value]', t, flags=re.IGNORECASE)
+    # bare credential-keyword fragments (value-blind): password=/passwd=/token=/secret=/api-key=/auth=
+    # (full words only — 'pass' is excluded so it never collides with a 'PASS=N' self-test count)
+    t=re.sub(r'\b(password|passwd|secret|token|api[_-]?key|apikey|auth)\b(\s*[=:]\s*)\S+', r'\1\2[redacted:env-value]', t, flags=re.IGNORECASE)
+    # provider-payload content fields (value-blind): "content"/"text"/"message"/"completion"/"prompt": "..."
+    t=re.sub(r'("(?:content|text|message|completion|prompt)"\s*:\s*)"(?:[^"\\]|\\.)*"', r'\1"[redacted:provider-payload]"', t, flags=re.IGNORECASE)
     t=re.sub(r'/Users/[^/\s]+', '[redacted:abs-path]', t)
     t=re.sub(r'/home/[^/\s]+', '[redacted:abs-path]', t)
+    t=re.sub(r'[A-Za-z]:\\Users\\[^\\/\s]+', '[redacted:abs-path]', t)
     return t
 sys.stdout.write(redact(sys.stdin.read()))
 PY
@@ -60,7 +66,7 @@ cmds=[l.strip() for l in red.splitlines() if re.match(r'^\s*(\$ |bash |python3 |
 out=["# DMC Autonomous Run Evidence — %s"%rid, "- run_id: %s"%rid, "- self_test: %s"%st,
      "- result_summary: %s"%summary, "- commands:"]
 out += ["  - %s"%c for c in cmds] if cmds else ["  - (none captured)"]
-out.append("- redaction: applied (no secrets / env-values / abs-paths / provider payloads)")
+out.append("- redaction: applied for known token/path/env/provider shapes; NOT a completeness guarantee — review before commit")
 print("\n".join(out))
 PY
   rm -f "$TMP"
@@ -113,8 +119,26 @@ CAP
   out_refused ".env" && out_refused "x/../provider-router.py" && ! out_refused "$TT/ok.md" \
     && ok "AC6 --out guard: protected/secret/traversal refused, benign allowed" || no "AC6 --out guard"
 
-  # AC7 read-only: repo byte-unchanged
-  [ "$(git -C "$ROOTDIR" status --porcelain 2>/dev/null | md5)" = "$PRE" ] && ok "AC7 read-only: repo byte-unchanged" || no "AC7 repo changed"
+  # AC8 HONEST attestation (F1) — emitted footer must NOT make an unconditional 'fully redacted' claim;
+  #     it must state known-shapes-only + 'not a completeness guarantee' + a review-before-commit note.
+  { printf '%s' "$ev" | grep -qi 'not a completeness guarantee' && printf '%s' "$ev" | grep -qi 'review before commit' \
+    && ! printf '%s' "$ev" | grep -qF '(no secrets / env-values / abs-paths / provider payloads)'; } \
+    && ok "AC8 honest footer: known-shapes-only, 'not a completeness guarantee' + 'review before commit', no absolute claim" || no "AC8 footer over-claims full redaction"
+
+  # AC9 broadened value-blind redaction (F1) — bare key=val creds, Windows abs path, provider-payload prose
+  #     (shapes that previously SURVIVED) are now redacted by --redact-file.
+  printf '%s\n' \
+    '$ git commit -m "set password=Hunter2VALUE and token=ABC123TOK now"' \
+    '$ deploy --winpath C:\Users\bobby\secret.txt' \
+    'provider {"content":"PLAINTEXTSECRET launch detail"}' \
+    '  ---- self-test: PASS=1 FAIL=0 ----' > "$TT/cap2.txt"
+  local rf2; rf2="$(bash "$SELFPATH" --redact-file "$TT/cap2.txt" 2>/dev/null)"
+  { ! printf '%s' "$rf2" | grep -Eq 'Hunter2VALUE|ABC123TOK' && ! printf '%s' "$rf2" | grep -q 'bobby' \
+    && ! printf '%s' "$rf2" | grep -q 'PLAINTEXTSECRET'; } \
+    && ok "AC9 broadened redaction: bare password=/token= values + Windows C:\\Users path + provider payload prose redacted" || no "AC9 a broadened-shape leak survived"
+
+  # AC10 read-only: repo byte-unchanged
+  [ "$(git -C "$ROOTDIR" status --porcelain 2>/dev/null | md5)" = "$PRE" ] && ok "AC10 read-only: repo byte-unchanged" || no "AC10 repo changed"
 
   echo "  ---- self-test: PASS=$P FAIL=$F ----"; [ "$F" = 0 ]
 }

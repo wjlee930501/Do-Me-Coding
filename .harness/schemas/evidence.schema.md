@@ -9,12 +9,18 @@ The redacted evidence artifact emitted by the v0.4.4 Evidence Harness for an aut
 - commands:                            # one per line: <command> : <result>
   - <cmd> : <result>
 - result_summary: PASS | FAIL | PARTIAL
-- redaction: applied                   # MUST be present; see below
+- redaction: applied for known token/path/env/provider shapes; NOT a completeness guarantee — review before commit
 ```
 
-Redaction is **mandatory** and applied before write. The artifact MUST NOT contain: secret/token-shaped values
-(`sk-`/`AKIA`/PEM keys/`gh[opsu]_`/JWT/`Bearer`/`ya29.`/`*_token`), credential-var assignment values
-(`*_KEY=`/`*_TOKEN=`/`*_SECRET=`), `.env`/credential file **contents**, raw provider payloads, or absolute private paths
-(`/Users/<user>/…`, `/home/<user>/…`) — these are replaced by `[redacted:secret]` / `[redacted:env-value]` /
-`[redacted:abs-path]`. The value-blind redactor never re-emits a matched value.
+Redaction is a **best-effort, value-blind** pass applied before write — it is **NOT a completeness guarantee**, and a
+human MUST review an artifact before committing it. The redactor targets these **known shapes**, replacing each with
+`[redacted:secret]` / `[redacted:env-value]` / `[redacted:provider-payload]` / `[redacted:abs-path]`:
+
+- secret/token-shaped values (`sk-`/`AKIA`/PEM keys/`gh[opsu]_`/JWT/`Bearer`/`ya29.`/`*_token`);
+- credential-var assignment values (`*_KEY=`/`*_TOKEN=`/`*_SECRET=`) **and** bare `password=`/`passwd=`/`secret=`/`token=`/`api-key=`/`auth=` fragments;
+- provider-payload content fields (`"content"`/`"text"`/`"message"`/`"completion"`/`"prompt"`: "…");
+- absolute private paths (`/Users/<user>/…`, `/home/<user>/…`, `C:\Users\<user>\…`).
+
+The value-blind redactor never re-emits a matched value. Shapes **outside** this set — sub-threshold tokens, non-token
+prose, exotic path roots (`/opt`, `/var/folders`, …) — may survive; **do not** treat the artifact as guaranteed-clean.
 ```
