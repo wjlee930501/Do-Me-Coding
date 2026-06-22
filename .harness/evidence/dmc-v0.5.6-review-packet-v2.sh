@@ -83,7 +83,8 @@ import sys,re
 base,head,nsf,numf,logf,repf=sys.argv[1:7]
 UNSAFE=re.compile(r'sk-[A-Za-z0-9_-]{12,}|AKIA[0-9A-Z]{8,}|gh[opsu]_[A-Za-z0-9]{12,}|github_pat_[A-Za-z0-9_]{12,}|'
                   r'glpat-[A-Za-z0-9_-]{12,}|AIza[0-9A-Za-z_-]{16,}|ya29\.[A-Za-z0-9._-]{8,}|eyJ[A-Za-z0-9_-]{6,}\.eyJ[A-Za-z0-9_-]{6,}|(BEGIN|END)[A-Z ]*PRIVATE KEY|'
-                  r'[Bb]earer\s+[A-Za-z0-9._-]{12,}|xox[baprs]-[A-Za-z0-9-]{6,}|(password|passwd|secret|token|api[_-]?key|client_secret)\s*[=:]\s*\S{4,}',re.IGNORECASE)
+                  r'[Bb]earer\s+[A-Za-z0-9._-]{12,}|xox[baprs]-[A-Za-z0-9-]{6,}|(password|passwd|secret|token|api[_-]?key|client_secret)\s*[=:]\s*\S{4,}|'
+                  r'[sp]k_(live|test)_[A-Za-z0-9]{10,}|npm_[A-Za-z0-9]{16,}|AccountKey=[A-Za-z0-9+/=]{10,}|[a-z][a-z0-9+.-]*://[^/\s:@]+:[^/\s:@]+@',re.IGNORECASE)
 def redact(s):
     s=s.replace("\n"," ").replace("\r"," ")
     return UNSAFE.sub("[redacted]",s)
@@ -242,6 +243,27 @@ self_test() {
   { [ "$rc_e2e" = 0 ] && [ -s "$c7_e2e" ] && [ "$rc_etc" = 2 ]; } \
     && ok "AC13b C7 end-to-end: --out new temp path writes (exit 0); --out /etc/passwd REFUSED by guard (exit 2)" \
     || no "AC13b C7 e2e (rc_e2e=$rc_e2e wrote=$([ -s "$c7_e2e" ] && echo y || echo n) etc=$rc_etc)"
+
+  # AC15 (C5 broadening) Stripe sk_/pk_live_/test_, npm_, embedded-credential URLs, and AccountKey= are redacted in changed
+  # PATHS and commit SUBJECTS (the prior prefix allowlist missed these well-known secret formats); names-only stays intact.
+  local R2="$TT/r2"; mkdir -p "$R2/docs"
+  git -C "$R2" init -q; git -C "$R2" config user.email t@t.t; git -C "$R2" config user.name t
+  echo base > "$R2/docs/a.md"; git -C "$R2" add -A; GIT_AUTHOR_DATE='2020-01-01T00:00:00 +0000' GIT_COMMITTER_DATE='2020-01-01T00:00:00 +0000' git -C "$R2" commit -q -m base
+  local B2; B2="$(git -C "$R2" rev-parse HEAD)"
+  printf 'x\n' > "$R2/docs/synstrp_51HxQ2eLkj8aBcDeFgHiJkLmN.md"
+  printf 'x\n' > "$R2/docs/npm_AbCdEf1234567890GhIjKlMnOp.md"
+  git -C "$R2" add -A
+  GIT_AUTHOR_DATE='2020-01-02T00:00:00 +0000' GIT_COMMITTER_DATE='2020-01-02T00:00:00 +0000' \
+    git -C "$R2" commit -q -m "chore: rotate postgres://user:p4ssw0rd@db.host/app and AccountKey=AbCdEf1234567890Xx=="
+  local H2; H2="$(git -C "$R2" rev-parse HEAD)"
+  local pkt2; pkt2="$(generate "$R2" "$B2" "$H2" "")"
+  { ! printf '%s' "$pkt2" | grep -q 'synstrp_51HxQ2eLkj8aBcDeFgHiJkLmN' \
+    && ! printf '%s' "$pkt2" | grep -q 'npm_AbCdEf1234567890GhIjKlMnOp' \
+    && ! printf '%s' "$pkt2" | grep -q 'p4ssw0rd' \
+    && ! printf '%s' "$pkt2" | grep -q 'AccountKey=AbCdEf1234567890Xx' \
+    && printf '%s' "$pkt2" | grep -q 'docs/\[redacted\].md' \
+    && printf '%s' "$pkt2" | grep -q 'rotate \[redacted\]'; } \
+    && ok "AC15 C5 broadening: Stripe synstrp_ / npm_ / credential-URL / AccountKey redacted in paths+subjects (no raw secret); names-only intact" || no "AC15 broadened-secret leak"
 
   # AC10 read-only: real repo byte-unchanged (fixture work confined to $TMPDIR)
   { [ -n "$PRE" ] && [ "$(repo_hash)" = "$PRE" ]; } && ok "AC10 read-only: real repo byte-unchanged (deterministic sha256)" || no "AC10 repo changed"
