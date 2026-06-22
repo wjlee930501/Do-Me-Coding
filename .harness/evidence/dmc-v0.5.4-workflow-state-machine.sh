@@ -45,7 +45,9 @@ def chk_eq(k,v): return ("eq",k,v)
 T={
  ("DRAFT","CRITIC"):[],
  ("CRITIC","DRAFT"):[],                                  # REVISE
- ("CRITIC","APPROVED"):[chk_eq("critic","PASS")],
+ # critic PASS is ADVISORY EVIDENCE only — the approval FLIP requires an explicit approval_authorized fact (a human Release
+ # Gate or an ACTIVE bounded-batch authorization scope). critic PASS alone NEVER approves; never infer approval from run state.
+ ("CRITIC","APPROVED"):[chk_eq("critic","PASS"),chk_true("approval_authorized")],
  ("APPROVED","START_WORK"):[chk_eq("plan_status","APPROVED"),chk_true("plan_hash_match"),chk_true("run_id_match")],
  ("START_WORK","VERIFY"):[chk_true("run_id_match")],
  ("VERIFY","RELEASE_AUDIT"):[chk_eq("verification","PASS"),chk_true("verification_head_match")],
@@ -99,7 +101,7 @@ self_test() {
   trans(){ J "$3"; engine transition "$1" "$2" "$TT/f.json" >/dev/null 2>&1; echo $?; }   # 0=ALLOWED 1=BLOCKED
   done_st(){ J "$1"; engine done - - "$TT/f.json" 2>/dev/null; }
 
-  local GOOD='{"critic":"PASS","plan_status":"APPROVED","plan_hash_match":true,"run_id_match":true,"verification":"PASS","verification_head_match":true,"release_audit":"ACCEPT","staged_digest_match":true,"protected_staged":false,"autolog_staged":false,"commit_present":true,"staged_dirty":false,"push_authorized":true,"published":true,"closure_authorized":true}'
+  local GOOD='{"critic":"PASS","approval_authorized":true,"plan_status":"APPROVED","plan_hash_match":true,"run_id_match":true,"verification":"PASS","verification_head_match":true,"release_audit":"ACCEPT","staged_digest_match":true,"protected_staged":false,"autolog_staged":false,"commit_present":true,"staged_dirty":false,"push_authorized":true,"published":true,"closure_authorized":true}'
 
   # AC1 a valid milestone path passes end-to-end
   local path_ok=1 a b
@@ -120,6 +122,15 @@ self_test() {
   [ "$(trans COMMIT CLOSURE "$GOOD")" = 1 ] && ok "AC4 COMMIT->CLOSURE (skip PUSH) => BLOCKED" || no "AC4 closure skips push"
   # AC5 critic PASS does NOT authorize PUSH (gate confusion): CRITIC->PUSH => BLOCKED
   [ "$(trans CRITIC PUSH "$GOOD")" = 1 ] && ok "AC5 CRITIC->PUSH => BLOCKED (critic PASS is advisory, not a push gate)" || no "AC5 critic authorizes push"
+  # AC5c (REVISE / approval-gate separation) CRITIC->APPROVED requires critic==PASS AND an explicit approval_authorized fact;
+  # critic PASS is advisory EVIDENCE only — it never flips approval by itself, and approval is never inferred from run state.
+  { [ "$(trans CRITIC APPROVED '{"critic":"PASS"}')" = 1 ] \
+    && [ "$(trans CRITIC APPROVED '{"critic":"PASS","approval_authorized":true}')" = 0 ] \
+    && [ "$(trans CRITIC APPROVED '{"critic":"REVISE","approval_authorized":true}')" = 1 ] \
+    && [ "$(trans CRITIC APPROVED '{"approval_authorized":true}')" = 1 ] \
+    && [ "$(trans CRITIC APPROVED '{"critic":"PASS","approval_authorized":false}')" = 1 ]; } \
+    && ok "AC5c CRITIC->APPROVED: critic PASS alone => BLOCKED; PASS+approval_authorized=true => ALLOWED; REVISE or missing/false approval_authorized => BLOCKED" \
+    || no "AC5c approval-gate separation (PASS-alone=$(trans CRITIC APPROVED '{"critic":"PASS"}') PASS+auth=$(trans CRITIC APPROVED '{"critic":"PASS","approval_authorized":true}'))"
   # AC5b COMMIT->PUSH without push_authorized => BLOCKED; with it => ALLOWED
   { [ "$(trans COMMIT PUSH '{"commit_present":true,"staged_dirty":false,"push_authorized":false}')" = 1 ] \
     && [ "$(trans COMMIT PUSH '{"commit_present":true,"staged_dirty":false,"push_authorized":true}')" = 0 ]; } \

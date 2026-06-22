@@ -98,6 +98,13 @@ self_test() {
     && [ "$(sel '{"task_class":"docs-only"}')" = secret-network-live-risk ]; } \
     && ok "AC10 negative fixtures fail CLOSED: unknown task_class / missing danger fact => secret-network-live-risk" || no "AC10 fail-open"
 
+  # AC14 (REVISE / approval-gate separation) CRITIC->APPROVED is NOT granted by critic PASS alone — it requires an explicit
+  # approval_authorized fact (human Release Gate or ACTIVE bounded-batch scope); critic PASS is advisory evidence only.
+  { [ "$(smt CRITIC APPROVED '{"critic":"PASS"}')" = 1 ] \
+    && [ "$(smt CRITIC APPROVED '{"critic":"PASS","approval_authorized":true}')" = 0 ] \
+    && [ "$(smt CRITIC APPROVED '{"critic":"REVISE","approval_authorized":true}')" = 1 ]; } \
+    && ok "AC14 approval-gate separation: critic PASS alone => BLOCKED; PASS+approval_authorized => ALLOWED; REVISE => BLOCKED" || no "AC14 critic-PASS-alone approves"
+
   # AC11 structural audit (capstone source: no net/env/env-hash/live)
   local OP; OP="$(sed '/AUDIT_BLOCK_START/,/AUDIT_BLOCK_END/d' "$SELFPATH" | grep -vE '^[[:space:]]*#')"
   # >>>AUDIT_BLOCK_START

@@ -10,6 +10,9 @@ full path, and evaluates E2E-DONE. Advisory; inert unless invoked; reads no env/
 
 ## Immutable-fact binding (Codex-R4)
 Every **gated** transition requires matching, present facts — a missing or mismatched fact ⇒ `BLOCKED` (fail-closed):
+- `CRITIC→APPROVED`: `critic=PASS` ∧ `approval_authorized`. **`critic PASS` is advisory EVIDENCE only — it never flips
+  approval by itself.** `approval_authorized` is an *explicit* fact supplied by the human **Release Gate** or by an
+  **ACTIVE bounded-batch authorization** scope; approval is never inferred from `critic PASS` alone or from run state.
 - `APPROVED→START_WORK`: `plan_status=APPROVED` ∧ `plan_hash_match` ∧ `run_id_match` (stale approval ⇒ BLOCKED).
 - `VERIFY→RELEASE_AUDIT`: `verification=PASS` ∧ `verification_head_match` (verify must be for *this* head).
 - `RELEASE_AUDIT→STAGE`: `release_audit=ACCEPT`.
@@ -19,7 +22,10 @@ Every **gated** transition requires matching, present facts — a missing or mis
 
 ## Forbidden / out-of-order (all ⇒ BLOCKED)
 `DRAFT→START_WORK` (no approval) · `COMMIT→CLOSURE` (skip PUSH) · `CRITIC→PUSH` and any other skip. **`critic PASS` is
-advisory** — it authorizes only `CRITIC→APPROVED`, never push/main/closure (no gate confusion).
+advisory evidence only** — it never authorizes a transition by itself: `CRITIC→APPROVED` additionally requires an explicit
+`approval_authorized` fact (Release Gate or bounded-batch scope), and push/main/closure remain **separate human gates**
+(`push_authorized` / `published` + `closure_authorized`). No gate confusion: a critic/Codex PASS is never approval, never a
+push, never a closure.
 
 ## E2E-DONE (`--done`)
 Distinguishes **accepted-for-review** vs **published-to-main** vs **closure-recorded**. `DONE` only when all *required*

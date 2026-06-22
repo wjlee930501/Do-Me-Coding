@@ -71,13 +71,16 @@ handoff() { # <batch_authorized: true|false>
 - milestone closure (MILESTONES.md) : HUMAN GATE, and only AFTER publication
 - live provider/model/API call / network / credential or .env read : FORBIDDEN (never, in any mode)
 
-## Critic PASS is NOT release authorization
-A Critic / Codex ACCEPT is an ADVISORY input. It authorizes only the next step the bounded batch already authorizes — it
-NEVER grants a push, a main publication, or a closure. Authorization for those comes ONLY from the Release Gate (a human).
+## Critic PASS is NOT release authorization (nor approval by itself)
+A Critic / Codex ACCEPT is an ADVISORY input — approval EVIDENCE, not approval itself. The CRITIC->APPROVED flip requires an
+explicit approval_authorized fact: when batch=ACTIVE the human's bounded-batch scope SUPPLIES approval_authorized for the
+LOCAL approval flip only; critic PASS alone is NEVER enough to approve, and approval is never inferred from run state. A
+Critic PASS NEVER grants a push, a main publication, or a closure — those authorizations come ONLY from the Release Gate (a human).
 
 ## Bounded-batch autonomy (when batch=ACTIVE)
-Autonomous: write DRAFT plan → run adversarial critic → revise on REVISE → flip APPROVED only after critic PASS with no
-required blockers → implement approved scope → verify → release-audit → ONE local commit per milestone after tests pass.
+Autonomous: write DRAFT plan → run adversarial critic → revise on REVISE → flip APPROVED only when critic=PASS AND the
+bounded-batch scope supplies approval_authorized (critic PASS alone never approves) → implement approved scope → verify →
+release-audit → ONE local commit per milestone after tests pass.
 Always-gated regardless of batch: push, main merge, closure, live/network/secret.
 
 ## Forbidden (every mode)
@@ -120,6 +123,12 @@ self_test() {
     && printf '%s' "$H" | grep -qi 'NOT an enforcement gate' \
     && printf '%s' "$H" | grep -qi 'not a machine-readable authorization'; } \
     && ok "AC3c handoff output carries an advisory disclaimer (recommendation, NOT an enforcement gate / not a machine-readable authorization)" || no "AC3c no output-level advisory disclaimer"
+  # AC3d (REVISE / approval-gate separation) the handoff states the CRITIC->APPROVED flip needs an explicit approval_authorized
+  # fact (bounded-batch scope) and that critic PASS ALONE never approves; push/main/closure stay HUMAN GATE
+  { printf '%s' "$H" | grep -q 'approval_authorized' \
+    && printf '%s' "$H" | grep -Eiq 'critic PASS alone is NEVER enough|critic PASS alone never approves' \
+    && printf '%s' "$H" | grep -q 'review-branch push : HUMAN GATE'; } \
+    && ok "AC3d approval-gate separation: handoff requires approval_authorized for CRITIC->APPROVED; critic PASS alone never approves; push/main/closure stay HUMAN GATE" || no "AC3d approval-separation wording missing"
   # AC4 forbidden list completeness
   { printf '%s' "$H" | grep -qi 'self-approval' && printf '%s' "$H" | grep -qi 'push or main publication without' \
     && printf '%s' "$H" | grep -qi 'closure before publication' && printf '%s' "$H" | grep -qi 'reading .env' \
