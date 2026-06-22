@@ -240,3 +240,57 @@ no further milestone has begun.
 **Next:** (open) — the autonomous-development control plane is shipped on `main` and externally accepted; no further
 milestone has begun. Activating any autonomy level beyond `autonomous-dry-run` for real work remains a separate,
 explicitly-scoped human gate.
+
+## v0.5.0–v0.5.2 — Performance & Efficiency Control Plane — CLOSED (2026-06-22)
+
+- **Published:** fast-forwarded to `origin/main` (`464bf33..cce9e31`); local `main` == `origin/main` == `cce9e31`. Main
+  publication **complete** (fast-forward only, no merge commit). The whole stack is **additive vs the previous `main`**:
+  **6 files, +806 / −0**. Where DMC v0.4 made autonomous development *safe*, v0.5 makes it *measurable & efficient*.
+- **Review branch:** `review/dmc-v0.5.0-v0.5.2` (head `cce9e31`) — retained (not deleted). Prior review branches
+  preserved: `review/dmc-v0.4.0-v0.4.9-autonomy` @ `58cdbc5`, `review/dmc-v0.3.1-v0.3.9-stack` @ `5aecdbc`.
+- **What shipped** (every tool is **advisory / read-only**, **inert unless explicitly invoked** by flag — none stages,
+  commits, pushes, grants a gate, mutates the provider surface, reads the environment / `.env` / credentials, or makes a
+  network/live call; all writes are canonicalization-guarded `--out` files or `mktemp` self-test repos):
+  - **v0.5.0 Run Metrics Ledger** (`52c924b`) — `.harness/evidence/dmc-v0.5.0-run-metrics.sh` +
+    `.harness/schemas/run-metrics.schema.md`: validates a per-run efficiency record (run_id / goal_type / mode / effort /
+    token+tool+wall-clock counts / test counts / findings / blockers / retries / human_gates / outcome / notes) and emits
+    a **redacted** ledger artifact. Fail-closed validation (missing field / non-numeric numeric / bad enum / inconsistent
+    test counts ⇒ REFUSED); value-blind free-form redaction. **12 PASS / 0 FAIL.**
+  - **v0.5.1 Context Budgeter** (`49a872d`) — `.harness/evidence/dmc-v0.5.1-context-budgeter.sh` +
+    `docs/CONTEXT_BUDGET.md`: classifies candidate context into tiers (required / useful / optional / forbidden /
+    excluded) per goal, estimates context weight, and reports budget overflow loudly (WARNING + exit 3). Secret-bearing
+    files are **path-derived forbidden** (never loaded / never read). **10 PASS / 0 FAIL.**
+  - **v0.5.2 Effort Controller** (`30b6495`) — `.harness/evidence/dmc-v0.5.2-effort-controller.sh` +
+    `docs/EFFORT_POLICY.md`: recommends the minimum sufficient effort (light / standard / deep / adversarial) +
+    reviewer/adversarial flags + verification depth — docs-only ⇒ light; guard/safety/protected ⇒ deep; secret/network/
+    live or security ⇒ adversarial; repeated findings ⇒ adversarial. **14 PASS / 0 FAIL.**
+  - **Hardening** (`e06eb31`) — closed the Opus adversarial pass's two HIGH findings + the disclosed MEDIUM/LOW notes
+    (see below), each with a regression test.
+  - **REVISE fix** (`cce9e31`) — removed the env-controlled hash command (`DMC_HASH_CMD`) from all three scripts;
+    `repo_hash` is now a deterministic internal `git status --porcelain | python3 hashlib.sha256` with **no env read**,
+    regression-tested (a hostile `DMC_HASH_CMD` is never read/executed) and caught by a tightened structural audit.
+- **Verification posture:** **36 self-test assertions, 0 FAIL** across the three tools (12 + 10 + 14), all exit 0 —
+  re-confirmed on published `main`. **Offline / read-only / env-independent**: self-tests run only in `mktemp` temp repos /
+  fixtures (real repo byte-identical); `env -i` + credential-var differential byte-identical. **No live provider call; no
+  `.env*` / credential read; no network / model-API call.** The stack passed an Opus implementer pass + an Opus
+  adversarial verification pass + an external review.
+- **Review findings closed:**
+  - **v0.5.1 map-injection** (HIGH) — `tier_of()` now derives `forbidden` from the **path** (mirror of the secret-name
+    patterns), so a mislabeled `--map` category can no longer route a secret file into the loaded tiers.
+  - **v0.5.2 fail-open risk parsing** (HIGH) — inputs parse **fail-closed**: a non-false-y danger boolean escalates, an
+    unrecognized/case-variant `risk_class` ⇒ adversarial, and an unparseable count escalates.
+  - **v0.5.0 redactor blind spots** (MEDIUM) — value-blind `UNSAFE` set broadened (`github_pat_` / `glpat-` / `npm_` /
+    `AIza` / `dop_v1_` / `AccountKey=` / short-`AKIA` / bare `password=` / `api_key=` / `client_secret=`).
+  - **v0.5.0 markdown injection / `Infinity`** (LOW) — newlines collapsed in free-form fields; non-finite
+    `wall_clock_sec` rejected.
+  - **External review blocker** — `DMC_HASH_CMD` / env-controlled hash command removed and regression-tested (`cce9e31`).
+- **Safety confirmations:** **additive-only** over prior `main` (`+806 / −0`, 6 new files); **advisory/read-only** tools;
+  **inert unless invoked**; **no force push** (every publish a fast-forward); **no branch deletion**; **no live
+  provider/model/API call**; **no `.env*` / credential read**; auto-log `.harness/evidence/*.md` remain
+  **untracked/excluded**.
+- **Remaining caveat:** the v0.5 controls are **advisory, not enforcement** — they classify/recommend; the runtime hooks
+  `secret-guard.sh` / `pre-tool-guard.sh` remain the real enforcement. Redaction is **best-effort, not a completeness
+  guarantee** — a split or novel-prefix secret can still evade; a human must review an emitted ledger before committing it.
+
+**Next:** (open) — the performance/efficiency control plane is shipped on `main`; **v0.5.3 or v0.6.0 should be separately
+planned (not started here)**. No further milestone has begun.
