@@ -86,9 +86,33 @@ UNSAFE=re.compile(r'sk-[A-Za-z0-9_-]{12,}|AKIA[0-9A-Z]{8,}|gh[opsu]_[A-Za-z0-9]{
                   r'glpat-[A-Za-z0-9_-]{12,}|AIza[0-9A-Za-z_-]{16,}|ya29\.[A-Za-z0-9._-]{8,}|eyJ[A-Za-z0-9_-]{6,}\.eyJ[A-Za-z0-9_-]{6,}|(BEGIN|END)[A-Z ]*PRIVATE KEY|'
                   r'[Bb]earer\s+[A-Za-z0-9._-]{12,}|xox[baprs]-[A-Za-z0-9-]{6,}|(password|passwd|secret|token|api[_-]?key|client_secret)\s*[=:]\s*\S{4,}|'
                   r'[sp]k_(live|test)_[A-Za-z0-9]{10,}|npm_[A-Za-z0-9]{16,}|AccountKey=[A-Za-z0-9+/=]{10,}|[a-z][a-z0-9+.-]*://[^/\s:@]+:[^/\s:@]+@',re.IGNORECASE)
-def redact(s):
-    s=s.replace("\n"," ").replace("\r"," ")
+def redact(s):   # BACKSTOP ONLY: the primary defense is value-blind STRUCTURAL emission (sanitize_path/safe_subject) below;
+    s=s.replace("\n"," ").replace("\r"," ")   # correctness must NOT depend on enumerating every secret prefix here.
     return UNSAFE.sub("[redacted]",s)
+# value-blind STRUCTURAL emission (primary C5 defense): raw caller-controlled basenames and subject text are NEVER printed.
+# Paths => <known-dir-bucket-or-[path]>/[name].<known-ext>. Subjects => short-SHA + conventional type-class, else [subject withheld].
+KNOWN_DIRS=sorted({"docs",".harness/evidence",".harness/verification",".harness/plans",".harness/runs",".harness/review",
+                   ".harness/schemas",".claude/workers/providers",".claude/hooks",".claude/workers",".claude",".harness",
+                   ".github","src","tests","scripts"},key=len,reverse=True)   # longest-prefix match
+KNOWN_EXT={"md","sh","py","js","ts","jsx","tsx","mjs","cjs","json","yaml","yml","txt","toml","cfg","conf","ini","lock",
+           "sql","go","rs","rb","java","c","h","cpp","hpp","css","html","htm","xml","example","sample","template"}
+def _ext(base):
+    if base.startswith(".") or "." not in base: return ""       # dotfile / no extension => no value-bearing suffix
+    e=base.rsplit(".",1)[1].lower()
+    return e if (e in KNOWN_EXT and re.fullmatch(r'[a-z0-9]{1,10}',e)) else ""
+def sanitize_path(p):
+    segs=[s for s in str(p).replace("\\","/").strip().split("/") if s not in ("",".")]
+    if not segs: return "[path]/[name]"
+    base=segs[-1]; ext=_ext(base); name="[name]."+ext if ext else "[name]"
+    if len(segs)==1: return name                                # repo-root file: location not sensitive, basename withheld
+    d="/".join(segs[:-1]); bucket=next((kd for kd in KNOWN_DIRS if d==kd or d.startswith(kd+"/")),None)
+    return (bucket+"/"+name) if bucket else "[path]/"+name       # unknown/unsafe dir => [path]; intermediate segs never echoed
+SUBJ=re.compile(r'^(feat|fix|docs|test|chore|refactor|perf|build|ci|style|revert)(\(([A-Za-z0-9_-]{1,20})\))?(!)?:')
+def safe_subject(sub):
+    m=SUBJ.match(str(sub).strip())
+    if not m: return "[subject withheld]"
+    t=m.group(1).lower(); sc=(m.group(3) or "")
+    return "%s(%s):"%(t,sc) if re.fullmatch(r'[a-z][a-z0-9]{0,11}',sc) else "%s:"%t   # conservative safe scope, else type only
 PROT=re.compile(r'\.claude/workers/providers/|provider-router\.py|(^|/)ROUTING\.md$|PROVIDER_CONTRACT\.md|'
                 r'WORKER_(TASK|RESULT|REVIEW)_SCHEMA\.md|\.claude/hooks/|(^|/)dmc-glm-smoke$|\.harness/schemas/.*\.schema\.md$|'
                 r'(secret-guard|pre-tool-guard|scope-guard|stop-verify-gate)',re.IGNORECASE)
@@ -121,7 +145,7 @@ for l in rd(logf).splitlines():
     l=l.strip()
     if not l: continue
     sp=l.split(" ",1); h=sp[0]; sub=sp[1] if len(sp)>1 else ""
-    subs.append((h,redact(sub)))
+    subs.append((h,redact(safe_subject(sub))))   # value-blind: type-class or [subject withheld]; backstop redact() on top
 # test summaries — ONLY anchored 'PASS=N FAIL=M' or 'N PASS / M FAIL' lines from the allowlisted report
 tests=[]
 for l in rd(repf).splitlines():
@@ -130,15 +154,16 @@ for l in rd(repf).splitlines():
 o=["# DMC Review Packet v2 — %s..%s"%(base,head),
    "- base: %s   head: %s"%(base,head),
    "- stat: +%d / -%d across %d files"%(add,dele,nf),
-   "- files changed (name-status; names only):"]
-# detection runs on the RAW path (above); every EMITTED path is value-blind redacted so a token-shaped filename cannot leak
-o += ["  - %s  %s"%(st,redact(p)) for st,p in files] or ["  - (none)"]
-o += ["- protected-surface touches:"]; o += ["  - %s"%redact(p) for p in prot] or []; o += (["  - (none)"] if not prot else [])
-o += ["- forbidden/secret paths (should be NONE):"]; o += ["  - %s"%redact(p) for p in forb] or []; o += (["  - (none)"] if not forb else [])
-o += ["- excluded auto-log evidence (.harness/evidence/*.md — not a review artifact):"]; o += ["  - %s"%redact(p) for p in autolog] or []; o += (["  - (none)"] if not autolog else [])
-o += ["- commit subjects (value-blind redacted; NO commit body):"]; o += ["  - %s %s"%(h,s) for h,s in subs] or ["  - (none)"]
+   "- files changed (name-status; structural, value-blind — bucket/[name].ext, raw basenames withheld):"]
+# detection (FORBID/PROT/AUTOLOG) runs on the RAW path above; every EMITTED path is STRUCTURAL (sanitize_path) so no raw
+# basename / token-shaped segment can leak, regardless of secret format (redact() is only a defense-in-depth backstop).
+o += ["  - %s  %s"%(st,redact(sanitize_path(p))) for st,p in files] or ["  - (none)"]
+o += ["- protected-surface touches:"]; o += ["  - %s"%redact(sanitize_path(p)) for p in prot] or []; o += (["  - (none)"] if not prot else [])
+o += ["- forbidden/secret paths (should be NONE):"]; o += ["  - %s"%redact(sanitize_path(p)) for p in forb] or []; o += (["  - (none)"] if not forb else [])
+o += ["- excluded auto-log evidence (.harness/evidence/*.md — not a review artifact):"]; o += ["  - %s"%redact(sanitize_path(p)) for p in autolog] or []; o += (["  - (none)"] if not autolog else [])
+o += ["- commit subjects (value-blind: short SHA + conventional type-class or [subject withheld]; NO subject text, NO body):"]; o += ["  - %s %s"%(h,s) for h,s in subs] or ["  - (none)"]
 o += ["- test summary (from allowlisted .harness/verification report only):"]; o += ["  - %s"%t for t in tests] or ["  - (none)"]
-o += ["- advisory: names-only metadata; no file content / no diff / no commit body — review before merge"]
+o += ["- advisory: value-blind STRUCTURAL metadata (raw basenames + subject text withheld; no content / diff / body) — review before merge"]
 print("\n".join(o))
 PY
   rm -rf "$TMP"
@@ -166,19 +191,23 @@ self_test() {
 
   local pkt; pkt="$(generate "$R" "$BASE" "$HEAD" "")"
 
-  # AC1 malicious commit SUBJECT secret is value-blind redacted; commit BODY never appears at all
-  { ! printf '%s' "$pkt" | grep -q 'ghp_ABCDEFGHIJKLMNOPQRSTUVWX' && printf '%s' "$pkt" | grep -q '\[redacted\]' \
-    && ! printf '%s' "$pkt" | grep -q 'sk-ABCDEFGHIJKLMNOPQRSTUV' && ! printf '%s' "$pkt" | grep -qi 'BODY:'; } \
-    && ok "AC1 commit subject redacted; commit body never in packet" || no "AC1 subject/body leak"
-  # AC2 names-only: the packet contains file PATHS but no file CONTENT (the word 'doc2'/'base' content not present)
-  { printf '%s' "$pkt" | grep -q 'docs/b.md' && ! printf '%s' "$pkt" | grep -q '^doc2$'; } \
-    && ok "AC2 names-only: paths present, file content absent" || no "AC2 content leak"
-  # AC3 protected-surface scan works structurally
-  printf '%s' "$pkt" | awk '/protected-surface touches:/{f=1;next} /forbidden\/secret/{f=0} f' | grep -q 'adapter.py' \
-    && ok "AC3 protected-surface scan lists the provider adapter path" || no "AC3 protected scan"
-  # AC4 auto-log evidence .md identified as excluded (not a review artifact)
-  printf '%s' "$pkt" | awk '/excluded auto-log/{f=1;next} /commit subjects/{f=0} f' | grep -q 'dmc-v0.5.x-foo.md' \
-    && ok "AC4 auto-log evidence .md flagged excluded" || no "AC4 auto-log not excluded"
+  # AC1 commit SUBJECT is VALUE-BLIND (conventional type-class only; raw subject text + ghp_ token WITHHELD); BODY never appears
+  { ! printf '%s' "$pkt" | grep -q 'ghp_ABCDEFGHIJKLMNOPQRSTUVWX' && ! printf '%s' "$pkt" | grep -qi 'leak' \
+    && ! printf '%s' "$pkt" | grep -q 'sk-ABCDEFGHIJKLMNOPQRSTUV' && ! printf '%s' "$pkt" | grep -qi 'BODY:' \
+    && printf '%s' "$pkt" | grep -qE 'feat:( |$)'; } \
+    && ok "AC1 commit subject value-blind (type-class 'feat:' only, text withheld); ghp_ + body never in packet" || no "AC1 subject/body leak"
+  # AC2 STRUCTURAL paths: bucket/[name].ext only — raw basename ('b.md') and file CONTENT ('doc2') both absent
+  { printf '%s' "$pkt" | grep -q 'docs/\[name\].md' && ! printf '%s' "$pkt" | grep -q '^doc2$' \
+    && ! printf '%s' "$pkt" | grep -q 'docs/b.md'; } \
+    && ok "AC2 structural paths (docs/[name].md); raw basename + file content absent" || no "AC2 content/basename leak"
+  # AC3 protected-surface scan works structurally (detection on RAW; emission value-blind bucket/[name].py)
+  { printf '%s' "$pkt" | awk '/protected-surface touches:/{f=1;next} /forbidden\/secret/{f=0} f' | grep -q '.claude/workers/providers/\[name\].py' \
+    && ! printf '%s' "$pkt" | grep -q 'adapter.py'; } \
+    && ok "AC3 protected-surface scan lists the provider path (value-blind; raw 'adapter.py' withheld)" || no "AC3 protected scan"
+  # AC4 auto-log evidence .md identified as excluded (value-blind path)
+  { printf '%s' "$pkt" | awk '/excluded auto-log/{f=1;next} /commit subjects/{f=0} f' | grep -q '.harness/evidence/\[name\].md' \
+    && ! printf '%s' "$pkt" | grep -q 'dmc-v0.5.x-foo.md'; } \
+    && ok "AC4 auto-log evidence flagged excluded (value-blind path)" || no "AC4 auto-log not excluded"
   # AC5 test summary extracted from the allowlisted report (anchored counts only)
   printf '%s' "$(generate "$R" "$BASE" "$HEAD" "$R/.harness/verification/dmc-v0.5.x-foo.md")" | grep -q '7 PASS / 0 FAIL' \
     && ok "AC5 test summary extracted from allowlisted .harness/verification report" || no "AC5 test summary"
@@ -208,12 +237,12 @@ self_test() {
   local hb hh; hb="$(repo_hash)"; hh="$(DMC_HASH_CMD="$FAKE" repo_hash)"
   { [ ! -e "$SENT" ] && [ -n "$hb" ] && [ "$hb" = "$hh" ]; } && ok "AC9 env-hash injection: hostile DMC_HASH_CMD never read/executed" || no "AC9 env-controlled hash executed"
   # >>>AUDIT_BLOCK_END
-  # AC11 (HARDENING / both auditors) a changed-FILE PATH that embeds a secret-shaped token is value-blind redacted
-  { ! printf '%s' "$pkt" | grep -q 'sk-ABCDEFGHIJKLMNOP12345' && printf '%s' "$pkt" | grep -q 'docs/\[redacted\].md'; } \
-    && ok "AC11 changed file path with secret-shaped token is value-blind redacted in the packet (no metadata leak)" || no "AC11 path token leak"
-  # AC14 (HARDENING / C5) a JWT-shaped token (eyJ...eyJ...; a bearer credential) in a changed path is value-blind redacted
-  { ! printf '%s' "$pkt" | grep -q 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9' && printf '%s' "$pkt" | grep -q 'docs/jwt-\[redacted\].md'; } \
-    && ok "AC14 JWT-shaped token in a changed path is value-blind redacted (C5 regex parity with v0.5.3)" || no "AC14 JWT leak in packet"
+  # AC11 (C5 value-blind) a changed-FILE PATH that embeds a secret-shaped token is emitted as a structural placeholder (no raw token)
+  { ! printf '%s' "$pkt" | grep -q 'sk-ABCDEFGHIJKLMNOP12345' && printf '%s' "$pkt" | grep -q 'docs/\[name\].md'; } \
+    && ok "AC11 secret-shaped basename withheld (docs/[name].md); no raw token in the packet" || no "AC11 path token leak"
+  # AC14 (C5 value-blind) a JWT-shaped token (eyJ...eyJ...) in a changed path basename is withheld (structural placeholder)
+  { ! printf '%s' "$pkt" | grep -q 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9' && printf '%s' "$pkt" | grep -q 'docs/\[name\].md'; } \
+    && ok "AC14 JWT-shaped basename withheld (no raw token; structural emission)" || no "AC14 JWT leak in packet"
   # AC12 (HARDENING / Codex) an invalid base or head fails CLOSED (refused) — never an empty "(none)" packet masking the range
   local rb rh
   generate "$R" "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" "$HEAD" "" >/dev/null 2>&1; [ $? = 2 ] && rb=1 || rb=0
@@ -245,26 +274,36 @@ self_test() {
     && ok "AC13b C7 end-to-end: --out new temp path writes (exit 0); --out /etc/passwd REFUSED by guard (exit 2)" \
     || no "AC13b C7 e2e (rc_e2e=$rc_e2e wrote=$([ -s "$c7_e2e" ] && echo y || echo n) etc=$rc_etc)"
 
-  # AC15 (C5 broadening) Stripe sk_/pk_live_/test_, npm_, embedded-credential URLs, and AccountKey= are redacted in changed
-  # PATHS and commit SUBJECTS (the prior prefix allowlist missed these well-known secret formats); names-only stays intact.
+  # AC15 (C5 VALUE-BLIND) NOVEL/un-enumerated secret shapes in PATHS and SUBJECTS never leak — structural emission, not a prefix
+  # allowlist: Stripe synstrp_/synrstp_/synwhs_, npm_, SendGrid SG., Slack xapp-, 40-hex high-entropy, short AIza, credential URL,
+  # AccountKey=. ALL render as docs/[name].md and the subject as the conventional type-class only; raw tokens never appear.
   local R2="$TT/r2"; mkdir -p "$R2/docs"
   git -C "$R2" init -q; git -C "$R2" config user.email t@t.t; git -C "$R2" config user.name t
   echo base > "$R2/docs/a.md"; git -C "$R2" add -A; GIT_AUTHOR_DATE='2020-01-01T00:00:00 +0000' GIT_COMMITTER_DATE='2020-01-01T00:00:00 +0000' git -C "$R2" commit -q -m base
   local B2; B2="$(git -C "$R2" rev-parse HEAD)"
   printf 'x\n' > "$R2/docs/synstrp_51HxQ2eLkj8aBcDeFgHiJkLmN.md"
   printf 'x\n' > "$R2/docs/npm_AbCdEf1234567890GhIjKlMnOp.md"
+  printf 'x\n' > "$R2/docs/xapp-1-A0123-456-0fedcba9876543210abcdef.md"
+  printf 'x\n' > "$R2/docs/synrstp_51HxQ2eLkj8aBcDeFgHiJkLmN.md"
+  printf 'x\n' > "$R2/docs/synwhs_AbCdEf1234567890GhIjKlMnOp.md"
+  printf 'x\n' > "$R2/docs/synSGxAbCdEf1234567890.GhIjKlMnOpQrStUvWxYz12.md"
+  printf 'x\n' > "$R2/docs/0123456789abcdef0123456789abcdef01234567.md"
+  printf 'x\n' > "$R2/docs/AIzaShortKey12345.md"
   git -C "$R2" add -A
   GIT_AUTHOR_DATE='2020-01-02T00:00:00 +0000' GIT_COMMITTER_DATE='2020-01-02T00:00:00 +0000' \
-    git -C "$R2" commit -q -m "chore: rotate postgres://user:p4ssw0rd@db.host/app and AccountKey=AbCdEf1234567890Xx=="
+    git -C "$R2" commit -q -m "chore: rotate xapp-1-A0123-456-0fedcba9876543210abcdef postgres://user:p4ssw0rd@db.host/app AccountKey=AbCdEf1234567890Xx=="
   local H2; H2="$(git -C "$R2" rev-parse HEAD)"
   local pkt2; pkt2="$(generate "$R2" "$B2" "$H2" "")"
-  { ! printf '%s' "$pkt2" | grep -q 'synstrp_51HxQ2eLkj8aBcDeFgHiJkLmN' \
-    && ! printf '%s' "$pkt2" | grep -q 'npm_AbCdEf1234567890GhIjKlMnOp' \
-    && ! printf '%s' "$pkt2" | grep -q 'p4ssw0rd' \
-    && ! printf '%s' "$pkt2" | grep -q 'AccountKey=AbCdEf1234567890Xx' \
-    && printf '%s' "$pkt2" | grep -q 'docs/\[redacted\].md' \
-    && printf '%s' "$pkt2" | grep -q 'rotate \[redacted\]'; } \
-    && ok "AC15 C5 broadening: Stripe synstrp_ / npm_ / credential-URL / AccountKey redacted in paths+subjects (no raw secret); names-only intact" || no "AC15 broadened-secret leak"
+  local leak=0 tk
+  for tk in 'synstrp_51HxQ2eLkj' 'npm_AbCdEf1234567890GhIjKlMnOp' 'xapp-1-A0123' 'synrstp_51HxQ2eLkj' 'synwhs_AbCdEf' 'synSGxAbCdEf1234567890' '0123456789abcdef0123456789abcdef01234567' 'AIzaShortKey12345' 'p4ssw0rd' 'AccountKey=AbCdEf' 'user:p4ssw0rd'; do
+    printf '%s' "$pkt2" | grep -q "$tk" && { leak=1; echo "      LEAK: $tk"; }
+  done
+  { [ "$leak" = 0 ] \
+    && printf '%s' "$pkt2" | grep -q 'docs/\[name\].md' \
+    && printf '%s' "$pkt2" | grep -qE 'chore:( |$)' \
+    && ! printf '%s' "$pkt2" | grep -qi 'rotate' \
+    && ! printf '%s' "$pkt2" | grep -q '^x$'; } \
+    && ok "AC15 C5 value-blind: 11 novel/un-enumerated secret shapes withheld in paths+subjects (structural emission, not prefix allowlist); names-only intact" || no "AC15 novel-secret leak"
 
   # AC16 (C7 / case-insensitive .env) uppercase/mixed-case .env-class --out paths are refused exactly like lowercase
   local re_up re_lo re_lc re_mix
