@@ -15,8 +15,8 @@ export PYTHONDONTWRITEBYTECODE=1
 SELFPATH="$(cd "$(dirname "$0")" 2>/dev/null && pwd -P)/$(basename "$0")"
 ROOTDIR="$(cd "$(dirname "$SELFPATH")/../.." 2>/dev/null && pwd -P || true)"
 [ -n "$ROOTDIR" ] || ROOTDIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-HASH_CMD="${DMC_HASH_CMD-$(command -v md5sum 2>/dev/null || command -v md5 2>/dev/null || true)}"
-repo_hash() { git -C "$ROOTDIR" status --porcelain 2>/dev/null | { [ -n "$HASH_CMD" ] && "$HASH_CMD" || echo NOHASH; }; }
+# deterministic internal worktree-status hash — reads NO env var and executes NO env-controlled command (python hashlib)
+repo_hash() { git -C "$ROOTDIR" status --porcelain 2>/dev/null | python3 -c 'import hashlib,sys; sys.stdout.write(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())'; }
 
 SECRET_NAME_RE='(^|/)\.env($|\.)|\.pem$|\.key$|id_rsa|id_ed25519|(^|/)credentials|\.p12$|\.pfx$|\.keystore$|(^|/)\.npmrc$|(^|/)\.netrc$|(^|/)\.pgpass$|/\.ssh/|\.aws/credentials|(^|/)[^/]*secret[^/]*\.(json|ya?ml|txt|cfg|conf|ini|env)$'
 PROT_RE='(^|/)(\.env)(\.|$)|\.pem$|\.key$|id_rsa|id_ed25519|credentials|secret|\.p12$|\.pfx$|\.keystore$|\.claude/hooks|provider-router\.py'
@@ -204,8 +204,8 @@ J
   # AC7 structural no-net / no-secret-read audit (own audit block + comments excluded)
   local OP; OP="$(sed '/AUDIT_BLOCK_START/,/AUDIT_BLOCK_END/d' "$SELFPATH" | grep -vE '^[[:space:]]*#')"
   # >>>AUDIT_BLOCK_START
-  ! printf '%s' "$OP" | grep -nE '(^|[^A-Za-z])(curl|wget)([[:space:]])| --live | --allow-network|os\.environ|getenv|printenv|(cat|less|head|tail)[[:space:]]+[^|]*\.env' >/dev/null \
-    && ok "AC7 no curl/wget/--live and no .env-read primitive in the operative source" || no "AC7 net/secret-read present"
+  ! printf '%s' "$OP" | grep -nE '(^|[^A-Za-z])(curl|wget)([[:space:]])| --live | --allow-network|os\.environ|getenv|printenv|(cat|less|head|tail)[[:space:]]+[^|]*\.env|HASH_CMD|\$\{DMC_' >/dev/null \
+    && ok "AC7 no curl/wget/--live, no .env-read, no env-hash (DMC_HASH_CMD/\${DMC_*}) in the operative source" || no "AC7 net/secret-read present"
   # >>>AUDIT_BLOCK_END
 
   # AC9 (HARDENING) map-injection: a mislabeled secret file is FORCED to forbidden by PATH, never loaded
@@ -225,8 +225,17 @@ J
     && ! printf '%s' "$rE" | awk '/^## useful/{f=1} /^## optional/{f=0} f' | grep -qE '\.env|prod\.key|id_rsa'; } \
     && ok "AC9 map-injection: mislabeled secret paths FORCED forbidden (path-derived), never in loaded tiers" || no "AC9 mislabeled secret loaded"
 
+  # AC10 (HARDENING) DMC_HASH_CMD is neither read nor executed (no env-controlled hash command).
+  # >>>AUDIT_BLOCK_START  (hostile-input test; excluded from the operative-source audit)
+  local SENT="$TT/sentinel" FAKE="$TT/fakehash"
+  printf '#!/bin/sh\ntouch "%s"\necho PWNED\n' "$SENT" > "$FAKE"; chmod +x "$FAKE"
+  local hbase hhostile; hbase="$(repo_hash)"; hhostile="$(DMC_HASH_CMD="$FAKE" repo_hash)"
+  { [ ! -e "$SENT" ] && [ -n "$hbase" ] && [ "$hbase" = "$hhostile" ]; } \
+    && ok "AC10 env-hash injection: hostile DMC_HASH_CMD never read/executed; repo_hash byte-identical" || no "AC10 env-controlled hash executed"
+  # >>>AUDIT_BLOCK_END
+
   # AC8 read-only: repo byte-unchanged
-  { [ -n "$PRE" ] && [ "$PRE" != NOHASH ] && [ "$(repo_hash)" = "$PRE" ]; } && ok "AC8 read-only: repo byte-unchanged" || no "AC8 repo changed"
+  { [ -n "$PRE" ] && [ "$(repo_hash)" = "$PRE" ]; } && ok "AC8 read-only: repo byte-unchanged (deterministic sha256)" || no "AC8 repo changed"
 
   echo "  ---- self-test: PASS=$P FAIL=$F ----"; [ "$F" = 0 ]
 }

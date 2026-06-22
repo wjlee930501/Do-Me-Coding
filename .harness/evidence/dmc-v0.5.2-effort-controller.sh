@@ -16,8 +16,8 @@ export PYTHONDONTWRITEBYTECODE=1
 SELFPATH="$(cd "$(dirname "$0")" 2>/dev/null && pwd -P)/$(basename "$0")"
 ROOTDIR="$(cd "$(dirname "$SELFPATH")/../.." 2>/dev/null && pwd -P || true)"
 [ -n "$ROOTDIR" ] || ROOTDIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-HASH_CMD="${DMC_HASH_CMD-$(command -v md5sum 2>/dev/null || command -v md5 2>/dev/null || true)}"
-repo_hash() { git -C "$ROOTDIR" status --porcelain 2>/dev/null | { [ -n "$HASH_CMD" ] && "$HASH_CMD" || echo NOHASH; }; }
+# deterministic internal worktree-status hash — reads NO env var and executes NO env-controlled command (python hashlib)
+repo_hash() { git -C "$ROOTDIR" status --porcelain 2>/dev/null | python3 -c 'import hashlib,sys; sys.stdout.write(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())'; }
 
 PROT_RE='(^|/)(\.env)(\.|$)|\.pem$|\.key$|id_rsa|id_ed25519|credentials|secret|\.p12$|\.pfx$|\.keystore$|\.claude/hooks|provider-router\.py'
 out_refused() { local raw="$1"
@@ -158,8 +158,8 @@ self_test() {
   # AC9 structural no-net / no-env-read audit (own audit block + comments excluded)
   local OP; OP="$(sed '/AUDIT_BLOCK_START/,/AUDIT_BLOCK_END/d' "$SELFPATH" | grep -vE '^[[:space:]]*#')"
   # >>>AUDIT_BLOCK_START
-  ! printf '%s' "$OP" | grep -nE '(^|[^A-Za-z])(curl|wget)([[:space:]])| --live | --allow-network|os\.environ|getenv|printenv' >/dev/null \
-    && ok "AC9 no curl/wget/--live and no env-read primitive in the operative source" || no "AC9 net/env-read present"
+  ! printf '%s' "$OP" | grep -nE '(^|[^A-Za-z])(curl|wget)([[:space:]])| --live | --allow-network|os\.environ|getenv|printenv|HASH_CMD|\$\{DMC_' >/dev/null \
+    && ok "AC9 no curl/wget/--live, no env-read, no env-hash (DMC_HASH_CMD/\${DMC_*}) in the operative source" || no "AC9 net/env-read present"
   # >>>AUDIT_BLOCK_END
 
   # AC11 (HARDENING) boolean fail-CLOSED: non-canonical truthy danger flags ESCALATE (never silently downgraded)
@@ -179,8 +179,17 @@ self_test() {
     && [ "$(efff --risk-class additive --prior-findings 2x)" = adversarial ]; } \
     && ok "AC13 numeric fail-closed: unparseable files/findings escalate (not silent 0)" || no "AC13 numeric fail-open"
 
+  # AC14 (HARDENING) DMC_HASH_CMD is neither read nor executed (no env-controlled hash command).
+  # >>>AUDIT_BLOCK_START  (hostile-input test; excluded from the operative-source audit)
+  local SENT="$TT/sentinel" FAKE="$TT/fakehash"
+  printf '#!/bin/sh\ntouch "%s"\necho PWNED\n' "$SENT" > "$FAKE"; chmod +x "$FAKE"
+  local hbase hhostile; hbase="$(repo_hash)"; hhostile="$(DMC_HASH_CMD="$FAKE" repo_hash)"
+  { [ ! -e "$SENT" ] && [ -n "$hbase" ] && [ "$hbase" = "$hhostile" ]; } \
+    && ok "AC14 env-hash injection: hostile DMC_HASH_CMD never read/executed; repo_hash byte-identical" || no "AC14 env-controlled hash executed"
+  # >>>AUDIT_BLOCK_END
+
   # AC10 read-only: repo byte-unchanged
-  { [ -n "$PRE" ] && [ "$PRE" != NOHASH ] && [ "$(repo_hash)" = "$PRE" ]; } && ok "AC10 read-only: repo byte-unchanged" || no "AC10 repo changed"
+  { [ -n "$PRE" ] && [ "$(repo_hash)" = "$PRE" ]; } && ok "AC10 read-only: repo byte-unchanged (deterministic sha256)" || no "AC10 repo changed"
 
   echo "  ---- self-test: PASS=$P FAIL=$F ----"; [ "$F" = 0 ]
 }

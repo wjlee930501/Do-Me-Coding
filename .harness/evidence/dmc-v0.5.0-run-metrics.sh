@@ -16,8 +16,8 @@ SELFPATH="$(cd "$(dirname "$0")" 2>/dev/null && pwd -P)/$(basename "$0")"
 # repo root from the SCRIPT location (not the process cwd) so --out write-safety holds from any cwd
 ROOTDIR="$(cd "$(dirname "$SELFPATH")/../.." 2>/dev/null && pwd -P || true)"
 [ -n "$ROOTDIR" ] || ROOTDIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-HASH_CMD="${DMC_HASH_CMD-$(command -v md5sum 2>/dev/null || command -v md5 2>/dev/null || true)}"
-repo_hash() { git -C "$ROOTDIR" status --porcelain 2>/dev/null | { [ -n "$HASH_CMD" ] && "$HASH_CMD" || echo NOHASH; }; }
+# deterministic internal worktree-status hash — reads NO env var and executes NO env-controlled command (python hashlib)
+repo_hash() { git -C "$ROOTDIR" status --porcelain 2>/dev/null | python3 -c 'import hashlib,sys; sys.stdout.write(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())'; }
 
 PROT_RE='(^|/)(\.env)(\.|$)|\.pem$|\.key$|id_rsa|id_ed25519|credentials|secret|\.p12$|\.pfx$|\.keystore$|\.claude/hooks|provider-router\.py|PROVIDER_CONTRACT\.md|WORKER_(TASK|RESULT|REVIEW)_SCHEMA\.md'
 out_refused() { local raw="$1"
@@ -169,8 +169,8 @@ J
   # AC6 structural no-net / no-live / no-env-read audit of the operative source (own audit block + comments excluded)
   local OP; OP="$(sed '/AUDIT_BLOCK_START/,/AUDIT_BLOCK_END/d' "$SELFPATH" | grep -vE '^[[:space:]]*#')"
   # >>>AUDIT_BLOCK_START
-  ! printf '%s' "$OP" | grep -nE '(^|[^A-Za-z])(curl|wget)([[:space:]])| --live | --allow-network|os\.environ|getenv|printenv' >/dev/null \
-    && ok "AC6 no curl/wget/--live/--allow-network and no env-read primitive in the operative source" || no "AC6 net/live/env-read present"
+  ! printf '%s' "$OP" | grep -nE '(^|[^A-Za-z])(curl|wget)([[:space:]])| --live | --allow-network|os\.environ|getenv|printenv|HASH_CMD|\$\{DMC_' >/dev/null \
+    && ok "AC6 no curl/wget/--live and no env-read/env-hash primitive (incl. DMC_HASH_CMD/\${DMC_*}) in the operative source" || no "AC6 net/live/env-read present"
   # >>>AUDIT_BLOCK_END
 
   # AC8 (HARDENING) broadened redaction: modern token shapes + bare credential key=val are redacted
@@ -191,8 +191,17 @@ J
   printf '%s' '{"run_id":"r","goal_type":"g","mode":"advisory","effort":"deep","context_files_count":1,"estimated_input_tokens":1,"estimated_output_tokens":1,"tool_calls":1,"wall_clock_sec":Infinity,"files_touched":0,"tests_selected":1,"tests_run":1,"tests_passed":1,"tests_failed":0,"review_findings_total":0,"blockers":0,"retry_count":0,"human_gates":0,"outcome":"completed","efficiency_notes":"x"}' > "$TT/inf.json"
   process validate "$TT/inf.json" >/dev/null 2>&1; [ $? = 1 ] && ok "AC10 non-finite wall_clock_sec => fail-closed (exit 1)" || no "AC10 Infinity accepted"
 
+  # AC11 (HARDENING) DMC_HASH_CMD is neither read nor executed (no env-controlled hash command).
+  # >>>AUDIT_BLOCK_START  (this test legitimately references the var as hostile INPUT; excluded from the operative-source audit)
+  local SENT="$TT/sentinel" FAKE="$TT/fakehash"
+  printf '#!/bin/sh\ntouch "%s"\necho PWNED\n' "$SENT" > "$FAKE"; chmod +x "$FAKE"
+  local hbase hhostile; hbase="$(repo_hash)"; hhostile="$(DMC_HASH_CMD="$FAKE" repo_hash)"
+  { [ ! -e "$SENT" ] && [ -n "$hbase" ] && [ "$hbase" = "$hhostile" ]; } \
+    && ok "AC11 env-hash injection: hostile DMC_HASH_CMD never read/executed; repo_hash byte-identical" || no "AC11 env-controlled hash executed"
+  # >>>AUDIT_BLOCK_END
+
   # AC7 read-only: repo byte-unchanged
-  { [ -n "$PRE" ] && [ "$PRE" != NOHASH ] && [ "$(repo_hash)" = "$PRE" ]; } && ok "AC7 read-only: repo byte-unchanged (non-empty hash)" || no "AC7 repo changed"
+  { [ -n "$PRE" ] && [ "$(repo_hash)" = "$PRE" ]; } && ok "AC7 read-only: repo byte-unchanged (deterministic sha256)" || no "AC7 repo changed"
 
   echo "  ---- self-test: PASS=$P FAIL=$F ----"; [ "$F" = 0 ]
 }
