@@ -49,6 +49,9 @@ report_ok() { local repo="$1" raw="$2"
 
 generate() { # <repo> <base> <head> <report|"">
   local repo="$1" base="$2" head="$3" report="$4"
+  # fail CLOSED on an invalid/unknown base or head — never emit an empty "(none)" packet that masks a real range (Codex)
+  git -C "$repo" rev-parse --verify --quiet "$base^{commit}" >/dev/null 2>&1 || { echo "review-packet: --base is not a valid commit — REFUSED" >&2; return 2; }
+  git -C "$repo" rev-parse --verify --quiet "$head^{commit}" >/dev/null 2>&1 || { echo "review-packet: --head is not a valid commit — REFUSED" >&2; return 2; }
   local TMP; TMP="$(mktemp -d)" || { echo "review-packet: mktemp failed" >&2; return 2; }
   git -C "$repo" diff --name-status "$base..$head" > "$TMP/ns" 2>/dev/null
   git -C "$repo" diff --numstat "$base..$head" > "$TMP/numstat" 2>/dev/null
@@ -109,10 +112,11 @@ o=["# DMC Review Packet v2 — %s..%s"%(base,head),
    "- base: %s   head: %s"%(base,head),
    "- stat: +%d / -%d across %d files"%(add,dele,nf),
    "- files changed (name-status; names only):"]
-o += ["  - %s  %s"%(st,p) for st,p in files] or ["  - (none)"]
-o += ["- protected-surface touches:"]; o += ["  - %s"%p for p in prot] or []; o += (["  - (none)"] if not prot else [])
-o += ["- forbidden/secret paths (should be NONE):"]; o += ["  - %s"%p for p in forb] or []; o += (["  - (none)"] if not forb else [])
-o += ["- excluded auto-log evidence (.harness/evidence/*.md — not a review artifact):"]; o += ["  - %s"%p for p in autolog] or []; o += (["  - (none)"] if not autolog else [])
+# detection runs on the RAW path (above); every EMITTED path is value-blind redacted so a token-shaped filename cannot leak
+o += ["  - %s  %s"%(st,redact(p)) for st,p in files] or ["  - (none)"]
+o += ["- protected-surface touches:"]; o += ["  - %s"%redact(p) for p in prot] or []; o += (["  - (none)"] if not prot else [])
+o += ["- forbidden/secret paths (should be NONE):"]; o += ["  - %s"%redact(p) for p in forb] or []; o += (["  - (none)"] if not forb else [])
+o += ["- excluded auto-log evidence (.harness/evidence/*.md — not a review artifact):"]; o += ["  - %s"%redact(p) for p in autolog] or []; o += (["  - (none)"] if not autolog else [])
 o += ["- commit subjects (value-blind redacted; NO commit body):"]; o += ["  - %s %s"%(h,s) for h,s in subs] or ["  - (none)"]
 o += ["- test summary (from allowlisted .harness/verification report only):"]; o += ["  - %s"%t for t in tests] or ["  - (none)"]
 o += ["- advisory: names-only metadata; no file content / no diff / no commit body — review before merge"]
@@ -133,6 +137,7 @@ self_test() {
   printf 'x\n' > "$R/.claude/workers/providers/glm-api/adapter.py"
   printf 'log\n' > "$R/.harness/evidence/dmc-v0.5.x-foo.md"
   printf 'doc2\n' > "$R/docs/b.md"
+  printf 'tok\n' > "$R/docs/sk-ABCDEFGHIJKLMNOP12345.md"   # filename embeds a secret-shaped token (value-blind redaction target)
   git -C "$R" add -A
   GIT_AUTHOR_DATE='2020-01-02T00:00:00 +0000' GIT_COMMITTER_DATE='2020-01-02T00:00:00 +0000' \
     git -C "$R" commit -q -m "feat: leak ghp_ABCDEFGHIJKLMNOPQRSTUVWX in subject" -m "BODY: secret sk-ABCDEFGHIJKLMNOPQRSTUV must never appear"
@@ -183,6 +188,16 @@ self_test() {
   local hb hh; hb="$(repo_hash)"; hh="$(DMC_HASH_CMD="$FAKE" repo_hash)"
   { [ ! -e "$SENT" ] && [ -n "$hb" ] && [ "$hb" = "$hh" ]; } && ok "AC9 env-hash injection: hostile DMC_HASH_CMD never read/executed" || no "AC9 env-controlled hash executed"
   # >>>AUDIT_BLOCK_END
+  # AC11 (HARDENING / both auditors) a changed-FILE PATH that embeds a secret-shaped token is value-blind redacted
+  { ! printf '%s' "$pkt" | grep -q 'sk-ABCDEFGHIJKLMNOP12345' && printf '%s' "$pkt" | grep -q 'docs/\[redacted\].md'; } \
+    && ok "AC11 changed file path with secret-shaped token is value-blind redacted in the packet (no metadata leak)" || no "AC11 path token leak"
+  # AC12 (HARDENING / Codex) an invalid base or head fails CLOSED (refused) — never an empty "(none)" packet masking the range
+  local rb rh
+  generate "$R" "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" "$HEAD" "" >/dev/null 2>&1; [ $? = 2 ] && rb=1 || rb=0
+  generate "$R" "$BASE" "notarealref" "" >/dev/null 2>&1; [ $? = 2 ] && rh=1 || rh=0
+  { [ "$rb" = 1 ] && [ "$rh" = 1 ]; } \
+    && ok "AC12 invalid base/head => REFUSED (fail-closed, no empty packet masking the range)" || no "AC12 bad range not refused (rb=$rb rh=$rh)"
+
   # AC10 read-only: real repo byte-unchanged (fixture work confined to $TMPDIR)
   { [ -n "$PRE" ] && [ "$(repo_hash)" = "$PRE" ]; } && ok "AC10 read-only: real repo byte-unchanged (deterministic sha256)" || no "AC10 repo changed"
 

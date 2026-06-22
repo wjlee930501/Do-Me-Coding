@@ -44,6 +44,8 @@ except Exception:
     print("resume-recovery: invalid facts JSON", file=sys.stderr); sys.exit(2)
 def b_true(k): return str(F.get(k,"")).strip().lower() in ("1","true","yes","on","enabled","y")
 def b_falseexplicit(k): return str(F.get(k,"__MISSING__")).strip().lower() in ("0","false","no","off")
+def b_block(k):  # protective flags fail CLOSED: anything NOT an explicit false-y/empty token BLOCKS (e.g. 'dirty','present','2')
+    return str(F.get(k,"")).strip().lower() not in ("","0","false","no","off","n")
 def num(v):
     try: return int(v)
     except Exception:
@@ -69,11 +71,11 @@ def emit(action, gate, reason, code):
 # ordered, fail-closed: most-blocking first
 if veri=="FAIL":
     emit("STOP","none","verification FAILED — fix and re-verify before any further step",1)
-if b_true("staged_protected"):
+if b_block("staged_protected"):
     emit("STOP","none","a PROTECTED file is staged — unstage; protected-surface work needs an approved plan + human gate",1)
-if b_true("staged_autolog"):
+if b_block("staged_autolog"):
     emit("STOP","none","an excluded auto-log (.harness/evidence/*.md) is staged — unstage it (not a committable artifact)",1)
-if b_true("tracked_dirty"):
+if b_block("tracked_dirty"):
     emit("STOP","none","dirty tracked worktree (uncommitted tracked changes) — commit/review first; NEVER push with uncommitted changes",1)
 if behind>0:
     emit("STOP","none","local branch is %s behind origin — reconcile first; do NOT push"%("?" if behind_unknown else behind),1)
@@ -83,7 +85,9 @@ if veri=="NONE":
     emit("VERIFY","none","approved but unverified — run the verification harness for the current head",1)
 # clean, committed, ahead, verified, approved => a needs_human_gate CANDIDATE (never an authorization)
 if veri=="PASS" and ahead>0 and not ahead_unknown:
-    emit("NEEDS_HUMAN_GATE","needs_human_gate: candidate for review-branch push (bound to commit %s)"%(commit or "<unknown>"),
+    if not commit:
+        emit("STOP","none","clean + verified + approved + ahead, but NO commit hash provided to BIND the push candidate — supply the exact commit hash",1)
+    emit("NEEDS_HUMAN_GATE","needs_human_gate: candidate for review-branch push (bound to commit %s)"%commit,
          "none — clean, verified, approved, ahead of origin; awaiting an explicit human push gate",0)
 emit("IN_PROGRESS","none","nothing safe to advance autonomously (no work staged/ahead, or facts incomplete)",1)
 PY
@@ -148,6 +152,15 @@ self_test() {
   local hb hh; hb="$(repo_hash)"; hh="$(DMC_HASH_CMD="$FAKE" repo_hash)"
   { [ ! -e "$SENT" ] && [ -n "$hb" ] && [ "$hb" = "$hh" ]; } && ok "AC12 env-hash injection: hostile DMC_HASH_CMD never read/executed" || no "AC12 env-controlled hash executed"
   # >>>AUDIT_BLOCK_END
+  # AC14 (HARDENING) protective flags fail CLOSED — non-canonical truthy tokens STOP (not coerced to safe)
+  { [ "$(act '{"branch":"x","ahead":1,"behind":0,"tracked_dirty":"dirty","plan_status":"APPROVED","plan_hash_match":true,"verification":"PASS","commit_hash":"abc"}')" = STOP ] \
+    && [ "$(act '{"branch":"x","ahead":1,"behind":0,"staged_protected":"present","plan_status":"APPROVED","plan_hash_match":true,"verification":"PASS","commit_hash":"abc"}')" = STOP ] \
+    && [ "$(act '{"branch":"x","ahead":1,"behind":0,"staged_autolog":"2","plan_status":"APPROVED","plan_hash_match":true,"verification":"PASS","commit_hash":"abc"}')" = STOP ]; } \
+    && ok "AC14 protective flags fail CLOSED: non-canonical truthy (dirty/present/2) => STOP (not coerced to safe)" || no "AC14 protective fail-open"
+  # AC15 (HARDENING) NEEDS_HUMAN_GATE requires a bound commit hash; empty commit_hash => STOP (no unbound candidate)
+  [ "$(act '{"branch":"x","ahead":1,"behind":0,"tracked_dirty":false,"staged_protected":false,"staged_autolog":false,"plan_status":"APPROVED","plan_hash_match":true,"verification":"PASS","commit_hash":""}')" = STOP ] \
+    && ok "AC15 empty commit_hash => STOP (push candidate must be bound to a commit hash)" || no "AC15 unbound gate emitted"
+
   # AC13 read-only
   { [ -n "$PRE" ] && [ "$(repo_hash)" = "$PRE" ]; } && ok "AC13 read-only: repo byte-unchanged (deterministic sha256)" || no "AC13 repo changed"
 

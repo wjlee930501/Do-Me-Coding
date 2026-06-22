@@ -46,7 +46,7 @@ handoff() { # <batch_authorized: true|false>
 | Release Gate | the human/explicit authorization for stage→commit→push→main→closure | be satisfied by a critic PASS alone; publish without verification + review | an explicit, per-action authorization |
 
 ## Gate matrix (action : autonomy)
-- plan / critic / implement-approved-scope / verify / release-audit : autonomous when batch=$batch (else human-approved)
+- plan / critic / implement-approved-scope / verify / release-audit : autonomous ONLY when batch=ACTIVE (else human-approved)
 - local stage / local commit : autonomous ONLY when batch=ACTIVE and tests are green; otherwise human-gated
 - review-branch push : HUMAN GATE (never autonomous)
 - main publish (merge/ff to main) : HUMAN GATE (never autonomous)
@@ -73,7 +73,7 @@ Always-gated regardless of batch: push, main merge, closure, live/network/secret
 ## Compact handoff prompt
 "You are one of {Orchestrator, Implementer, Critic, Release Gate}. Act ONLY within your role's owns/must-not above. Keep
 work additive and the protected surface byte-unchanged. A Critic PASS is advisory and never authorizes push/main/closure.
-Under batch=$batch you may run plan→critic→implement→verify→audit→local-commit; push, main publish, and closure are always
+Under bounded-batch authorization (batch=ACTIVE only) you may run plan→critic→implement→verify→audit→local-commit; push, main publish, and closure are always
 a separate human gate. Never read .env/secrets, never make a live/network call, never self-approve, never expand scope to
 spend context. Stop and surface to the human at any gate."
 EOF
@@ -105,9 +105,13 @@ self_test() {
   { printf '%s' "$H" | grep -q 'Bounded-batch autonomy' && printf '%s' "$H" | grep -q 'ONE local commit per milestone after tests pass' \
     && printf '%s' "$H" | grep -q 'local commit : autonomous ONLY when batch=ACTIVE'; } \
     && ok "AC5 bounded-batch autonomy encoded; local stage/commit gated on batch ACTIVE + green tests" || no "AC5 batch autonomy"
-  # AC5b batch=OFF reflected in the gate-matrix line (autonomy depends on batch)
-  printf '%s' "$(handoff false)" | grep -q 'autonomous when batch=OFF' \
-    && ok "AC5b batch=OFF reflected (autonomy depends on the bounded authorization)" || no "AC5b batch off"
+  # AC5b batch=OFF reflected in the HEADER, and the gate line is a FIXED literal (autonomy ONLY when ACTIVE) —
+  # NOT the inverted "autonomous when batch=OFF" (which would imply autonomy when the batch is OFF).
+  { local HO; HO="$(handoff false)"
+    printf '%s' "$HO" | grep -q 'bounded-batch authorization: OFF' \
+    && printf '%s' "$HO" | grep -q 'autonomous ONLY when batch=ACTIVE' \
+    && ! printf '%s' "$HO" | grep -qi 'autonomous when batch=OFF'; } \
+    && ok "AC5b batch=OFF: header reflects OFF, gate line fixed to 'autonomous ONLY when batch=ACTIVE' (not inverted)" || no "AC5b batch off (inverted/absent)"
   # AC6 compact handoff prompt present
   printf '%s' "$H" | grep -q 'Compact handoff prompt' \
     && ok "AC6 compact handoff prompt present" || no "AC6 no prompt"
@@ -133,6 +137,19 @@ self_test() {
   local hb hh; hb="$(repo_hash)"; hh="$(DMC_HASH_CMD="$FAKE" repo_hash)"
   { [ ! -e "$SENT" ] && [ -n "$hb" ] && [ "$hb" = "$hh" ]; } && ok "AC10 env-hash injection: hostile DMC_HASH_CMD never read/executed" || no "AC10 env-controlled hash executed"
   # >>>AUDIT_BLOCK_END
+  # AC12 (HARDENING / Codex) the dispatch tail is fail-CLOSED: it CAPTURES handoff into a verified var with an explicit
+  # refusal guard (no bare terminal 'handoff "$BA"' that would exit 0 with empty output = false DONE). Scan only the
+  # dispatch region (post-self_test) so the assertion does not match its own pattern text.
+  local TAIL; TAIL="$(awk '/^BA=false;/{f=1} f' "$SELFPATH")"
+  { printf '%s' "$TAIL" | grep -q 'H="\$(handoff "\$BA")"' \
+    && printf '%s' "$TAIL" | grep -q 'refusing to report success' \
+    && ! printf '%s' "$TAIL" | grep -qE '^[[:space:]]*handoff "\$BA"([[:space:]]|;|$)'; } \
+    && ok "AC12 dispatch fail-closed: captures+verifies handoff with a refusal guard; no bare terminal handoff (no exit-0-on-empty)" || no "AC12 exit-0 fail-open present"
+  # AC12b a normal run binds exit 0 to a complete, header-bearing handoff on stdout
+  local mo mrc; mo="$(bash "$SELFPATH" --batch-authorized true)"; mrc=$?
+  { [ "$mrc" = 0 ] && printf '%s' "$mo" | grep -q '^# DMC Dynamic Delegation Handoff'; } \
+    && ok "AC12b normal run: exit 0 only with a complete header-bearing handoff on stdout" || no "AC12b exit not bound to artifact (rc=$mrc)"
+
   # AC11 read-only
   { [ -n "$PRE" ] && [ "$(repo_hash)" = "$PRE" ]; } && ok "AC11 read-only: repo byte-unchanged (deterministic sha256)" || no "AC11 repo changed"
 
@@ -145,5 +162,12 @@ while [ $# -gt 0 ]; do case "$1" in
   -h|--help) sed -n '2,11p' "$0"; exit 0;; *) echo "dynamic-delegation: unknown arg $1" >&2; exit 2;;
 esac; done
 if [ "$RUN" = selftest ]; then echo "==== DMC DYNAMIC DELEGATION — SELF-TEST ===="; self_test; exit $?; fi
-if [ -n "$OUT" ]; then out_refused "$OUT" && { echo "dynamic-delegation: --out protected/secret/in-work-tree — REFUSED" >&2; exit 2; }; handoff "$BA" > "$OUT"; echo "dynamic-delegation: wrote $OUT" >&2; exit 0; fi
-handoff "$BA"; exit 0
+# fail CLOSED: the handoff artifact IS the deliverable — NEVER exit 0 without a complete, header-bearing handoff (Codex)
+H="$(handoff "$BA")" || { echo "dynamic-delegation: handoff generation FAILED — refusing to report success" >&2; exit 1; }
+printf '%s' "$H" | grep -q '^# DMC Dynamic Delegation Handoff' || { echo "dynamic-delegation: handoff incomplete/empty — refusing to report success" >&2; exit 1; }
+if [ -n "$OUT" ]; then
+  out_refused "$OUT" && { echo "dynamic-delegation: --out protected/secret/in-work-tree — REFUSED" >&2; exit 2; }
+  printf '%s\n' "$H" > "$OUT" || { echo "dynamic-delegation: failed to write $OUT" >&2; exit 1; }
+  echo "dynamic-delegation: wrote $OUT" >&2; exit 0
+fi
+printf '%s\n' "$H"; exit 0

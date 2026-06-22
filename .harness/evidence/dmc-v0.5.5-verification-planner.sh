@@ -67,11 +67,12 @@ req=set(); opt=set(); forb=set(); reasons=[]; fail_closed=False
 # forbidden checks are ALWAYS present (safety invariants)
 forb.update(["read/print .env or any credential file","make a live provider/network call to 'verify'",
              "print raw provider payloads or user content","auto-apply any reviewer/critic output"])
-# a malformed/empty path list with no other signal => fail CLOSED to the maximal set
+# a malformed/empty path list => fail CLOSED to the maximal set. A lane WITHOUT changed paths is still a silent-skip risk
+# (Codex): you cannot scope "minimal sufficient" verification over an empty changeset, so escalate regardless of lane.
 if raw and not paths:
     fail_closed=True; reasons.append("changed_paths present but unparseable => fail-closed maximal verification set")
-if not raw and not prot_flag and not lane:
-    fail_closed=True; reasons.append("no changed_paths / lane / protected flag => fail-closed maximal verification set")
+elif not paths and not prot_flag:
+    fail_closed=True; reasons.append("no parseable changed_paths to scope verification (and no protected flag) => fail-closed maximal verification set")
 
 cats=set()
 for p in paths:
@@ -201,6 +202,11 @@ self_test() {
   # AC16 (HARDENING / Codex #5) a secret-shaped changed path is value-blind redacted in the output (no metadata leak)
   ! rp '{"changed_paths":".claude/workers/providers/sk-ABCDEFGHIJKLMNOPQRST/x.py"}' | grep -q 'sk-ABCDEFGHIJKLMNOPQRST' \
     && ok "AC16 secret-shaped changed path value-blind redacted in output (no leak)" || no "AC16 metadata leak in reason"
+  # AC17 (HARDENING / final-audit Codex) a lane WITHOUT changed paths must NOT silently emit (none) — fail CLOSED
+  { rp '{"lane":"docs-only"}' | grep -q 'FAIL-CLOSED' \
+    && req_has '{"lane":"docs-only"}' 'maximal' \
+    && ! rp '{"lane":"docs-only"}' | awk '/^- required_checks:/{f=1;next} /^- optional_checks:/{f=0} f' | grep -q '(none)'; } \
+    && ok "AC17 lane without changed_paths => FAIL-CLOSED maximal set (no silent (none) skip)" || no "AC17 lane-without-paths silent skip"
 
   # AC14 read-only
   { [ -n "$PRE" ] && [ "$(repo_hash)" = "$PRE" ]; } && ok "AC14 read-only: repo byte-unchanged (deterministic sha256)" || no "AC14 repo changed"
