@@ -38,12 +38,20 @@ out_refused() { local raw="$1"
 # --- validate (+ optionally emit) a metrics record. Inputs via file ONLY; never the environment. ---
 process() { # <mode: validate|emit> <metrics.json>
   python3 - "$1" "$2" <<'PY'
-import json,sys,re
+import json,sys,re,math
 mode=sys.argv[1]
-UNSAFE=re.compile(r'sk-[A-Za-z0-9_-]{16,}|AKIA[0-9A-Z]{12,}|(BEGIN|END)[A-Z ]*PRIVATE KEY|xox[baprs]-[A-Za-z0-9-]{8,}|gh[opsu]_[A-Za-z0-9]{20,}|eyJ[A-Za-z0-9_-]{6,}\.eyJ[A-Za-z0-9_-]{6,}|[Bb]earer\s+[A-Za-z0-9._-]{12,}|ya29\.[A-Za-z0-9._-]{8,}|(access_token|refresh_token|id_token)\s*[=:]|SENTINEL', re.IGNORECASE)
+UNSAFE=re.compile(
+  r'sk-[A-Za-z0-9_-]{16,}|AKIA[0-9A-Z]{8,}|(BEGIN|END)[A-Z ]*PRIVATE KEY|xox[baprs]-[A-Za-z0-9-]{6,}'
+  r'|gh[opsu]_[A-Za-z0-9]{16,}|github_pat_[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9_-]{16,}|npm_[A-Za-z0-9]{30,}'
+  r'|AIza[0-9A-Za-z_-]{20,}|dop_v1_[A-Za-z0-9]{16,}|AccountKey=[A-Za-z0-9+/=]{16,}'
+  r'|eyJ[A-Za-z0-9_-]{6,}\.eyJ[A-Za-z0-9_-]{6,}|[Bb]earer\s+[A-Za-z0-9._-]{12,}|ya29\.[A-Za-z0-9._-]{8,}'
+  r'|(access_token|refresh_token|id_token)\s*[=:]'
+  r'|(password|passwd|api[_-]?key|apikey|client_secret|aws_secret_access_key)\s*[=:]\s*\S{6,}'
+  r'|SENTINEL', re.IGNORECASE)
 def safe(v):
     s="" if v is None else str(v)
-    return "[redacted:unsafe-metadata]" if UNSAFE.search(s) else v
+    if UNSAFE.search(s): return "[redacted:unsafe-metadata]"
+    return s.replace("\n"," ").replace("\r"," ")   # collapse newlines so a free-form note cannot forge ledger lines
 REQ=["run_id","goal_type","mode","effort","context_files_count","estimated_input_tokens","estimated_output_tokens",
      "tool_calls","wall_clock_sec","files_touched","tests_selected","tests_run","tests_passed","tests_failed",
      "review_findings_total","blockers","retry_count","human_gates","outcome","efficiency_notes"]
@@ -66,7 +74,7 @@ for k in REQ:
     if k not in m: errs.append("missing:"+k)
 for k in INT_FIELDS:
     if k in m and not (is_int(m[k]) and m[k]>=0): errs.append("bad-int:"+k)
-if "wall_clock_sec" in m and not (is_num(m["wall_clock_sec"]) and m["wall_clock_sec"]>=0): errs.append("bad-num:wall_clock_sec")
+if "wall_clock_sec" in m and not (is_num(m["wall_clock_sec"]) and m["wall_clock_sec"]>=0 and math.isfinite(m["wall_clock_sec"])): errs.append("bad-num:wall_clock_sec")
 if m.get("mode") not in MODES: errs.append("bad-mode")
 if m.get("effort") not in EFFORTS: errs.append("bad-effort")
 if m.get("outcome") not in OUTCOMES: errs.append("bad-outcome")
@@ -164,6 +172,24 @@ J
   ! printf '%s' "$OP" | grep -nE '(^|[^A-Za-z])(curl|wget)([[:space:]])| --live | --allow-network|os\.environ|getenv|printenv' >/dev/null \
     && ok "AC6 no curl/wget/--live/--allow-network and no env-read primitive in the operative source" || no "AC6 net/live/env-read present"
   # >>>AUDIT_BLOCK_END
+
+  # AC8 (HARDENING) broadened redaction: modern token shapes + bare credential key=val are redacted
+  cat > "$TT/leak2.json" <<'J'
+{"run_id":"r","goal_type":"g","mode":"advisory","effort":"deep","context_files_count":1,"estimated_input_tokens":1,"estimated_output_tokens":1,"tool_calls":1,"wall_clock_sec":1,"files_touched":0,"tests_selected":1,"tests_run":1,"tests_passed":1,"tests_failed":0,"review_findings_total":0,"blockers":0,"retry_count":0,"human_gates":0,"outcome":"completed","efficiency_notes":"github_pat_ABCDEFGHIJKLMNOPQRSTUV glpat-ABCDEFGHIJKLMNOP AIzaABCDEFGHIJKLMNOPQRSTUV AKIAABCDEFGH password=hunter2secret"}
+J
+  local l2; l2="$(process emit "$TT/leak2.json")"
+  { ! printf '%s' "$l2" | grep -Eq 'github_pat_ABCDE|glpat-ABCDE|AIzaABCDE|AKIAABCDEFGH|hunter2secret' && printf '%s' "$l2" | grep -q 'redacted:unsafe-metadata'; } \
+    && ok "AC8 broadened redaction: github_pat_/glpat-/AIza/AKIA/password= shapes redacted" || no "AC8 a modern secret shape survived"
+
+  # AC9 (HARDENING) newline collapse: a multi-line note cannot forge a fake ledger line
+  python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); d["efficiency_notes"]="benign\n- outcome: FORGED-completed"; json.dump(d,open(sys.argv[2],"w"))' "$TT/ok.json" "$TT/nl.json"
+  local nl; nl="$(process emit "$TT/nl.json")"
+  { [ "$(printf '%s\n' "$nl" | grep -c '^- outcome:')" = 1 ] && ! printf '%s\n' "$nl" | grep -q '^- outcome: FORGED'; } \
+    && ok "AC9 newline collapse: a multi-line note cannot forge a fake ledger line" || no "AC9 markdown injection"
+
+  # AC10 (HARDENING) non-finite wall_clock_sec => fail-closed
+  printf '%s' '{"run_id":"r","goal_type":"g","mode":"advisory","effort":"deep","context_files_count":1,"estimated_input_tokens":1,"estimated_output_tokens":1,"tool_calls":1,"wall_clock_sec":Infinity,"files_touched":0,"tests_selected":1,"tests_run":1,"tests_passed":1,"tests_failed":0,"review_findings_total":0,"blockers":0,"retry_count":0,"human_gates":0,"outcome":"completed","efficiency_notes":"x"}' > "$TT/inf.json"
+  process validate "$TT/inf.json" >/dev/null 2>&1; [ $? = 1 ] && ok "AC10 non-finite wall_clock_sec => fail-closed (exit 1)" || no "AC10 Infinity accepted"
 
   # AC7 read-only: repo byte-unchanged
   { [ -n "$PRE" ] && [ "$PRE" != NOHASH ] && [ "$(repo_hash)" = "$PRE" ]; } && ok "AC7 read-only: repo byte-unchanged (non-empty hash)" || no "AC7 repo changed"

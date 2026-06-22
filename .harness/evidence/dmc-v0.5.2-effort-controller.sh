@@ -44,20 +44,32 @@ try:
     if not isinstance(inp,dict): raise ValueError
 except Exception:
     print("effort-controller: invalid inputs JSON", file=sys.stderr); sys.exit(2)
-def b(v): return str(v).strip().lower() in ("1","true","yes","y")
-def i(v):
-    try:
-        n=int(v); return n if n>=0 else 0
+def b(v):
+    # fail-CLOSED: anything NOT explicitly false-y is treated as true, so a danger surface is never silently downgraded
+    return str(v).strip().lower() not in ("0","false","no","n","none","off","")
+def num(v):
+    # parse int, then float->int; return None if unparseable (the caller then fails CLOSED by escalating)
+    try: return max(0,int(v))
     except Exception:
-        return 0
+        try: return max(0,int(float(v)))
+        except Exception: return None
 LEVELS=["light","standard","deep","adversarial"]
 RISK={"docs-only":0,"additive":1,"generic":1,"provider":2,"guard":2,"security":3}
-risk=str(inp.get("risk_class","generic"))
-files=i(inp.get("files_touched",0)); prot=b(inp.get("protected_surface",False)); snl=b(inp.get("secret_network_live",False))
-findings=i(inp.get("prior_findings",0)); failures=i(inp.get("test_failures",0)); gate=b(inp.get("human_gate",False))
-idx=RISK.get(risk, 1)
-reasons=["base: risk_class=%s => %s"%(risk if risk in RISK else "generic", LEVELS[idx])]
-if risk not in RISK: reasons.append("note: unrecognized risk_class '%s' — treated as generic"%risk)
+risk=str(inp.get("risk_class","generic")).strip().lower()
+prot=b(inp.get("protected_surface",False)); snl=b(inp.get("secret_network_live",False)); gate=b(inp.get("human_gate",False))
+reasons=[]
+# fail-CLOSED numeric parsing: an unparseable danger count escalates rather than silently becoming 0
+files_n=num(inp.get("files_touched",0)); files = files_n if files_n is not None else 999
+find_n=num(inp.get("prior_findings",0));  findings = find_n if find_n is not None else 2
+fail_n=num(inp.get("test_failures",0));   failures = fail_n if fail_n is not None else 1
+# fail-CLOSED risk_class: an unrecognized class escalates to adversarial (never silently downgraded to generic)
+if risk in RISK:
+    idx=RISK[risk]; reasons.append("base: risk_class=%s => %s"%(risk,LEVELS[idx]))
+else:
+    idx=3; reasons.append("base: unrecognized risk_class '%s' => adversarial (fail-closed)"%risk)
+if files_n is None: reasons.append("files_touched unparseable => fail-closed escalate")
+if find_n is None: reasons.append("prior_findings unparseable => fail-closed adversarial")
+if fail_n is None: reasons.append("test_failures unparseable => fail-closed escalate")
 if prot and idx<2: idx=2; reasons.append("protected_surface => at least deep")
 if snl and idx<3: idx=3; reasons.append("secret/network/live surface => adversarial (auto-escalate)")
 if files>25 and idx<2: idx=2; reasons.append("files_touched=%d (>25) => at least deep (over-eager)"%files)
@@ -95,6 +107,8 @@ self_test() {
   eff(){ mk "$1" | awk -F': ' '/^- recommended_effort:/{print $2}'; }
   rev(){ mk "$1" | awk -F': ' '/^- reviewer_required:/{print $2}'; }
   adv(){ mk "$1" | awk -F': ' '/^- adversarial_required:/{print $2}'; }
+  efff(){ bash "$SELFPATH" "$@" 2>/dev/null | awk -F': ' '/^- recommended_effort:/{print $2}'; }   # real flag dispatch
+  advf(){ bash "$SELFPATH" "$@" 2>/dev/null | awk -F': ' '/^- adversarial_required:/{print $2}'; }
 
   # AC1 docs-only append-only closure => light (efficient); reviewer not required
   local D='{"risk_class":"docs-only","files_touched":1,"protected_surface":false,"secret_network_live":false,"prior_findings":0,"test_failures":0,"human_gate":true}'
@@ -147,6 +161,23 @@ self_test() {
   ! printf '%s' "$OP" | grep -nE '(^|[^A-Za-z])(curl|wget)([[:space:]])| --live | --allow-network|os\.environ|getenv|printenv' >/dev/null \
     && ok "AC9 no curl/wget/--live and no env-read primitive in the operative source" || no "AC9 net/env-read present"
   # >>>AUDIT_BLOCK_END
+
+  # AC11 (HARDENING) boolean fail-CLOSED: non-canonical truthy danger flags ESCALATE (never silently downgraded)
+  { [ "$(efff --risk-class additive --secret-network-live on)" = adversarial ] \
+    && [ "$(advf --risk-class additive --secret-network-live enabled)" = yes ] \
+    && [ "$(efff --risk-class additive --protected-surface on)" = deep ]; } \
+    && ok "AC11 boolean fail-closed: 'on'/'enabled' danger flags escalate (no silent downgrade)" || no "AC11 boolean fail-open"
+
+  # AC12 (HARDENING) risk_class normalized + fail-CLOSED: case-variant and unknown => adversarial, not a downgrade
+  { [ "$(efff --risk-class Security)" = adversarial ] && [ "$(efff --risk-class SECURITY)" = adversarial ] \
+    && [ "$(efff --risk-class totally-unknown)" = adversarial ]; } \
+    && ok "AC12 risk_class normalized+fail-closed: Security/SECURITY/unknown => adversarial" || no "AC12 risk_class fail-open"
+
+  # AC13 (HARDENING) numeric coercion fail-CLOSED: non-int large/odd counts escalate, not silent 0
+  { [ "$(efff --risk-class additive --files-touched 1e9)" = deep ] \
+    && [ "$(efff --risk-class additive --files-touched 30abc)" = deep ] \
+    && [ "$(efff --risk-class additive --prior-findings 2x)" = adversarial ]; } \
+    && ok "AC13 numeric fail-closed: unparseable files/findings escalate (not silent 0)" || no "AC13 numeric fail-open"
 
   # AC10 read-only: repo byte-unchanged
   { [ -n "$PRE" ] && [ "$PRE" != NOHASH ] && [ "$(repo_hash)" = "$PRE" ]; } && ok "AC10 read-only: repo byte-unchanged" || no "AC10 repo changed"

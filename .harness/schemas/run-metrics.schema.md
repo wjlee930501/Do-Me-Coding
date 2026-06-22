@@ -39,8 +39,11 @@ Validation is **fail-closed** — an invalid record is REFUSED (non-zero exit), 
   validation**, so a secret cannot be smuggled through a numeric field;
 - consistency: `tests_passed + tests_failed ≤ tests_run ≤ tests_selected`.
 
-Redaction: the free-form fields (`run_id`, `goal_type`, `efficiency_notes`) pass through the value-blind sanitizer (same
-token/secret shapes as v0.3.9.1 / v0.4.1) — a matched value becomes `[redacted:unsafe-metadata]` and is **never
-re-emitted**. The enum fields are validated against a fixed set, so a secret-shaped value there fails closed rather than
+Redaction: the free-form fields (`run_id`, `goal_type`, `efficiency_notes`) pass through the value-blind sanitizer — a
+matched value becomes `[redacted:unsafe-metadata]` and is **never re-emitted**. Covered shapes include `sk-` / `AKIA` /
+PEM keys / `gh[opsu]_` / `github_pat_` / `glpat-` / `npm_` / `AIza` / `dop_v1_` / `xox*` / JWT / `Bearer` / `ya29.` /
+`AccountKey=` / OAuth `*_token` / bare `password=` / `api_key=` / `client_secret=` / `aws_secret_access_key=`. This is
+**best-effort, not a completeness guarantee** (split or novel-prefix secrets can still evade — review before commit).
+Newlines in free-form fields are collapsed to spaces so a note cannot forge fake ledger lines. The enum fields are validated against a fixed set, so a secret-shaped value there fails closed rather than
 leaking. The emitted ledger artifact is therefore safe to review and commit. The tool reads **only** the metrics record it
 is given (argv / file); it never reads the environment, `.env`, credentials, provider payloads, or the network.

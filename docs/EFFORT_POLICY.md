@@ -31,3 +31,10 @@ failures), `adversarial_required` (yes when adversarial / secret-network-live / 
 `suggested_verification_depth`. The recommendation is a **pure function of the inputs** — environment variables never alter
 it (`env -i` and a credential-var differential are byte-identical). `human_gate` does not change the *effort* level (the
 human approval gate is orthogonal to how hard the run reasons/reviews).
+
+## Robustness (fail-closed input handling)
+Inputs are parsed **fail-closed**, so a near-miss never silently under-classifies a dangerous surface: `risk_class` is
+normalized (trim + lowercase) and an **unrecognized** class escalates to **adversarial** (not downgraded to generic); a
+danger boolean (`protected_surface`, `secret_network_live`) treats **anything not explicitly false-y** (`false`/`no`/
+`off`/`0`/empty) as **true** (so `on` / `enabled` escalate); and an **unparseable** numeric count (`files_touched`,
+`prior_findings`, `test_failures`) escalates rather than defaulting to 0.

@@ -23,7 +23,9 @@ context weight exceeds budget. Advisory only; **inert unless invoked**; reads no
 - **Schemas and evidence scripts before long prose**: load the relevant `.harness/schemas/*.schema.md` and
   `.harness/evidence/*.sh` (compact, executable, self-testing) before long prose docs (e.g. `docs/INTEROP.md`).
 - **Never** include `.env*`, credentials, tokens, keys, or any secret file — the budgeter classifies them forbidden and
-  never reads their contents (weight is computed only for non-forbidden files).
+  never reads their contents (weight is computed only for non-forbidden files). Forbidden classification is
+  **path-derived** (mirrors the secret-name patterns), so a mislabeled `--map` category cannot route a secret file into
+  the loaded (required/useful) set.
 
 ## Weight & budget
 Context weight = total line count of the **loaded** set (required + useful). The default budget is 800 lines (override with

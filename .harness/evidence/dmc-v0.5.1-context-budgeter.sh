@@ -18,7 +18,7 @@ ROOTDIR="$(cd "$(dirname "$SELFPATH")/../.." 2>/dev/null && pwd -P || true)"
 HASH_CMD="${DMC_HASH_CMD-$(command -v md5sum 2>/dev/null || command -v md5 2>/dev/null || true)}"
 repo_hash() { git -C "$ROOTDIR" status --porcelain 2>/dev/null | { [ -n "$HASH_CMD" ] && "$HASH_CMD" || echo NOHASH; }; }
 
-SECRET_NAME_RE='(^|/)\.env($|\.)|\.pem$|\.key$|id_rsa|id_ed25519|(^|/)credentials|\.p12$|\.pfx$|\.keystore$|(^|/)\.npmrc$|(^|/)\.netrc$|(^|/)\.pgpass$|/\.ssh/|\.aws/credentials|secret'
+SECRET_NAME_RE='(^|/)\.env($|\.)|\.pem$|\.key$|id_rsa|id_ed25519|(^|/)credentials|\.p12$|\.pfx$|\.keystore$|(^|/)\.npmrc$|(^|/)\.netrc$|(^|/)\.pgpass$|/\.ssh/|\.aws/credentials|(^|/)[^/]*secret[^/]*\.(json|ya?ml|txt|cfg|conf|ini|env)$'
 PROT_RE='(^|/)(\.env)(\.|$)|\.pem$|\.key$|id_rsa|id_ed25519|credentials|secret|\.p12$|\.pfx$|\.keystore$|\.claude/hooks|provider-router\.py'
 is_secret_name() { # path -> 0 if secret (but allow .env.example/.sample/.template)
   local p="$1"
@@ -72,17 +72,23 @@ PY
 
 classify() { # <goal_type> <touched_csv> <milestone_range> <mode> <budget> <map.json>
   python3 - "$@" <<'PY'
-import json,sys
+import json,sys,re
 goal,touched_csv,mrange,mode,budget,mapf=sys.argv[1:7]
 budget=int(budget)
 touched=set(p for p in touched_csv.split(",") if p)
 m=json.load(open(mapf)); files=m.get("files",[])
+# path-derived secret check (mirror of the bash SECRET_NAME_RE) — a secret PATH is forbidden regardless of map category
+SECRET_RE=re.compile(r'(^|/)\.env($|\.)|\.pem$|\.key$|id_rsa|id_ed25519|(^|/)credentials|\.p12$|\.pfx$|\.keystore$|(^|/)\.npmrc$|(^|/)\.netrc$|(^|/)\.pgpass$|/\.ssh/|\.aws/credentials|(^|/)[^/]*secret[^/]*\.(json|ya?ml|txt|cfg|conf|ini|env)$', re.IGNORECASE)
+def is_secret_path(p):
+    pl=str(p).lower()
+    if pl.endswith((".example",".sample",".template")): return False
+    return bool(SECRET_RE.search(str(p)))
 SAFE_GOALS={"docs-closure","schema-additive","guard-hardening","security","provider-change","capstone-safety","generic"}
 AUTONOMY_GOALS={"guard-hardening","security","provider-change","capstone-safety"}
 def tier_of(f):
     p,c,ln=f["path"],f.get("category","other"),f.get("lines",0)
-    if c=="secret":
-        return ("forbidden","secret-bearing — never loaded")
+    if c=="secret" or is_secret_path(p):
+        return ("forbidden","secret-bearing — never loaded (path-derived; map category ignored)")
     if p in touched:
         return ("required","in the run's touched scope")
     if c=="operating-guide":
@@ -201,6 +207,23 @@ J
   ! printf '%s' "$OP" | grep -nE '(^|[^A-Za-z])(curl|wget)([[:space:]])| --live | --allow-network|os\.environ|getenv|printenv|(cat|less|head|tail)[[:space:]]+[^|]*\.env' >/dev/null \
     && ok "AC7 no curl/wget/--live and no .env-read primitive in the operative source" || no "AC7 net/secret-read present"
   # >>>AUDIT_BLOCK_END
+
+  # AC9 (HARDENING) map-injection: a mislabeled secret file is FORCED to forbidden by PATH, never loaded
+  cat > "$TT/evil.json" <<'J'
+{"files":[
+ {"path":"DMC.md","category":"operating-guide","lines":200},
+ {"path":".env","category":"operating-guide","lines":500},
+ {"path":"deploy/prod.key","category":"schema","lines":80},
+ {"path":"id_rsa","category":"context-map","lines":40}
+]}
+J
+  local rE; rE="$(classify docs-closure "" "" active 99999 "$TT/evil.json")"
+  { printf '%s' "$rE" | awk '/^## forbidden/{f=1} f' | grep -qF '.env' \
+    && printf '%s' "$rE" | awk '/^## forbidden/{f=1} f' | grep -qF 'prod.key' \
+    && printf '%s' "$rE" | awk '/^## forbidden/{f=1} f' | grep -qF 'id_rsa' \
+    && ! printf '%s' "$rE" | awk '/^## required/{f=1} /^## useful/{f=0} f' | grep -qE '\.env|prod\.key|id_rsa' \
+    && ! printf '%s' "$rE" | awk '/^## useful/{f=1} /^## optional/{f=0} f' | grep -qE '\.env|prod\.key|id_rsa'; } \
+    && ok "AC9 map-injection: mislabeled secret paths FORCED forbidden (path-derived), never in loaded tiers" || no "AC9 mislabeled secret loaded"
 
   # AC8 read-only: repo byte-unchanged
   { [ -n "$PRE" ] && [ "$PRE" != NOHASH ] && [ "$(repo_hash)" = "$PRE" ]; } && ok "AC8 read-only: repo byte-unchanged" || no "AC8 repo changed"
