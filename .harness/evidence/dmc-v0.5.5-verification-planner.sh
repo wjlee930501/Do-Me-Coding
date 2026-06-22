@@ -64,7 +64,15 @@ def num(v):
     except Exception:
         try: return max(0,int(float(v)))
         except Exception: return None
-# value-blind by construction: this tool emits only CATEGORY labels and check names — it NEVER echoes a raw caller path
+# value-blind: changed paths are emitted as CATEGORY labels only; the one echoed caller field (lane) is run through safe()
+# below, which replaces any secret/token-shaped value with [redacted]. The RAW lane is still used for classification.
+UNSAFE=re.compile(r'sk-[A-Za-z0-9_-]{12,}|AKIA[0-9A-Z]{8,}|gh[opsu]_[A-Za-z0-9]{12,}|github_pat_[A-Za-z0-9_]{12,}|'
+                  r'glpat-[A-Za-z0-9_-]{12,}|AIza[0-9A-Za-z_-]{16,}|xox[baprs]-[A-Za-z0-9-]{6,}|ya29\.[A-Za-z0-9._-]{8,}|'
+                  r'eyJ[A-Za-z0-9_-]{6,}\.eyJ[A-Za-z0-9_-]{6,}|(BEGIN|END)[A-Z ]*PRIVATE KEY|[Bb]earer\s+[A-Za-z0-9._-]{12,}|'
+                  r'(password|passwd|secret|token|api[_-]?key|client_secret)\s*[=:]\s*\S{4,}|/Users/[^/\s]+|/home/[^/\s]+', re.IGNORECASE)
+def safe(v):   # value-blind: any secret/token-shaped echoed caller value => [redacted] (never echo a raw token)
+    s="" if v is None else str(v)
+    return "[redacted]" if UNSAFE.search(s) else s.replace("\n"," ").replace("\r"," ")
 LANES_SET={"docs-only","additive-tooling","release-closure","recovery-resume","protected-surface","secret-network-live-risk"}
 SECRET=re.compile(r'(^|/)\.env($|\.)|\.pem$|\.key$|id_rsa|id_ed25519|(^|/)credentials|\.aws/credentials|/\.ssh/',re.I)
 PROVIDER=re.compile(r'\.claude/workers/providers/|provider-router\.py|(^|/)ROUTING\.md$|PROVIDER_CONTRACT\.md|import',re.I)
@@ -114,7 +122,7 @@ protected_in_scope = bool(cats & {"provider","schema","guard","secret"}) or prot
 if lane and lane not in LANES_SET:
     fail_closed=True; reasons.append("the provided lane is not recognized => fail-closed maximal verification set")
 if lane in ("protected-surface","secret-network-live-risk"):
-    protected_in_scope=True; reasons.append("lane=%s => protected-path byte-unchanged required regardless of path category"%lane)
+    protected_in_scope=True; reasons.append("lane=%s => protected-path byte-unchanged required regardless of path category"%safe(lane))
 if lane=="secret-network-live-risk":
     req.update(["secret/provider-payload leak scan","reject-path / fail-closed tests","adversarial re-verify (secret/network/live lane)","protected-path byte-unchanged check"])
     reasons.append("lane=secret-network-live-risk => leak scan + reject-path + adversarial verification (regardless of path)")
@@ -139,7 +147,7 @@ def block(title,items):
     out=["- %s:"%title]
     out += ["  - %s"%i for i in (sorted(items) if items else ["(none)"])]
     return out
-o=["# DMC Verification Plan — lane=%s%s"%(lane or "-"," [FAIL-CLOSED]" if fail_closed else "")]
+o=["# DMC Verification Plan — lane=%s%s"%(safe(lane) or "-"," [FAIL-CLOSED]" if fail_closed else "")]
 o+=block("required_checks",req); o+=block("optional_checks",opt); o+=block("forbidden_checks",forb)
 o+=["- advisory: a recommendation, not an enforcement gate"]; o+=["- reason:"]; o+=["  - %s"%r for r in reasons] or ["  - (none)"]
 print("\n".join(o))
@@ -248,6 +256,21 @@ self_test() {
   { [ "$rc_e2e" = 0 ] && [ -s "$c7_e2e" ] && [ "$rc_etc" = 2 ]; } \
     && ok "AC18b C7 end-to-end: --out new temp path writes (exit 0); --out /etc/passwd REFUSED by guard (exit 2)" \
     || no "AC18b C7 e2e (rc_e2e=$rc_e2e wrote=$([ -s "$c7_e2e" ] && echo y || echo n) etc=$rc_etc)"
+
+  # AC19 (C5 / lane redaction) a token-shaped --lane value is value-blind redacted in the DISPLAYED header (never echoed raw),
+  # while the RAW lane still drives classification (token-shaped lane => unrecognized => FAIL-CLOSED); recognized lanes display normally.
+  local GHP='ghp_abcdefghijklmnopqrstuvwxyz0123456789' LJ SKJ JWJ
+  LJ="$(printf '{"changed_paths":"docs/X.md","lane":"%s"}' "$GHP")"
+  SKJ="$(printf '{"changed_paths":"docs/X.md","lane":"%s"}' 'sk-ABCDEFGHIJKLMNOPQRSTUVWX')"
+  JWJ="$(printf '{"changed_paths":"docs/X.md","lane":"%s"}' 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0')"
+  { ! rp "$LJ" | grep -q "$GHP" \
+    && rp "$LJ" | grep -q 'lane=\[redacted\]' \
+    && rp "$LJ" | grep -q 'FAIL-CLOSED' \
+    && rp "$SKJ" | grep -q 'lane=\[redacted\]' \
+    && rp "$JWJ" | grep -q 'lane=\[redacted\]' \
+    && rp '{"changed_paths":"docs/X.md","lane":"protected-surface"}' | grep -q 'lane=protected-surface'; } \
+    && ok "AC19 C5: token-shaped --lane (ghp_/sk-/JWT) value-blind redacted in header (no raw token) + unrecognized => FAIL-CLOSED; recognized lane displays normally" \
+    || no "AC19 lane field leak"
 
   # AC14 read-only
   { [ -n "$PRE" ] && [ "$(repo_hash)" = "$PRE" ]; } && ok "AC14 read-only: repo byte-unchanged (deterministic sha256)" || no "AC14 repo changed"
