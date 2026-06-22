@@ -162,3 +162,81 @@ plan + human gate before it begins).
 
 **Next:** (open) — provider-access layer complete and the read-only advisory rails loop is shipped + externally accepted;
 no further milestone has begun.
+
+## v0.4.0–v0.4.9 — Autonomous Development Mode (control plane) — CLOSED (2026-06-22)
+
+- **Published:** fast-forwarded to `origin/main` (`8dc5b59..58cdbc5`); local `main` == `origin/main` == `58cdbc5`. Main
+  publication is **complete** (fast-forward only). The whole stack is **additive vs the previous `main`**: **22 files,
+  +1524 / −0**. Shipped as a delegated, batch-reviewed stack with a multi-round independent falsification review.
+- **Review branch:** `review/dmc-v0.4.0-v0.4.9-autonomy` (head `58cdbc5`) — retained (not deleted). Prior
+  `review/dmc-v0.3.1-v0.3.9-stack` preserved, untouched, @ `5aecdbc`.
+- **What shipped** (every component is **advisory / read-only** — none stages, commits, pushes, grants a gate, makes a
+  live/network call, or mutates the provider surface; all writes are canonicalization-guarded `--out` files or `mktemp`
+  self-test repos; the autonomy stack is **inert unless explicitly invoked** by flag):
+  - **v0.4.0 Autonomy Charter** — `AUTONOMY.md` + `.harness/schemas/autonomy.schema.md`: five autonomy levels (passive →
+    advisory → autonomous-dry-run → autonomous-local-commit → human-gated-push), per-level allowed/blocked actions, an
+    always-blocked set, and nine fail-closed stop conditions; orthogonal to the `.harness/mode` enforcement floor.
+    **8 PASS / 0 FAIL.**
+  - **v0.4.1 Goal-to-Plan Compiler** — deterministic, env-independent (`env -i` + credential-var differential
+    byte-identical) goal→run-plan compiler that always keeps push + closure + live-call + credential human-gated and
+    value-blind-redacts token-shaped goal text. **7 PASS / 0 FAIL.**
+  - **v0.4.2 Branch / Worktree Isolation Guard** — metadata-only git; blocks main/master outside closure, detached HEAD,
+    and a dirty worktree (or dirty-outside-approved-scope) before any edit. **8 PASS / 0 FAIL.**
+  - **v0.4.3 Scope / Over-eager Guard** — names-only/`--numstat`, value-blind protected-surface diff classifier
+    (allowed/suspicious/blocked) covering out-of-scope edits, out-of-scope deletions, broad rewrites, non-append
+    `MILESTONES.md` mutation, branch/review-branch mutation attempts, and over-eager file/deletion/line bounds.
+    **14 PASS / 0 FAIL.**
+  - **v0.4.4 Evidence Harness** — standardized self-test count/command/result extraction with a value-blind redactor and
+    an honest, non-absolute attestation (known shapes only; not a completeness guarantee). **9 PASS / 0 FAIL.**
+  - **v0.4.5 Secret / Network / Live-call Guard** — fail-closed STATIC classifier of candidate command text (never
+    executes it) for secret-path reads, live-provider opt-in flags, and network tools incl. `/dev/(tcp|udp)/`.
+    **21 PASS / 0 FAIL.**
+  - **v0.4.6 Reviewer Loop** — self-review artifact (findings/risk/files/tests/evidence/open-questions) that is **never
+    auto-applied**, plus a Codex/Kim external-review handoff template. **8 PASS / 0 FAIL.**
+  - **v0.4.7 Context Map** — `docs/CONTEXT_MAP.md` single-source pointer index + configuration-smell checklist; one
+    minimal +1-line `AGENTS.md` discoverability pointer (no rule duplication, no conflicting mode instructions).
+    **7 PASS / 0 FAIL.**
+  - **v0.4.8 LazyCodex / Claude Code Interop** — `docs/INTEROP.md` mapping DMC to Claude Code hooks/subagents/plugins +
+    LazyCodex-style workflows with five suggested hook points; **no runtime dependency**. **6 PASS / 0 FAIL.**
+  - **v0.4.9 Autonomous Dry-Run Capstone** — composes the full v0.4 loop offline in a `$TMPDIR` repo (goal → plan →
+    isolation → scoped fixture edit → guards → evidence → self-review → no-push → closure DRAFT), asserting the
+    production repo stays byte-unchanged with no false-green. **9 PASS / 0 FAIL.**
+- **Review & hardening** (independent, falsification-focused, multi-round):
+  - **Full v0.4 suite: 10/10 green · 97 assertions, 0 FAIL** (8+7+8+14+9+21+8+7+6+9), all exit 0 — re-confirmed on
+    published `main`.
+  - **F1 redaction attestation fixed** (v0.4.4 + `evidence.schema.md`): the unconditional "no secrets / env-values /
+    abs-paths / provider payloads" claim was the sole MAIN gate; replaced with an honest known-shapes-only / "not a
+    completeness guarantee — review before commit" attestation, and the redactor broadened (bare `password=`/`token=`/
+    `secret=` fragments, provider-payload content fields, `C:\Users\` paths).
+  - **F3 `/dev/tcp` `/dev/udp` detection added** (v0.4.5): bash pseudo-device exfil now classifies BLOCKED.
+  - **F4 output-path guard fixed at BOTH root causes** (v0.4.9): RC1 — `ROOTDIR` now derives from the script location
+    (`SELFPATH`), not the process CWD, with a hard-fail if the derived root is not a git worktree; RC2 — `out_refused`
+    rejects symlinked targets, fails closed on an unresolved parent, and explicitly rejects git-tracked paths. Verified
+    refused from the repo CWD **and** from `/tmp`; self-test passes from both; production repo byte-unchanged.
+  - **F5 force-push detection hardened** (v0.4.3): force flags after the refspec and `git push` line-continuations now
+    BLOCKED.
+  - **F7 scope / closure cleanup** (v0.4.3): trailing-slash scope entries normalized (no prefix-confusion); `--closure`
+    wired to the `MILESTONES.md` append-only rule (and properly narrow — does not bypass scope/branch guards).
+- **Safety confirmations:** **no force push** (every publish a fast-forward — the v0.4 stack on `8dc5b59`, then
+  `1a793f0`, `58cdbc5`, and `8dc5b59..58cdbc5` to `main`); **no branch deletion**; **no live provider call**; **no
+  `.env` / credential / token / secret read**; **no network/model-API call** beyond approved git fetch/push; and **no
+  milestone closure recorded before this explicit gate**.
+- **Known advisory notes** (honestly disclosed, non-blocking — each is an *advisory* pre-flight backstopped by the
+  runtime hooks `secret-guard.sh` / `pre-tool-guard.sh`, and DMC never autonomously pushes):
+  - the **scope/over-eager guard is content-blind** — manually copied protected logic placed at a benign in-scope path
+    is not detected by a names-only diff; out-of-band content review remains required;
+  - the **static secret/network/live classifier is advisory** — interpreter/flag/indirection reads and `+refspec` /
+    `--force-with-lease=` force forms can evade the static text scan; the fail-closed runtime guards are the load-bearing
+    enforcement;
+  - **evidence redaction is for known shapes only** and is **not a completeness guarantee** — a human must review an
+    artifact before committing it.
+- **Intentionally not committed:** the untracked auto-logged evidence files `.harness/evidence/dmc-v0.2.*.md` /
+  `dmc-v0.3.*.md` (the v0.2.6 G3 `.harness/evidence/*.md` pattern excludes these structurally); the v0.4 stack uses the
+  embedded `--self-test` harnesses as its evidence (no separate `.md` artifacts).
+- **Closure statement:** the **v0.4.0–v0.4.9 lifecycle is closed end-to-end after this entry** — plan → scope → isolated
+  branch → scoped additive edits → evidence → independent review → human-gated review-branch push → human-gated
+  fast-forward to `main` → this append-only closure note. Pending commit/push approval (drafted, not yet committed).
+
+**Next:** (open) — the autonomous-development control plane is shipped on `main` and externally accepted; no further
+milestone has begun. Activating any autonomy level beyond `autonomous-dry-run` for real work remains a separate,
+explicitly-scoped human gate.
