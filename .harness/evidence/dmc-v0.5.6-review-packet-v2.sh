@@ -20,16 +20,33 @@ ROOTDIR="$(cd "$(dirname "$SELFPATH")/../.." 2>/dev/null && pwd -P || true)"
 repo_hash() { git -C "$ROOTDIR" status --porcelain 2>/dev/null | python3 -c 'import hashlib,sys; sys.stdout.write(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())'; }
 
 PROT_RE='(^|/)(\.env)(\.|$)|\.pem$|\.key$|id_rsa|id_ed25519|credentials|secret|\.p12$|\.pfx$|\.keystore$|\.claude/hooks|provider-router\.py'
+# --out is FAIL-CLOSED (C7): allow ONLY a NEW (non-existing) file whose canonical parent is a benign temp/work dir OUTSIDE
+# the repo. Refuse traversal, .env*/credential/key/token/protected paths, symlinks (target or parent), already-existing
+# targets (no overwrite), anything in the repo tree or tracked, system paths, $HOME hidden control files (dotfile basename
+# or a .ssh/.config/... control dir), and any parent NOT under an allowlisted temp root. No env var is read. 0=REFUSE,1=ALLOW.
 out_refused() { local raw="$1"
+  [ -z "$raw" ] && return 0
   printf '%s' "$raw" | grep -qE '(^|/)\.\.(/|$)' && return 0
   case "$raw" in *.env|*.env.local|*.env.*) case "$raw" in *.example|*.sample|*.template) ;; *) return 0;; esac;; esac
   printf '%s' "$raw" | grep -qiE "$PROT_RE" && return 0
+  [ -e "$raw" ] && return 0
   [ -L "$raw" ] && return 0
-  local parent base cparent canon; parent="$(dirname "$raw" 2>/dev/null)"; base="$(basename "$raw")"
+  local parent base cparent canon root croot ok; parent="$(dirname "$raw" 2>/dev/null)"; base="$(basename "$raw")"
+  [ -L "$parent" ] && return 0
   cparent="$(cd "$parent" 2>/dev/null && pwd -P)" || return 0; canon="$cparent/$base"
+  [ -e "$canon" ] && return 0
   printf '%s' "$canon" | grep -qiE "$PROT_RE" && return 0
   case "$canon/" in "$ROOTDIR"/*) return 0;; esac
   git -C "$ROOTDIR" ls-files --error-unmatch -- "$canon" >/dev/null 2>&1 && return 0
+  printf '%s' "$canon" | grep -qE '^/(etc|usr|bin|sbin|System|Library|var/db|var/root|boot|dev|proc)(/|$)|^/private/etc(/|$)' && return 0
+  case "$base" in .*) return 0;; esac
+  printf '%s' "$canon" | grep -qE '/\.(ssh|config|gnupg|aws|kube|docker)(/|$)|/\.(gitconfig|git-credentials|netrc|npmrc|zshrc|bashrc|profile)$' && return 0
+  ok=1
+  for root in /tmp /private/tmp /var/folders /private/var/folders /var/tmp /private/var/tmp; do
+    croot="$(cd "$root" 2>/dev/null && pwd -P)" || continue
+    case "$cparent/" in "$croot"/*) ok=0; break;; esac
+  done
+  [ "$ok" = 0 ] || return 0
   return 1
 }
 
@@ -65,7 +82,7 @@ generate() { # <repo> <base> <head> <report|"">
 import sys,re
 base,head,nsf,numf,logf,repf=sys.argv[1:7]
 UNSAFE=re.compile(r'sk-[A-Za-z0-9_-]{12,}|AKIA[0-9A-Z]{8,}|gh[opsu]_[A-Za-z0-9]{12,}|github_pat_[A-Za-z0-9_]{12,}|'
-                  r'glpat-[A-Za-z0-9_-]{12,}|AIza[0-9A-Za-z_-]{16,}|ya29\.[A-Za-z0-9._-]{8,}|(BEGIN|END)[A-Z ]*PRIVATE KEY|'
+                  r'glpat-[A-Za-z0-9_-]{12,}|AIza[0-9A-Za-z_-]{16,}|ya29\.[A-Za-z0-9._-]{8,}|eyJ[A-Za-z0-9_-]{6,}\.eyJ[A-Za-z0-9_-]{6,}|(BEGIN|END)[A-Z ]*PRIVATE KEY|'
                   r'[Bb]earer\s+[A-Za-z0-9._-]{12,}|xox[baprs]-[A-Za-z0-9-]{6,}|(password|passwd|secret|token|api[_-]?key|client_secret)\s*[=:]\s*\S{4,}',re.IGNORECASE)
 def redact(s):
     s=s.replace("\n"," ").replace("\r"," ")
@@ -138,6 +155,7 @@ self_test() {
   printf 'log\n' > "$R/.harness/evidence/dmc-v0.5.x-foo.md"
   printf 'doc2\n' > "$R/docs/b.md"
   printf 'tok\n' > "$R/docs/sk-ABCDEFGHIJKLMNOP12345.md"   # filename embeds a secret-shaped token (value-blind redaction target)
+  printf 'jwt\n' > "$R/docs/jwt-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.md"   # filename embeds a JWT (C5)
   git -C "$R" add -A
   GIT_AUTHOR_DATE='2020-01-02T00:00:00 +0000' GIT_COMMITTER_DATE='2020-01-02T00:00:00 +0000' \
     git -C "$R" commit -q -m "feat: leak ghp_ABCDEFGHIJKLMNOPQRSTUVWX in subject" -m "BODY: secret sk-ABCDEFGHIJKLMNOPQRSTUV must never appear"
@@ -191,12 +209,39 @@ self_test() {
   # AC11 (HARDENING / both auditors) a changed-FILE PATH that embeds a secret-shaped token is value-blind redacted
   { ! printf '%s' "$pkt" | grep -q 'sk-ABCDEFGHIJKLMNOP12345' && printf '%s' "$pkt" | grep -q 'docs/\[redacted\].md'; } \
     && ok "AC11 changed file path with secret-shaped token is value-blind redacted in the packet (no metadata leak)" || no "AC11 path token leak"
+  # AC14 (HARDENING / C5) a JWT-shaped token (eyJ...eyJ...; a bearer credential) in a changed path is value-blind redacted
+  { ! printf '%s' "$pkt" | grep -q 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9' && printf '%s' "$pkt" | grep -q 'docs/jwt-\[redacted\].md'; } \
+    && ok "AC14 JWT-shaped token in a changed path is value-blind redacted (C5 regex parity with v0.5.3)" || no "AC14 JWT leak in packet"
   # AC12 (HARDENING / Codex) an invalid base or head fails CLOSED (refused) — never an empty "(none)" packet masking the range
   local rb rh
   generate "$R" "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" "$HEAD" "" >/dev/null 2>&1; [ $? = 2 ] && rb=1 || rb=0
   generate "$R" "$BASE" "notarealref" "" >/dev/null 2>&1; [ $? = 2 ] && rh=1 || rh=0
   { [ "$rb" = 1 ] && [ "$rh" = 1 ]; } \
     && ok "AC12 invalid base/head => REFUSED (fail-closed, no empty packet masking the range)" || no "AC12 bad range not refused (rb=$rb rh=$rh)"
+
+  # AC13 (HARDENING / C7) --out is FAIL-CLOSED: allow ONLY a NEW file in a benign temp/work dir OUTSIDE the repo
+  local C7D="$TT/c7out"; mkdir -p "$C7D"
+  local c7_new="$C7D/pkt_new.md" c7_exist="$C7D/pkt_exist.md"; : > "$c7_exist"
+  ln -s "$c7_new" "$C7D/pkt_link.md" 2>/dev/null
+  local r_new r_exist r_home r_etc r_intree r_sym r_trav r_dot
+  out_refused "$c7_new"; r_new=$?
+  out_refused "$c7_exist"; r_exist=$?
+  out_refused "${HOME:-/root}/.dmc_c7_sentinel.md"; r_home=$?
+  out_refused "/etc/passwd"; r_etc=$?
+  out_refused "$ROOTDIR/docs/c7_intree.md"; r_intree=$?
+  out_refused "$C7D/pkt_link.md"; r_sym=$?
+  out_refused "$C7D/../c7out/../x.md"; r_trav=$?
+  out_refused "$C7D/.hidden.md"; r_dot=$?
+  { [ "$r_new" = 1 ] && [ "$r_exist" = 0 ] && [ "$r_home" = 0 ] && [ "$r_etc" = 0 ] && [ "$r_intree" = 0 ] && [ "$r_sym" = 0 ] && [ "$r_trav" = 0 ] && [ "$r_dot" = 0 ]; } \
+    && ok "AC13 C7 --out guard: NEW temp file ALLOWED; existing/home-dotfile/etc-passwd/in-tree/symlink/traversal/dotfile REFUSED" \
+    || no "AC13 C7 guard (new=$r_new exist=$r_exist home=$r_home etc=$r_etc intree=$r_intree sym=$r_sym trav=$r_trav dot=$r_dot)"
+  # AC13b end-to-end: --out NEW temp path WRITES (exit 0); --out /etc/passwd REFUSED (exit 2, no OS write)
+  local c7_e2e="$C7D/e2e.md" rc_e2e rc_etc
+  bash "$SELFPATH" --repo "$R" --base "$BASE" --head "$HEAD" --out "$c7_e2e" >/dev/null 2>&1; rc_e2e=$?
+  bash "$SELFPATH" --repo "$R" --base "$BASE" --head "$HEAD" --out /etc/passwd >/dev/null 2>&1; rc_etc=$?
+  { [ "$rc_e2e" = 0 ] && [ -s "$c7_e2e" ] && [ "$rc_etc" = 2 ]; } \
+    && ok "AC13b C7 end-to-end: --out new temp path writes (exit 0); --out /etc/passwd REFUSED by guard (exit 2)" \
+    || no "AC13b C7 e2e (rc_e2e=$rc_e2e wrote=$([ -s "$c7_e2e" ] && echo y || echo n) etc=$rc_etc)"
 
   # AC10 read-only: real repo byte-unchanged (fixture work confined to $TMPDIR)
   { [ -n "$PRE" ] && [ "$(repo_hash)" = "$PRE" ]; } && ok "AC10 read-only: real repo byte-unchanged (deterministic sha256)" || no "AC10 repo changed"
@@ -213,5 +258,5 @@ esac; done
 if [ "$RUN" = selftest ]; then echo "==== DMC REVIEW PACKET v2 — SELF-TEST ===="; self_test; exit $?; fi
 REPO="${REPO:-$ROOTDIR}"
 [ -n "$BASE" ] && [ -n "$HEAD" ] || { echo "review-packet: --base <sha> --head <sha> required (or --self-test)" >&2; exit 2; }
-if [ -n "$OUT" ]; then out_refused "$OUT" && { echo "review-packet: --out protected/secret/in-work-tree — REFUSED" >&2; exit 2; }; generate "$REPO" "$BASE" "$HEAD" "$REPORT" > "$OUT"; rc=$?; echo "review-packet: wrote $OUT" >&2; exit $rc; fi
+if [ -n "$OUT" ]; then out_refused "$OUT" && { echo "review-packet: --out REFUSED — must be a NEW file in a temp/work dir outside the repo (not in-tree/tracked/secret/system/home-dotfile/existing)" >&2; exit 2; }; generate "$REPO" "$BASE" "$HEAD" "$REPORT" > "$OUT"; rc=$?; echo "review-packet: wrote $OUT" >&2; exit $rc; fi
 generate "$REPO" "$BASE" "$HEAD" "$REPORT"; exit $?

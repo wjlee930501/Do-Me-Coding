@@ -21,16 +21,33 @@ ROOTDIR="$(cd "$(dirname "$SELFPATH")/../.." 2>/dev/null && pwd -P || true)"
 repo_hash() { git -C "$ROOTDIR" status --porcelain 2>/dev/null | python3 -c 'import hashlib,sys; sys.stdout.write(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())'; }
 
 PROT_RE='(^|/)(\.env)(\.|$)|\.pem$|\.key$|id_rsa|id_ed25519|credentials|secret|\.p12$|\.pfx$|\.keystore$|\.claude/hooks|provider-router\.py'
+# --out is FAIL-CLOSED (C7): allow ONLY a NEW (non-existing) file whose canonical parent is a benign temp/work dir OUTSIDE
+# the repo. Refuse traversal, .env*/credential/key/token/protected paths, symlinks (target or parent), already-existing
+# targets (no overwrite), anything in the repo tree or tracked, system paths, $HOME hidden control files (dotfile basename
+# or a .ssh/.config/... control dir), and any parent NOT under an allowlisted temp root. No env var is read. 0=REFUSE,1=ALLOW.
 out_refused() { local raw="$1"
+  [ -z "$raw" ] && return 0
   printf '%s' "$raw" | grep -qE '(^|/)\.\.(/|$)' && return 0
   case "$raw" in *.env|*.env.local|*.env.*) case "$raw" in *.example|*.sample|*.template) ;; *) return 0;; esac;; esac
   printf '%s' "$raw" | grep -qiE "$PROT_RE" && return 0
+  [ -e "$raw" ] && return 0
   [ -L "$raw" ] && return 0
-  local parent base cparent canon; parent="$(dirname "$raw" 2>/dev/null)"; base="$(basename "$raw")"
+  local parent base cparent canon root croot ok; parent="$(dirname "$raw" 2>/dev/null)"; base="$(basename "$raw")"
+  [ -L "$parent" ] && return 0
   cparent="$(cd "$parent" 2>/dev/null && pwd -P)" || return 0; canon="$cparent/$base"
+  [ -e "$canon" ] && return 0
   printf '%s' "$canon" | grep -qiE "$PROT_RE" && return 0
   case "$canon/" in "$ROOTDIR"/*) return 0;; esac
   git -C "$ROOTDIR" ls-files --error-unmatch -- "$canon" >/dev/null 2>&1 && return 0
+  printf '%s' "$canon" | grep -qE '^/(etc|usr|bin|sbin|System|Library|var/db|var/root|boot|dev|proc)(/|$)|^/private/etc(/|$)' && return 0
+  case "$base" in .*) return 0;; esac
+  printf '%s' "$canon" | grep -qE '/\.(ssh|config|gnupg|aws|kube|docker)(/|$)|/\.(gitconfig|git-credentials|netrc|npmrc|zshrc|bashrc|profile)$' && return 0
+  ok=1
+  for root in /tmp /private/tmp /var/folders /private/var/folders /var/tmp /private/var/tmp; do
+    croot="$(cd "$root" 2>/dev/null && pwd -P)" || continue
+    case "$cparent/" in "$croot"/*) ok=0; break;; esac
+  done
+  [ "$ok" = 0 ] || return 0
   return 1
 }
 
@@ -208,6 +225,30 @@ self_test() {
     && ! rp '{"lane":"docs-only"}' | awk '/^- required_checks:/{f=1;next} /^- optional_checks:/{f=0} f' | grep -q '(none)'; } \
     && ok "AC17 lane without changed_paths => FAIL-CLOSED maximal set (no silent (none) skip)" || no "AC17 lane-without-paths silent skip"
 
+  # AC18 (HARDENING / C7) --out is FAIL-CLOSED: allow ONLY a NEW file in a benign temp/work dir OUTSIDE the repo
+  local C7D="$TT/c7out"; mkdir -p "$C7D"
+  local c7_new="$C7D/plan_new.md" c7_exist="$C7D/plan_exist.md"; : > "$c7_exist"
+  ln -s "$c7_new" "$C7D/plan_link.md" 2>/dev/null
+  local r_new r_exist r_home r_etc r_intree r_sym r_trav r_dot
+  out_refused "$c7_new"; r_new=$?
+  out_refused "$c7_exist"; r_exist=$?
+  out_refused "${HOME:-/root}/.dmc_c7_sentinel.md"; r_home=$?
+  out_refused "/etc/passwd"; r_etc=$?
+  out_refused "$ROOTDIR/docs/c7_intree.md"; r_intree=$?
+  out_refused "$C7D/plan_link.md"; r_sym=$?
+  out_refused "$C7D/../c7out/../x.md"; r_trav=$?
+  out_refused "$C7D/.hidden.md"; r_dot=$?
+  { [ "$r_new" = 1 ] && [ "$r_exist" = 0 ] && [ "$r_home" = 0 ] && [ "$r_etc" = 0 ] && [ "$r_intree" = 0 ] && [ "$r_sym" = 0 ] && [ "$r_trav" = 0 ] && [ "$r_dot" = 0 ]; } \
+    && ok "AC18 C7 --out guard: NEW temp file ALLOWED; existing/home-dotfile/etc-passwd/in-tree/symlink/traversal/dotfile REFUSED" \
+    || no "AC18 C7 guard (new=$r_new exist=$r_exist home=$r_home etc=$r_etc intree=$r_intree sym=$r_sym trav=$r_trav dot=$r_dot)"
+  # AC18b end-to-end: --out NEW temp path WRITES (exit 0); --out /etc/passwd REFUSED (exit 2, no OS write)
+  local c7_e2e="$C7D/e2e.md" rc_e2e rc_etc
+  bash "$SELFPATH" --changed-paths "docs/X.md" --out "$c7_e2e" >/dev/null 2>&1; rc_e2e=$?
+  bash "$SELFPATH" --changed-paths "docs/X.md" --out /etc/passwd >/dev/null 2>&1; rc_etc=$?
+  { [ "$rc_e2e" = 0 ] && [ -s "$c7_e2e" ] && [ "$rc_etc" = 2 ]; } \
+    && ok "AC18b C7 end-to-end: --out new temp path writes (exit 0); --out /etc/passwd REFUSED by guard (exit 2)" \
+    || no "AC18b C7 e2e (rc_e2e=$rc_e2e wrote=$([ -s "$c7_e2e" ] && echo y || echo n) etc=$rc_etc)"
+
   # AC14 read-only
   { [ -n "$PRE" ] && [ "$(repo_hash)" = "$PRE" ]; } && ok "AC14 read-only: repo byte-unchanged (deterministic sha256)" || no "AC14 repo changed"
 
@@ -232,5 +273,5 @@ k=["changed_paths","lane","protected_surface","prior_findings","test_failures"]
 print(json.dumps(dict(zip(k,sys.argv[1:6]))))
 PY
 fi
-if [ -n "$OUT" ]; then out_refused "$OUT" && { echo "verification-planner: --out protected/secret/in-work-tree — REFUSED" >&2; exit 2; }; plan "$INF" > "$OUT"; echo "verification-planner: wrote $OUT" >&2; exit 0; fi
+if [ -n "$OUT" ]; then out_refused "$OUT" && { echo "verification-planner: --out REFUSED — must be a NEW file in a temp/work dir outside the repo (not in-tree/tracked/secret/system/home-dotfile/existing)" >&2; exit 2; }; plan "$INF" > "$OUT"; echo "verification-planner: wrote $OUT" >&2; exit 0; fi
 plan "$INF"; exit $?

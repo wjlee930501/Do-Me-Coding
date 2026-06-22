@@ -33,6 +33,11 @@ STATES={"DRAFT","CRITIC","APPROVED","START_WORK","VERIFY","RELEASE_AUDIT","STAGE
 def istrue(k): return str(F.get(k,"")).strip().lower() in ("1","true","yes")     # missing => False (fail-closed)
 def isfalse_required(k): return str(F.get(k,"__MISSING__")).strip().lower() in ("0","false","no")  # must be EXPLICITLY false
 def eq(k,v): return str(F.get(k,"")).strip().upper()==v
+# C2: every stdout VERDICT carries an in-output advisory so an orchestrator can never read a bare ALLOWED/DONE as a
+# release authorization. This tool VALIDATES state discipline; it does not grant push/main/closure (that is a human gate).
+ADVISORY="- advisory: transition validation only; NOT release authorization. Push/main/closure require a separate explicit human gate."
+def emit(msg,code):
+    print(msg); print(ADVISORY); sys.exit(code)
 # allowed (from,to) -> list of predicate checks; a missing/mismatched fact fails the predicate (=> BLOCKED)
 def chk_true(k): return ("true",k)
 def chk_false(k): return ("false",k)   # requires an EXPLICIT false fact (fail-closed: missing != false)
@@ -59,30 +64,30 @@ if mode=="transition":
     if frm not in STATES or to not in STATES:
         print("state-machine: BLOCKED — unknown state", file=sys.stderr); sys.exit(1)
     if to=="BLOCKED":
-        print("ALLOWED: any -> BLOCKED (fail transition)"); sys.exit(0)
+        emit("ALLOWED: any -> BLOCKED (fail transition)",0)
     if (frm,to) not in T:
-        print("BLOCKED: %s -> %s is not an allowed transition (forbidden / out-of-order)"%(frm,to)); sys.exit(1)
+        emit("BLOCKED: %s -> %s is not an allowed transition (forbidden / out-of-order)"%(frm,to),1)
     fails=[p for p in T[(frm,to)] if not passes(p)]
     if fails:
-        print("BLOCKED: %s -> %s — unmet/missing bindings: %s"%(frm,to,", ".join("%s"%(p[1:],) for p in fails))); sys.exit(1)
-    print("ALLOWED: %s -> %s (all immutable bindings satisfied)"%(frm,to)); sys.exit(0)
+        emit("BLOCKED: %s -> %s — unmet/missing bindings: %s"%(frm,to,", ".join("%s"%(p[1:],) for p in fails)),1)
+    emit("ALLOWED: %s -> %s (all immutable bindings satisfied)"%(frm,to),0)
 # done evaluator: distinguishes accepted-for-review vs published-to-main vs closure-recorded; bound to IMMUTABLE run facts
 req_main = not isfalse_required("requires_main")        # default TRUE unless explicitly false (fail-closed)
 req_clo  = not isfalse_required("requires_closure")
 # IMMUTABLE bindings required for ANY DONE — stale/unbound facts can never be promoted to DONE (Codex-R4 / mid-batch #3)
 bindings_ok = istrue("run_id_match") and istrue("plan_hash_match") and istrue("verification_head_match")
 if istrue("closure_recorded") and req_main and not istrue("published_to_main"):
-    print("INVALID: closure_recorded but main not published"); sys.exit(1)
+    emit("INVALID: closure_recorded but main not published",1)
 need=[eq("verification","PASS"),eq("release_audit","ACCEPT"),istrue("commit_present"),bindings_ok]
 if req_main: need.append(istrue("published_to_main"))
 if req_clo:  need.append(istrue("closure_recorded") and istrue("closure_authorized"))
 if all(need):
-    print("DONE: all required gates + immutable bindings satisfied (verified@head, reviewed, committed%s%s)"%(", published" if req_main else "", ", closed" if req_clo else "")); sys.exit(0)
+    emit("DONE: all required gates + immutable bindings satisfied (verified@head, reviewed, committed%s%s)"%(", published" if req_main else "", ", closed" if req_clo else ""),0)
 if not bindings_ok:
-    print("IN_PROGRESS: immutable bindings (run_id/plan_hash/verification_head match) missing or stale — cannot be DONE"); sys.exit(1)
+    emit("IN_PROGRESS: immutable bindings (run_id/plan_hash/verification_head match) missing or stale — cannot be DONE",1)
 if istrue("published_to_main") and req_clo and not istrue("closure_recorded"):
-    print("IN_PROGRESS: published to main but closure not recorded"); sys.exit(1)
-print("IN_PROGRESS: not all required gates met (no false E2E-DONE)"); sys.exit(1)
+    emit("IN_PROGRESS: published to main but closure not recorded",1)
+emit("IN_PROGRESS: not all required gates met (no false E2E-DONE)",1)
 PY
 }
 
@@ -167,6 +172,22 @@ self_test() {
   local hb hh; hb="$(repo_hash)"; hh="$(DMC_HASH_CMD="$FAKE" repo_hash)"
   { [ ! -e "$SENT" ] && [ -n "$hb" ] && [ "$hb" = "$hh" ]; } && ok "AC14 env-hash injection: hostile DMC_HASH_CMD never read/executed" || no "AC14 env-controlled hash executed"
   # >>>AUDIT_BLOCK_END
+  # AC16 (HARDENING / C2) every ALLOWED/BLOCKED/DONE stdout verdict carries the advisory disclaimer (not enforcement)
+  J "$GOOD"
+  local oa ob od adv='advisory: transition validation only'
+  oa="$(engine transition COMMIT PUSH "$TT/f.json" 2>/dev/null)"          # ALLOWED
+  ob="$(engine transition CRITIC PUSH "$TT/f.json" 2>/dev/null)"          # BLOCKED
+  od="$(done_st '{"verification":"PASS","release_audit":"ACCEPT","commit_present":true,"published_to_main":true,"closure_recorded":true,"closure_authorized":true,"run_id_match":true,"plan_hash_match":true,"verification_head_match":true}')"  # DONE
+  { printf '%s' "$oa" | grep -q '^ALLOWED' && printf '%s' "$oa" | grep -qi "$adv" \
+    && printf '%s' "$ob" | grep -q '^BLOCKED' && printf '%s' "$ob" | grep -qi "$adv" \
+    && printf '%s' "$od" | grep -q '^DONE' && printf '%s' "$od" | grep -qi "$adv"; } \
+    && ok "AC16 ALLOWED/BLOCKED/DONE each carry the 'transition validation only; not release authorization' advisory" || no "AC16 advisory missing from a verdict"
+  # AC16b (HARDENING / C2) ALLOWED does NOT imply push authorization: even an ALLOWED COMMIT->PUSH explicitly disclaims
+  # release authorization and states push requires a separate human gate (an orchestrator cannot read ALLOWED as a grant)
+  { printf '%s' "$oa" | grep -qi 'NOT release authorization' \
+    && printf '%s' "$oa" | grep -qi 'separate explicit human gate'; } \
+    && ok "AC16b ALLOWED transition disclaims release authorization (separate human gate required; not a push grant)" || no "AC16b ALLOWED reads as a grant"
+
   # AC15 read-only: repo byte-unchanged
   { [ -n "$PRE" ] && [ "$(repo_hash)" = "$PRE" ]; } && ok "AC15 read-only: repo byte-unchanged (deterministic sha256)" || no "AC15 repo changed"
 
