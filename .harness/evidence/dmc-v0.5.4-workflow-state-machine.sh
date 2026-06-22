@@ -66,17 +66,20 @@ if mode=="transition":
     if fails:
         print("BLOCKED: %s -> %s — unmet/missing bindings: %s"%(frm,to,", ".join("%s"%(p[1:],) for p in fails))); sys.exit(1)
     print("ALLOWED: %s -> %s (all immutable bindings satisfied)"%(frm,to)); sys.exit(0)
-# done evaluator: distinguishes accepted-for-review vs published-to-main vs closure-recorded
+# done evaluator: distinguishes accepted-for-review vs published-to-main vs closure-recorded; bound to IMMUTABLE run facts
 req_main = not isfalse_required("requires_main")        # default TRUE unless explicitly false (fail-closed)
 req_clo  = not isfalse_required("requires_closure")
+# IMMUTABLE bindings required for ANY DONE — stale/unbound facts can never be promoted to DONE (Codex-R4 / mid-batch #3)
+bindings_ok = istrue("run_id_match") and istrue("plan_hash_match") and istrue("verification_head_match")
 if istrue("closure_recorded") and req_main and not istrue("published_to_main"):
     print("INVALID: closure_recorded but main not published"); sys.exit(1)
-need=[eq("verification","PASS"),eq("release_audit","ACCEPT"),istrue("commit_present")]
+need=[eq("verification","PASS"),eq("release_audit","ACCEPT"),istrue("commit_present"),bindings_ok]
 if req_main: need.append(istrue("published_to_main"))
-if req_clo:  need.append(istrue("closure_recorded"))
+if req_clo:  need.append(istrue("closure_recorded") and istrue("closure_authorized"))
 if all(need):
-    print("DONE: all required gates met (verified, reviewed, committed%s%s)"%(", published" if req_main else "", ", closed" if req_clo else "")); sys.exit(0)
-# helpful sub-state
+    print("DONE: all required gates + immutable bindings satisfied (verified@head, reviewed, committed%s%s)"%(", published" if req_main else "", ", closed" if req_clo else "")); sys.exit(0)
+if not bindings_ok:
+    print("IN_PROGRESS: immutable bindings (run_id/plan_hash/verification_head match) missing or stale — cannot be DONE"); sys.exit(1)
 if istrue("published_to_main") and req_clo and not istrue("closure_recorded"):
     print("IN_PROGRESS: published to main but closure not recorded"); sys.exit(1)
 print("IN_PROGRESS: not all required gates met (no false E2E-DONE)"); sys.exit(1)
@@ -85,7 +88,7 @@ PY
 
 self_test() {
   local P=0 F=0; ok(){ echo "  PASS $1"; P=$((P+1)); }; no(){ echo "  FAIL $1"; F=$((F+1)); }
-  local TT; TT="$(mktemp -d)"; trap 'rm -rf "$TT"' RETURN
+  local TT; TT="$(mktemp -d)" || { echo "  FATAL: mktemp -d failed"; return 2; }; [ -d "$TT" ] || { echo "  FATAL: temp dir missing"; return 2; }; trap 'rm -rf "$TT"' RETURN
   local PRE; PRE="$(repo_hash)"
   J(){ printf '%s' "$1" > "$TT/f.json"; }
   trans(){ J "$3"; engine transition "$1" "$2" "$TT/f.json" >/dev/null 2>&1; echo $?; }   # 0=ALLOWED 1=BLOCKED
@@ -134,12 +137,15 @@ self_test() {
   # AC10 closure recorded but main NOT published => INVALID
   local inv; inv="$(done_st '{"verification":"PASS","release_audit":"ACCEPT","commit_present":true,"published_to_main":false,"closure_recorded":true}')"
   printf '%s' "$inv" | grep -q '^INVALID' && ok "AC10 closure recorded but main not published => INVALID" || no "AC10 ($inv)"
-  # AC11 full E2E satisfied => DONE
-  local d; d="$(done_st '{"verification":"PASS","release_audit":"ACCEPT","commit_present":true,"published_to_main":true,"closure_recorded":true}')"
-  printf '%s' "$d" | grep -q '^DONE' && ok "AC11 all required gates met => DONE (no false DONE elsewhere)" || no "AC11 ($d)"
-  # AC11b review-only task (requires_main=false, requires_closure=false): committed+verified+reviewed => DONE without push
-  local rv; rv="$(done_st '{"verification":"PASS","release_audit":"ACCEPT","commit_present":true,"requires_main":false,"requires_closure":false}')"
+  # AC11 full E2E + immutable bindings satisfied => DONE
+  local d; d="$(done_st '{"verification":"PASS","release_audit":"ACCEPT","commit_present":true,"published_to_main":true,"closure_recorded":true,"closure_authorized":true,"run_id_match":true,"plan_hash_match":true,"verification_head_match":true}')"
+  printf '%s' "$d" | grep -q '^DONE' && ok "AC11 all required gates + immutable bindings met => DONE (no false DONE elsewhere)" || no "AC11 ($d)"
+  # AC11b review-only task (requires_main/closure=false) with bindings => DONE at commit
+  local rv; rv="$(done_st '{"verification":"PASS","release_audit":"ACCEPT","commit_present":true,"requires_main":false,"requires_closure":false,"run_id_match":true,"plan_hash_match":true,"verification_head_match":true}')"
   printf '%s' "$rv" | grep -q '^DONE' && ok "AC11b review-only (requires_main/closure=false) => DONE at commit" || no "AC11b ($rv)"
+  # AC11c (HARDENING / Codex #3) stale/unbound facts with ALL outcome flags true => NOT DONE (no false E2E-DONE from stale state)
+  local stale; stale="$(done_st '{"verification":"PASS","release_audit":"ACCEPT","commit_present":true,"published_to_main":true,"closure_recorded":true,"closure_authorized":true,"run_id_match":false,"plan_hash_match":false,"verification_head_match":false}')"
+  printf '%s' "$stale" | grep -q 'IN_PROGRESS' && ok "AC11c stale/unbound bindings (run_id/plan_hash/head mismatch) => IN_PROGRESS, never DONE" || no "AC11c stale promoted to DONE ($stale)"
 
   # AC12 deterministic + env-independent
   J "$GOOD"; local o1; o1="$(engine transition COMMIT PUSH "$TT/f.json" 2>/dev/null)"

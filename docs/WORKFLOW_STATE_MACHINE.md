@@ -24,7 +24,9 @@ advisory** — it authorizes only `CRITIC→APPROVED`, never push/main/closure (
 ## E2E-DONE (`--done`)
 Distinguishes **accepted-for-review** vs **published-to-main** vs **closure-recorded**. `DONE` only when all *required*
 gates are met (`verification=PASS`, `release_audit=ACCEPT`, `commit_present`, and — unless explicitly relaxed via
-`requires_main=false`/`requires_closure=false` — `published_to_main` and `closure_recorded`). `closure_recorded` without
+`requires_main=false`/`requires_closure=false` — `published_to_main` and `closure_recorded`) **AND the immutable bindings
+hold** (`run_id_match`, `plan_hash_match`, `verification_head_match`, and `closure_authorized` when closure is required) —
+stale/unbound facts can never be promoted to DONE. `closure_recorded` without
 `published_to_main` ⇒ **INVALID**; published-but-not-closed ⇒ **IN_PROGRESS**. No false E2E-DONE.
 
 ## Usage

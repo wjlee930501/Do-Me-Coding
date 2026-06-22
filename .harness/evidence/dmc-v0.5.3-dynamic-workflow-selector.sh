@@ -45,14 +45,25 @@ try:
     if not isinstance(f,dict): raise ValueError
 except Exception:
     print("dynamic-workflow: invalid facts JSON", file=sys.stderr); sys.exit(2)
-def b(v):
-    # fail-CLOSED: anything NOT explicitly false-y is treated as true (a danger fact is never silently downgraded)
-    return str(v).strip().lower() not in ("0","false","no","n","none","off","")
 def num(v):
     try: return max(0,int(v))
     except Exception:
         try: return max(0,int(float(v)))
         except Exception: return None
+UNSAFE=re.compile(r'sk-[A-Za-z0-9_-]{12,}|AKIA[0-9A-Z]{8,}|gh[opsu]_[A-Za-z0-9]{12,}|github_pat_[A-Za-z0-9_]{12,}|'
+                  r'glpat-[A-Za-z0-9_-]{12,}|AIza[0-9A-Za-z_-]{16,}|xox[baprs]-[A-Za-z0-9-]{6,}|ya29\.[A-Za-z0-9._-]{8,}|'
+                  r'eyJ[A-Za-z0-9_-]{6,}\.eyJ[A-Za-z0-9_-]{6,}|(BEGIN|END)[A-Z ]*PRIVATE KEY|[Bb]earer\s+[A-Za-z0-9._-]{12,}|'
+                  r'(password|passwd|secret|token|api[_-]?key|client_secret)\s*[=:]\s*\S{4,}|/Users/[^/\s]+|/home/[^/\s]+', re.IGNORECASE)
+def safe(v):
+    s="" if v is None else str(v)
+    return "[redacted]" if UNSAFE.search(s) else s.replace("\n"," ").replace("\r"," ")   # value-blind redact echoed caller facts
+def dstate(key):
+    # tri-state danger fact: 'safe' (EXPLICIT canonical false), 'escalate' (truthy), 'unknown' (missing/non-canonical => fail-closed)
+    if key not in f: return 'unknown'
+    v=str(f.get(key)).strip().lower()
+    if v in ("0","false","no","n","off"): return 'safe'
+    if v in ("1","true","yes","y","on","enabled","t"): return 'escalate'
+    return 'unknown'
 LANES=["docs-only","additive-tooling","release-closure","recovery-resume","protected-surface","secret-network-live-risk"]
 BASE={"docs-only":0,"additive-tooling":1,"release-closure":2,"recovery-resume":3,
       "protected-surface":4,"provider-adapter":4,"secret-network-live-risk":5}
@@ -66,34 +77,37 @@ tc=str(f.get("task_class","")).strip().lower()
 reasons=[]
 # fail-CLOSED base: unknown/missing/non-canonical task_class => max lane
 if tc in BASE:
-    idx=BASE[tc]; reasons.append("task_class=%s => base lane %s"%(tc,LANES[idx]))
+    idx=BASE[tc]; reasons.append("task_class=%s => base lane %s"%(safe(tc),LANES[idx]))
 else:
-    idx=5; reasons.append("task_class '%s' unknown/missing => secret-network-live-risk (fail-closed max)"%(tc or "<none>"))
+    idx=5; reasons.append("task_class is unrecognized/missing => secret-network-live-risk (fail-closed max)")
 
 # provider_target: a provider_target of 'mock' is a CATEGORY ERROR (mock is a run-mode, not a provider target)
 pt=str(f.get("provider_target","")).strip().lower()
 if pt=="mock":
     print("dynamic-workflow: CATEGORY ERROR — provider_target='mock' (mock is a RUN-MODE, not a provider_target; see v0.3.4)", file=sys.stderr); sys.exit(1)
 if pt and idx<4:
-    idx=4; reasons.append("provider_target='%s' => protected-surface (adapter work is protected)"%pt)
+    idx=4; reasons.append("a provider_target is present => protected-surface (adapter work is protected)")
 
-# danger booleans (fail-closed)
-if b(f.get("protected_surface",False)) and idx<4:
-    idx=4; reasons.append("protected_surface=true => >= protected-surface")
-if b(f.get("secret_network_live",False)) and idx<5:
-    idx=5; reasons.append("secret_network_live=true => secret-network-live-risk (adversarial)")
+# danger booleans — TRI-STATE fail-closed: missing/non-canonical => secret-network-live-risk (max); only EXPLICIT false is safe
+ps=dstate("protected_surface"); snl=dstate("secret_network_live")
+if ps=='unknown' or snl=='unknown':
+    if idx<5: idx=5
+    reasons.append("a danger fact (protected_surface/secret_network_live) is missing or non-canonical => secret-network-live-risk (fail-closed: 'no risk' must be EXPLICITLY declared false)")
+else:
+    if ps=='escalate' and idx<4: idx=4; reasons.append("protected_surface=true => >= protected-surface")
+    if snl=='escalate' and idx<5: idx=5; reasons.append("secret_network_live=true => secret-network-live-risk (adversarial)")
 
 # changed paths — a protected path forces protected-surface; a secret path forces secret-network-live-risk
 cp=[p for p in str(f.get("changed_paths","")).split(",") if p.strip()]
 for p in cp:
     if SECRET_PATH.search(p) and idx<5:
-        idx=5; reasons.append("changed path '%s' is secret-bearing => secret-network-live-risk"%p)
+        idx=5; reasons.append("a secret-bearing changed path is present => secret-network-live-risk")
     elif PROT_PATH.search(p) and idx<4:
-        idx=4; reasons.append("changed path '%s' touches the protected surface => protected-surface"%p)
+        idx=4; reasons.append("a changed path touches the protected surface => protected-surface")
 
 # run_mode is INFORMATIONAL only — it NEVER lowers the lane (run-mode != provider_target / != lane fact)
 rm=str(f.get("run_mode","")).strip().lower()
-if rm: reasons.append("run_mode=%s (informational; does not change the lane)"%rm)
+if rm: reasons.append("run_mode=%s (informational; does not change the lane)"%(rm if rm in ("mock","live") else "[other]"))
 
 lane=LANES[idx]
 # min effort from lane, then escalate with prior findings / test failures (fail-closed numeric parsing)
@@ -114,7 +128,7 @@ depth=DEPTH[e]
 # required gates (UNION) — push + closure always human-gated; protected/secret surfaces add gates
 gates=["push (human gate)","closure (human gate)"]
 if idx>=4: gates += ["protected-surface human gate","protected-path byte-unchanged check"]
-if idx>=5 or b(f.get("secret_network_live",False)): gates += ["live-call gate","network gate","credential-access gate"]
+if idx>=5: gates += ["live-call gate","network gate","credential-access gate"]
 seen=set(); gates=[g for g in gates if not (g in seen or seen.add(g))]
 
 out=["# DMC Dynamic Workflow — lane=%s"%lane,
@@ -131,49 +145,50 @@ PY
 
 self_test() {
   local P=0 F=0; ok(){ echo "  PASS $1"; P=$((P+1)); }; no(){ echo "  FAIL $1"; F=$((F+1)); }
-  local TT; TT="$(mktemp -d)"; trap 'rm -rf "$TT"' RETURN
+  local TT; TT="$(mktemp -d)" || { echo "  FATAL: mktemp -d failed (self-test needs a writable temp dir)"; return 2; }; [ -d "$TT" ] || { echo "  FATAL: temp dir missing"; return 2; }; trap 'rm -rf "$TT"' RETURN
   local PRE; PRE="$(repo_hash)"
   mk(){ printf '%s' "$1" > "$TT/in.json"; decide "$TT/in.json"; }
   lane(){ mk "$1" | awk -F': ' '/^- lane:/{print $2}'; }
   eff(){ mk "$1" | awk -F': ' '/^- min_effort:/{print $2}'; }
+  sb(){ printf '{"protected_surface":false,"secret_network_live":false,%s}' "$1"; }   # explicit-safe danger base (low lane requires declaring no-risk)
   laneidx(){ case "$1" in docs-only)echo 0;; additive-tooling)echo 1;; release-closure)echo 2;; recovery-resume)echo 3;; protected-surface)echo 4;; secret-network-live-risk)echo 5;; *)echo -1;; esac; }   # unknown/empty => -1 so a broken result FAILS
 
-  # AC1 docs-only, no danger => docs-only lane / light
-  local D='{"task_class":"docs-only","protected_surface":false,"secret_network_live":false}'
-  { [ "$(lane "$D")" = docs-only ] && [ "$(eff "$D")" = light ]; } && ok "AC1 docs-only => lane docs-only, effort light (smallest sufficient)" || no "AC1 docs-only (lane=$(lane "$D"))"
-  # AC2 additive-tooling => standard
-  [ "$(lane '{"task_class":"additive-tooling"}')" = additive-tooling ] && ok "AC2 additive-tooling => lane additive-tooling" || no "AC2 additive"
+  # AC1 docs-only (explicit no-risk) => docs-only / light
+  local D; D="$(sb '"task_class":"docs-only"')"
+  { [ "$(lane "$D")" = docs-only ] && [ "$(eff "$D")" = light ]; } && ok "AC1 docs-only (explicit no-risk) => docs-only, light (smallest sufficient)" || no "AC1 docs-only (lane=$(lane "$D"))"
+  # AC2 additive-tooling => additive-tooling
+  [ "$(lane "$(sb '"task_class":"additive-tooling"')")" = additive-tooling ] && ok "AC2 additive-tooling => lane additive-tooling" || no "AC2 additive"
   # AC3 protected_surface=true => protected-surface / deep + gates
-  local PS='{"task_class":"docs-only","protected_surface":true}'
+  local PS; PS="$(sb '"task_class":"docs-only","protected_surface":true')"
   { [ "$(lane "$PS")" = protected-surface ] && [ "$(eff "$PS")" = deep ] && mk "$PS" | grep -q 'protected-path byte-unchanged check'; } \
     && ok "AC3 protected_surface=true => protected-surface, deep, byte-unchanged gate (anti-downgrade)" || no "AC3 protected"
-  # AC4 secret_network_live => secret-network-live-risk / adversarial + live/network/credential gates
-  local SNL='{"task_class":"additive-tooling","secret_network_live":true}'
+  # AC4 secret_network_live=true => secret-network-live-risk / adversarial + gates
+  local SNL; SNL="$(sb '"task_class":"additive-tooling","secret_network_live":true')"
   { [ "$(lane "$SNL")" = secret-network-live-risk ] && [ "$(eff "$SNL")" = adversarial ] && mk "$SNL" | grep -q 'live-call gate'; } \
-    && ok "AC4 secret_network_live => secret-network-live-risk, adversarial, live/network/credential gates" || no "AC4 snl"
+    && ok "AC4 secret_network_live=true => secret-network-live-risk, adversarial, live/network/credential gates" || no "AC4 snl"
   # AC5 a protected changed-path forces protected-surface even when task_class=docs-only (anti-downgrade)
-  local CP='{"task_class":"docs-only","changed_paths":".claude/workers/providers/glm-api/x.py,docs/y.md"}'
-  [ "$(lane "$CP")" = protected-surface ] && ok "AC5 protected changed-path forces protected-surface despite docs-only task_class" || no "AC5 path (lane=$(lane "$CP"))"
+  [ "$(lane "$(sb '"task_class":"docs-only","changed_paths":".claude/workers/providers/glm-api/x.py,docs/y.md"')")" = protected-surface ] \
+    && ok "AC5 protected changed-path forces protected-surface despite docs-only task_class" || no "AC5 path"
   # AC5b a secret changed-path forces secret-network-live-risk
-  [ "$(lane '{"task_class":"docs-only","changed_paths":".env"}')" = secret-network-live-risk ] && ok "AC5b secret changed-path => secret-network-live-risk" || no "AC5b secret-path"
-  # AC6 unknown task_class => fail-closed max lane
-  { [ "$(lane '{"task_class":"frobnicate"}')" = secret-network-live-risk ] && [ "$(lane '{}')" = secret-network-live-risk ]; } \
-    && ok "AC6 unknown/missing task_class => secret-network-live-risk (fail-closed)" || no "AC6 unknown not max"
+  [ "$(lane "$(sb '"task_class":"docs-only","changed_paths":".env"')")" = secret-network-live-risk ] && ok "AC5b secret changed-path => secret-network-live-risk" || no "AC5b secret-path"
+  # AC6 unknown task_class OR missing danger fact => fail-closed max lane
+  { [ "$(lane "$(sb '"task_class":"frobnicate"')")" = secret-network-live-risk ] && [ "$(lane '{"task_class":"docs-only"}')" = secret-network-live-risk ]; } \
+    && ok "AC6 unknown task_class OR missing danger fact => secret-network-live-risk (fail-closed)" || no "AC6 not max"
   # AC7 non-canonical danger boolean fails CLOSED (escalates)
-  { [ "$(lane '{"task_class":"additive-tooling","secret_network_live":"on"}')" = secret-network-live-risk ] \
-    && [ "$(lane '{"task_class":"additive-tooling","protected_surface":"enabled"}')" = protected-surface ]; } \
+  { [ "$(lane "$(sb '"task_class":"additive-tooling","secret_network_live":"on"')")" = secret-network-live-risk ] \
+    && [ "$(lane "$(sb '"task_class":"additive-tooling","protected_surface":"enabled"')")" = protected-surface ]; } \
     && ok "AC7 non-canonical danger boolean (on/enabled) fails CLOSED (escalates)" || no "AC7 boolean fail-open"
   # AC8 provider_target=mock => CATEGORY ERROR refused (exit 1); a real provider_target => protected-surface
-  bash "$SELFPATH" --task-class docs-only --provider-target mock >/dev/null 2>&1; [ $? = 1 ] && local c1=1 || local c1=0
-  [ "$(lane '{"task_class":"docs-only","provider_target":"glm-api"}')" = protected-surface ] && local c2=1 || local c2=0
+  bash "$SELFPATH" --task-class docs-only --protected-surface false --secret-network-live false --provider-target mock >/dev/null 2>&1; [ $? = 1 ] && local c1=1 || local c1=0
+  [ "$(lane "$(sb '"task_class":"docs-only","provider_target":"glm-api"')")" = protected-surface ] && local c2=1 || local c2=0
   { [ "$c1" = 1 ] && [ "$c2" = 1 ]; } && ok "AC8 provider_target=mock => CATEGORY ERROR (exit 1); real provider_target => protected-surface" || no "AC8 mock/provider (c1=$c1 c2=$c2)"
   # AC9 run_mode=mock does NOT lower the lane (run-mode != lane fact)
-  [ "$(lane '{"task_class":"protected-surface","run_mode":"mock"}')" = protected-surface ] && ok "AC9 run_mode=mock does NOT lower the lane" || no "AC9 run-mode lowered lane"
+  [ "$(lane "$(sb '"task_class":"protected-surface","run_mode":"mock"')")" = protected-surface ] && ok "AC9 run_mode=mock does NOT lower the lane" || no "AC9 run-mode lowered lane"
   # AC10 STRUCTURAL monotonicity: adding each risk fact never lowers the lane index
   local base_idx mono=1 json li
-  base_idx="$(laneidx "$(lane '{"task_class":"docs-only"}')")"
+  base_idx="$(laneidx "$(lane "$(sb '"task_class":"docs-only"')")")"
   for add in '"protected_surface":true' '"secret_network_live":true' '"changed_paths":"provider-router.py"' '"provider_target":"glm-api"' '"task_class":"protected-surface"'; do
-    json="{\"task_class\":\"docs-only\",$add}"   # build in a var first (avoids brace-expansion of {a,b} in nested cmd-subst)
+    json="$(sb "\"task_class\":\"docs-only\",$add")"   # explicit-safe base + the added risk fact (duplicate key => last wins)
     li="$(laneidx "$(lane "$json")")"
     { [ "$li" -ge 0 ] && [ "$li" -ge "$base_idx" ]; } || mono=0   # li=-1 (broken/empty result) => FAIL, not false-pass
   done
@@ -199,13 +214,23 @@ self_test() {
   local hb hh; hb="$(repo_hash)"; hh="$(DMC_HASH_CMD="$FAKE" repo_hash)"
   { [ ! -e "$SENT" ] && [ -n "$hb" ] && [ "$hb" = "$hh" ]; } && ok "AC13 env-hash injection: hostile DMC_HASH_CMD never read/executed" || no "AC13 env-controlled hash executed"
   # >>>AUDIT_BLOCK_END
+  # AC15 (HARDENING / Codex-2) fail-closed on a MISSING or non-canonical danger fact => max lane (not fail-open)
+  { [ "$(lane '{"task_class":"docs-only","protected_surface":false}')" = secret-network-live-risk ] \
+    && [ "$(lane "$(sb '"task_class":"docs-only","protected_surface":"maybe"')")" = secret-network-live-risk ]; } \
+    && ok "AC15 missing / non-canonical danger fact => secret-network-live-risk (fail-closed; no fail-open downgrade)" || no "AC15 fail-open on omitted/garbage danger fact"
+  # AC16 (HARDENING / Codex-5) secret-shaped caller facts are value-blind redacted in the output (no metadata leak)
+  { ! mk '{"task_class":"sk-ABCDEFGHIJKLMNOPQRSTUV","protected_surface":false,"secret_network_live":false}' | grep -q 'sk-ABCDEFGHIJKLMNOPQRSTUV' \
+    && ! mk '{"task_class":"docs-only","protected_surface":false,"secret_network_live":false,"provider_target":"ghp_ABCDEFGHIJKLMNOPQRSTUVWX"}' | grep -q 'ghp_ABCDEFGHIJKLMNOPQRSTUVWX'; } \
+    && ok "AC16 secret-shaped caller facts (task_class/provider_target) value-blind redacted in output" || no "AC16 metadata leak in reason"
+
   # AC14 read-only: repo byte-unchanged
   { [ -n "$PRE" ] && [ "$(repo_hash)" = "$PRE" ]; } && ok "AC14 read-only: repo byte-unchanged (deterministic sha256)" || no "AC14 repo changed"
 
   echo "  ---- self-test: PASS=$P FAIL=$F ----"; [ "$F" = 0 ]
 }
 
-TC=""; CP=""; PS=false; SNL=false; PT=""; RM=""; FIND=0; FAIL=0; FROM=""; OUT=""; RUN=run
+# danger booleans default to __unset__ (NOT false): omitting one fails CLOSED (escalates). Pass an explicit value to declare.
+TC=""; CP=""; PS=__unset__; SNL=__unset__; PT=""; RM=""; FIND=0; FAIL=0; FROM=""; OUT=""; RUN=run
 while [ $# -gt 0 ]; do case "$1" in
   --task-class) TC="$2"; shift 2;; --changed-paths) CP="$2"; shift 2;; --protected-surface) PS="$2"; shift 2;;
   --secret-network-live) SNL="$2"; shift 2;; --provider-target) PT="$2"; shift 2;; --run-mode) RM="$2"; shift 2;;

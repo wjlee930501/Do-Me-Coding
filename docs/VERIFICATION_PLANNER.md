@@ -22,4 +22,8 @@ sufficient verification set. Advisory; inert unless invoked; reads no env/`.env`
 - **Forbidden checks (always):** read/print `.env` or any credential; make a live provider/network call to "verify";
   print raw provider payloads or user content; auto-apply reviewer/critic output.
 - **Escalation:** any prior finding / test failure (or an unparseable count) ⇒ add an adversarial re-verify.
+- **Lane-driven escalation:** the workflow `lane` (from the v0.5.3 selector) drives required checks regardless of path
+  category — a `protected-surface` lane forces protected byte-unchanged; a `secret-network-live-risk` lane forces leak
+  scan + reject-path + adversarial re-verify + byte-unchanged; an unrecognized lane ⇒ fail-closed maximal set. Caller
+  changed-path values echoed in the reason are **value-blind redacted**.
 - **Monotonic / union:** adding a riskier path never removes a required check.

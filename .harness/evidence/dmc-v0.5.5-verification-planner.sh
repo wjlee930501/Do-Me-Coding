@@ -47,6 +47,8 @@ def num(v):
     except Exception:
         try: return max(0,int(float(v)))
         except Exception: return None
+# value-blind by construction: this tool emits only CATEGORY labels and check names — it NEVER echoes a raw caller path
+LANES_SET={"docs-only","additive-tooling","release-closure","recovery-resume","protected-surface","secret-network-live-risk"}
 SECRET=re.compile(r'(^|/)\.env($|\.)|\.pem$|\.key$|id_rsa|id_ed25519|(^|/)credentials|\.aws/credentials|/\.ssh/',re.I)
 PROVIDER=re.compile(r'\.claude/workers/providers/|provider-router\.py|(^|/)ROUTING\.md$|PROVIDER_CONTRACT\.md|import',re.I)
 GUARD=re.compile(r'\.claude/hooks/|(secret-guard|pre-tool-guard|scope-guard|stop-verify-gate)|guard|classifier|validator|importer',re.I)
@@ -73,25 +75,31 @@ if not raw and not prot_flag and not lane:
 
 cats=set()
 for p in paths:
-    if SECRET.search(p):
-        cats.add("secret"); req.add("REFUSE: a secret file must not be in the changeset — verify by halting, never by reading it")
-        reasons.append("%s is secret-bearing => refuse/halt (do not read)"%p)
-    elif SMOKE.search(p) or PROVIDER.search(p):
-        cats.add("provider"); reasons.append("%s is a provider/import/router path (protected)"%p)
-    elif SCHEMA.search(p):
-        cats.add("schema"); reasons.append("%s is a schema (protected)"%p)
-    elif GUARD.search(p):
-        cats.add("guard"); reasons.append("%s is a guard/hook/validator/classifier/importer (protected)"%p)
-    elif SHELL.search(p):
-        cats.add("shell"); reasons.append("%s is a shell tool"%p)
-    elif ARTIFACT.search(p):
-        cats.add("artifact"); reasons.append("%s is a text-bearing artifact"%p)
-    elif DOCS.search(p):
-        cats.add("docs"); reasons.append("%s is docs"%p)
-    else:
-        cats.add("unknown"); fail_closed=True; reasons.append("%s could not be categorized => fail-closed escalate"%p)
+    if SECRET.search(p): cats.add("secret"); req.add("REFUSE: a secret file must not be in the changeset — verify by halting, never by reading it")
+    elif SMOKE.search(p) or PROVIDER.search(p): cats.add("provider")
+    elif SCHEMA.search(p): cats.add("schema")
+    elif GUARD.search(p): cats.add("guard")
+    elif SHELL.search(p): cats.add("shell")
+    elif ARTIFACT.search(p): cats.add("artifact")
+    elif DOCS.search(p): cats.add("docs")
+    else: cats.add("unknown"); fail_closed=True
+# value-blind: one CATEGORY reason per category present — NO caller path is ever echoed
+CATMSG={"secret":"a secret-bearing changed path is present => refuse/halt (do not read)",
+        "provider":"a provider/import/router path is present (protected)","schema":"a schema is present (protected)",
+        "guard":"a guard/hook/validator/classifier/importer path is present (protected)","shell":"a shell tool path is present",
+        "artifact":"a text-bearing artifact path is present","docs":"a docs path is present",
+        "unknown":"an uncategorizable changed path is present => fail-closed escalate"}
+for c in sorted(cats): reasons.append(CATMSG[c])
 
 protected_in_scope = bool(cats & {"provider","schema","guard","secret"}) or prot_flag
+# LANE-DRIVEN escalation (Codex #4) — the lane (from the selector) drives required checks regardless of path category
+if lane and lane not in LANES_SET:
+    fail_closed=True; reasons.append("the provided lane is not recognized => fail-closed maximal verification set")
+if lane in ("protected-surface","secret-network-live-risk"):
+    protected_in_scope=True; reasons.append("lane=%s => protected-path byte-unchanged required regardless of path category"%lane)
+if lane=="secret-network-live-risk":
+    req.update(["secret/provider-payload leak scan","reject-path / fail-closed tests","adversarial re-verify (secret/network/live lane)","protected-path byte-unchanged check"])
+    reasons.append("lane=secret-network-live-risk => leak scan + reject-path + adversarial verification (regardless of path)")
 # per-category required checks (accumulate / union)
 if "docs" in cats: req.update(["markdown style/lint check","docs/MILESTONES append-only + status check"])
 if "shell" in cats: req.update(["tool --self-test green","structural shell audit (no net/--live/env-read/env-hash; shellcheck-like grep)"])
@@ -122,7 +130,7 @@ PY
 
 self_test() {
   local P=0 F=0; ok(){ echo "  PASS $1"; P=$((P+1)); }; no(){ echo "  FAIL $1"; F=$((F+1)); }
-  local TT; TT="$(mktemp -d)"; trap 'rm -rf "$TT"' RETURN
+  local TT; TT="$(mktemp -d)" || { echo "  FATAL: mktemp -d failed"; return 2; }; [ -d "$TT" ] || { echo "  FATAL: temp dir missing"; return 2; }; trap 'rm -rf "$TT"' RETURN
   local PRE; PRE="$(repo_hash)"
   rp(){ printf '%s' "$1" > "$TT/f.json"; plan "$TT/f.json"; }
   req_has(){ rp "$1" | awk '/^- required_checks:/{f=1;next} /^- optional_checks:/{f=0} f' | grep -qi "$2"; }
@@ -183,6 +191,17 @@ self_test() {
   local hb hh; hb="$(repo_hash)"; hh="$(DMC_HASH_CMD="$FAKE" repo_hash)"
   { [ ! -e "$SENT" ] && [ -n "$hb" ] && [ "$hb" = "$hh" ]; } && ok "AC13 env-hash injection: hostile DMC_HASH_CMD never read/executed" || no "AC13 env-controlled hash executed"
   # >>>AUDIT_BLOCK_END
+  # AC15 (HARDENING / Codex #4) lane DRIVES escalation regardless of path category
+  { req_has '{"lane":"secret-network-live-risk","changed_paths":"docs/X.md"}' 'leak scan' \
+    && req_has '{"lane":"secret-network-live-risk","changed_paths":"docs/X.md"}' 'reject-path' \
+    && req_has '{"lane":"secret-network-live-risk","changed_paths":"docs/X.md"}' 'byte-unchanged' \
+    && req_has '{"lane":"protected-surface","changed_paths":"docs/X.md"}' 'byte-unchanged' \
+    && rp '{"lane":"bogus-lane","changed_paths":"docs/X.md"}' | grep -q 'FAIL-CLOSED'; } \
+    && ok "AC15 lane drives escalation: secret-lane => leak/reject/byte-unchanged on a docs changeset; unknown lane => FAIL-CLOSED" || no "AC15 lane ignored / under-verified"
+  # AC16 (HARDENING / Codex #5) a secret-shaped changed path is value-blind redacted in the output (no metadata leak)
+  ! rp '{"changed_paths":".claude/workers/providers/sk-ABCDEFGHIJKLMNOPQRST/x.py"}' | grep -q 'sk-ABCDEFGHIJKLMNOPQRST' \
+    && ok "AC16 secret-shaped changed path value-blind redacted in output (no leak)" || no "AC16 metadata leak in reason"
+
   # AC14 read-only
   { [ -n "$PRE" ] && [ "$(repo_hash)" = "$PRE" ]; } && ok "AC14 read-only: repo byte-unchanged (deterministic sha256)" || no "AC14 repo changed"
 
