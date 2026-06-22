@@ -11,8 +11,14 @@
 # Exit: 0 = all stages PASS, 1 = any stage FAIL, 2 = usage.
 set -u
 set -o pipefail
-ROOTDIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-SELFPATH="$(cd "$(dirname "$0")" 2>/dev/null && pwd)/$(basename "$0")"
+SELFPATH="$(cd "$(dirname "$0")" 2>/dev/null && pwd -P)/$(basename "$0")"
+# F4: derive the repo root from the SCRIPT LOCATION (not the process CWD), so the --out write-safety boundary holds from
+# ANY cwd. This script lives at <repo>/.harness/evidence/<this>.sh -> the repo root is two directories up. Hard-fail if
+# the derived root is empty or not a git worktree (e.g. the script was copied outside a repo).
+ROOTDIR="$(cd "$(dirname "$SELFPATH")/../.." 2>/dev/null && pwd -P || true)"
+if [ -z "$ROOTDIR" ] || ! git -C "$ROOTDIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "autonomous-dry-run: cannot locate the repo root from the script path — refusing (F4)" >&2; exit 2
+fi
 EV="$ROOTDIR/.harness/evidence"
 T0="$EV/dmc-v0.4.0-autonomy-charter.sh"; T1="$EV/dmc-v0.4.1-goal-plan-compiler.sh"; T2="$EV/dmc-v0.4.2-branch-isolation-guard.sh"
 T3="$EV/dmc-v0.4.3-scope-overeager-guard.sh"; T4="$EV/dmc-v0.4.4-evidence-harness.sh"; T5="$EV/dmc-v0.4.5-secret-network-live-guard.sh"
@@ -26,18 +32,24 @@ repo_hash() { git -C "$ROOTDIR" status --porcelain 2>/dev/null | "$HASH_CMD"; }
 
 out_refused() { local raw="$1"
   case "$raw" in *..*|*/.env|.env|*.pem|*.key|*credentials*|*secret*) return 0;; esac
-  # F4: refuse any --out path that resolves INSIDE the git work tree (would risk overwriting a tracked production file)
+  # F4: reject a symlinked --out target — cp would dereference it into the work tree
+  [ -L "$raw" ] && return 0
+  # F4: resolve the target via its parent's PHYSICAL path; refuse anything inside the repo work tree (ROOTDIR is now
+  #     script-derived, so this holds from any cwd). Fail CLOSED if the parent cannot be resolved.
   local parent base cparent canon
   parent="$(dirname "$raw" 2>/dev/null)"; base="$(basename "$raw")"
-  cparent="$(cd "$parent" 2>/dev/null && pwd -P)" || return 1
+  cparent="$(cd "$parent" 2>/dev/null && pwd -P)" || return 0
   canon="$cparent/$base"
   case "$canon/" in "$ROOTDIR"/*) return 0;; esac
+  # F4: belt-and-suspenders — refuse a path git already tracks (resolved absolute path)
+  git -C "$ROOTDIR" ls-files --error-unmatch -- "$canon" >/dev/null 2>&1 && return 0
   return 1
 }
 regression_ok() { local t rc; for t in "$@"; do bash "$t" --self-test >/dev/null 2>&1; rc=$?; [ "$rc" = 0 ] || return 1; done; return 0; }
 
 acceptance_run() { # <outfile>
   local outfile="$1"
+  cd "$ROOTDIR" 2>/dev/null || true   # F4: run sibling tools from the repo root so their cwd-derived ROOTDIR is correct
   local TT; TT="$(mktemp -d)"
   local s0 s1 s2 s3 s4 s5 s6 s7 s8
   # S0 PRESENCE + REGRESSION (all 9 v0.4 tools self-test green)
@@ -134,6 +146,20 @@ self_test() {
   # AC7 (F4) no hash tool => hard-fail exit 2 (byte-unchanged check can never pass vacuously)
   DMC_HASH_CMD="" bash "$SELFPATH" --self-test >/dev/null 2>&1; [ $? = 2 ] \
     && ok "AC7 hash-absence => hard-fail exit 2 (no vacuous empty==empty pass)" || no "AC7 hash-absence not hard-failed"
+
+  # AC8 (F4 RC1) cwd-independence: a FRESH process launched from an OUT-OF-REPO cwd still refuses an in-work-tree --out
+  #     target => ROOTDIR is script-derived, not cwd-derived. Uses a NON-EXISTENT in-repo path => zero write risk.
+  local INREPO="$ROOTDIR/.harness/runs/__f4_rc1_probe__.md"
+  ( cd "$TT" && bash "$SELFPATH" --out "$INREPO" >/dev/null 2>&1 ); local rc8=$?
+  { [ "$rc8" = 2 ] && [ ! -e "$INREPO" ]; } \
+    && ok "AC8 fresh process from out-of-repo cwd refuses an in-work-tree --out (RC1 closed)" || no "AC8 RC1 in-repo --out not refused from out-of-repo cwd (rc=$rc8)"
+  rm -f "$INREPO" 2>/dev/null
+
+  # AC9 (F4 RC2) symlinked --out target -> a tracked repo file => REFUSED; AND a tracked-file --out is refused even
+  #     when classified from a cwd OUTSIDE the repo (the cp write-through vector is closed)
+  ln -s "$ROOTDIR/DMC.md" "$TT/link_to_repo" 2>/dev/null
+  { out_refused "$TT/link_to_repo" && ( cd "$TT" && out_refused "$ROOTDIR/DMC.md" ); } \
+    && ok "AC9 symlinked --out REFUSED; tracked-file --out REFUSED from cwd=$TT (RC2 closed)" || no "AC9 symlink/cwd --out allowed"
 
   echo "  ---- self-test: PASS=$P FAIL=$F ----"; [ "$F" = 0 ]
 }
