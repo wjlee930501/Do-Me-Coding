@@ -294,3 +294,52 @@ explicitly-scoped human gate.
 
 **Next:** (open) — the performance/efficiency control plane is shipped on `main`; **v0.5.3 or v0.6.0 should be separately
 planned (not started here)**. No further milestone has begun.
+
+## v0.5.3–v0.5.9 — Dynamic Workflow Control Plane — CLOSED (2026-06-22)
+
+- **Published `main`:** `4fa230d` · **base before stack:** `ece6a9a` · **review branch:**
+  `review/dmc-v0.5.3-v0.5.9-dynamic-workflow @ 4fa230d` (preserved).
+- **Publication:** clean **fast-forward** to `main` (`ece6a9a..4fa230d`) — **no merge commit, no force push, no history
+  rewrite** (`ece6a9a` remains an ancestor of `main`).
+- **Scope shipped** (seven additive, advisory/read-only tools under `.harness/evidence/`, each with an embedded `--self-test`):
+  - **v0.5.3 Dynamic Workflow Selector** — smallest-sufficient lane from explicit task facts; fail-closed on missing/non-canonical
+    danger facts; `provider_target=mock` is a category error; `run_mode=mock` is informational and never lowers the lane.
+  - **v0.5.4 Workflow State Machine** — transition validator + E2E-`DONE` evaluator bound to immutable run facts; every verdict
+    carries an in-output advisory disclaimer.
+  - **v0.5.5 Verification Planner** — minimal-sufficient required/optional/forbidden checks; union/monotonic; lane displayed
+    canonical-only.
+  - **v0.5.6 Review Packet Generator v2** — names-only review packet from git metadata; **value-blind by structure** (paths
+    `<bucket>/[name].<ext>`, subjects reduced to a conventional type-class or `[subject withheld]`); no body / no diff.
+  - **v0.5.7 Resume Recovery Controller** — next-safe-action after interruption; never "safe to push" — only a commit-bound
+    `needs_human_gate` candidate; fail-closed.
+  - **v0.5.8 Dynamic Delegation Harness** — 4-role handoff + gate matrix; critic PASS is advisory, never a release grant;
+    push/main/closure stay human-gated even under an ACTIVE bounded batch.
+  - **v0.5.9 Dynamic Workflow Acceptance Suite** — capstone composing v0.5.3–v0.5.8 offline over 7 synthetic scenarios.
+- **Quality bar:** **7/7 self-tests green — 133 PASS / 0 FAIL** (20 + 22 + 22 + 17 + 18 + 19 + 15), all exit 0, re-confirmed on
+  published `main`. **C1–C11 adversarial invariants HOLD** (independent multi-agent falsification, all high-confidence).
+- **Important resolved findings (REVISE cycle):**
+  - **C11 (approval-gate separation)** — `CRITIC→APPROVED` no longer flips on critic PASS alone; an explicit
+    `approval_authorized` fact (human Release Gate or active bounded-batch scope) is required; approval is never inferred from
+    run state.
+  - **C5 (lane leak, v0.5.5)** — the displayed lane is **canonical-only / value-blind**: an unrecognized/token-shaped lane
+    renders as `[unrecognized]`, never echoed raw.
+  - **C5 (review packet, v0.5.6)** — re-architected to emit **structural value-blind metadata only** (raw basenames + subject
+    text withheld), defeating arbitrary novel secret shapes rather than enumerating token prefixes.
+  - **C7 (`--out` path guard)** — refuses existing / system / in-tree / tracked / home-dotfile / symlink (target & parent) /
+    traversal targets, and the `.env`-class refusal is **case-insensitive** (`.env` / `.ENV` / `prod.ENV` / `.ENV.LOCAL`).
+  - **GitHub Push Protection** — the blocked push was resolved by **scrubbing synthetic provider-shaped fixture literals from
+    the local-only commits** (after the published review head) via a non-force, FF-preserving rewrite; **no GitHub unblock URL
+    and no Push-Protection override were used**.
+- **Safety posture:** **additive** dynamic-workflow artifacts only (`+2392 / −0`, 29 files over the prior `main`);
+  **advisory / read-only**, inert unless explicitly invoked; **no live provider/model/API call**; **no `.env*` / credential
+  read**; **no protected-surface mutation** (no adapter / provider-router / schema / hook / guard / validator / `dmc-glm-smoke`
+  change); auto-log `.harness/evidence/*.md` remain **untracked / excluded**; `repo_hash` is env-free
+  (`git status --porcelain | python3 hashlib.sha256`).
+- **Remaining caveat:** these v0.5.3–v0.5.9 controls are **advisory, not enforcement** — they select / validate / recommend;
+  the runtime hooks `secret-guard.sh` / `pre-tool-guard.sh` remain the real enforcement. Value-blind emission is structural and
+  strong, but a human must still review an emitted packet before acting on it.
+- **Gate status:** review branch **preserved** (`@ 4fa230d`); closure **recorded by this docs commit**; **next work not
+  started**.
+
+**Next:** (open) — the Dynamic Workflow Control Plane is shipped on `main`; **v0.6.0 (or the next milestone) should be
+separately planned (not started here)**. No further milestone has begun.
