@@ -65,6 +65,13 @@ approval). `approval.type` MUST be `human-release-gate`, and the approval entry 
    registers (`capability`, `evidence`, `goal`, `decision`, `approval`) MUST be **non-empty** so Q1/Q2/Q4/Q5/Q6 are
    answerable; `finding` may be empty ("no findings" is a valid Q3 answer). An empty or approval-less record → REJECT.
 
+## Validation modes (record vs entry)
+A producer milestone (v0.6.1–v0.6.5) mints **one register entry** (a fragment), not a complete trace. So the validator has two
+modes: **record-level** (`--validate`) checks a COMPLETE trace — rules 1–5 + edges + cross-subject; **entry-level**
+(`--validate-entry <register-key>`) checks a single entry's **well-formedness** (kind / producer / id / enum / binding-fields
+present + hash-shaped / approval type+source / no-secret / no-duplicate-JSON-key). Cross-subject, completeness, and edges stay
+**record-level** (composed + validated by v0.6.5). A path of `-` reads stdin (no temp file).
+
 ## Value-blind (reject-on-match; no sanitized output)
 A **recursive** scan over all keys, values, nested objects, arrays, `edges[].{from,to}`, and `approval[].{source,id}`. Any
 secret-shaped string (the v0.5.0 UNSAFE shape set — `sk-`/`AKIA`/PEM/`gh[opsu]_`/`github_pat_`/`glpat-`/`npm_`/`AIza`/

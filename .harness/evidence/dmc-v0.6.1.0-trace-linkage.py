@@ -121,16 +121,56 @@ def validate_text(text):
         return 1, str(e)
     return 0, "VALID"
 
+def read_text(path):
+    if path == "-": return sys.stdin.read()      # stdin (no temp file needed in a no-temp sandbox)
+    with open(path, "r") as f: return f.read()
+
 def validate_path(path):
     try:
-        with open(path, "r") as f:
-            text = f.read()
+        text = read_text(path)
     except Exception as e:
         sys.stderr.write("INVALID: read: %s\n" % e); return 2
     code, msg = validate_text(text)
     if code == 0: sys.stdout.write("VALID\n")
     else: sys.stderr.write("INVALID: %s\n" % msg)
     return code
+
+# entry-level (fragment) validation: a producer milestone (v0.6.1-v0.6.5) mints ONE register entry, not a complete trace.
+# This checks the entry's WELL-FORMEDNESS (kind/producer/id/enum/binding-fields-present+shaped/approval/no-secret/no-dup-key).
+# Cross-subject + completeness + edges remain RECORD-level checks (validate_record), done by the composer (v0.6.5).
+def validate_entry(register_key, e):
+    if register_key not in REG: raise Bad("unknown register key: %s" % register_key)
+    if not isinstance(e, dict): raise Bad("entry not object")
+    if scan(e): raise Bad("secret-shaped string present (entry T10)")
+    exp_kind, exp_prod = REG[register_key]
+    if e.get("kind") != exp_kind: raise Bad("entry.kind != %s" % exp_kind)
+    if not nestr(e.get("id")): raise Bad("entry.id missing/empty")
+    if e.get("producer_milestone_id") != exp_prod: raise Bad("entry.producer_milestone_id != %s (T8)" % exp_prod)
+    for bk in ("work_id","plan_hash","repo_hash","verification_ref"):
+        if not nestr(e.get(bk)): raise Bad("entry.%s missing/empty (binding)" % bk)
+    if not HASH_RE.match(e["plan_hash"]): raise Bad("entry.plan_hash not hash-shaped")
+    if not HASH_RE.match(e["repo_hash"]): raise Bad("entry.repo_hash not hash-shaped")
+    if register_key == "capability" and e["id"] not in CLASSES: raise Bad("capability_class not in six (T9)")
+    if register_key == "finding" and e.get("state") not in STATES: raise Bad("finding.state not in four (T9)")
+    if register_key == "approval":
+        if e.get("type") != "human-release-gate": raise Bad("approval.type not human-release-gate (T7)")
+        if not (nestr(e.get("source")) and e["source"].startswith(APPROVAL_PREFIX)): raise Bad("approval.source not 'human-release-gate:' (T7c)")
+    return True
+
+def validate_entry_path(register_key, path):
+    try:
+        text = read_text(path)
+    except Exception as e:
+        sys.stderr.write("INVALID: read: %s\n" % e); return 2
+    try:
+        ent = json.loads(text, object_pairs_hook=no_dup)
+    except ValueError as ex:
+        sys.stderr.write("INVALID: json: %s\n" % ex); return 1
+    try:
+        validate_entry(register_key, ent)
+    except Bad as ex:
+        sys.stderr.write("INVALID: %s\n" % ex); return 1
+    sys.stdout.write("VALID\n"); return 0
 
 # ---------- in-memory self-test (no temp files, no git): positive + a negative control per reject rule ----------
 def _base():
@@ -184,6 +224,28 @@ def selftest():
         ok = (code == 0) == expect
         lines.append("  [%s] %-30s -> %s (expect %s)" % ("PASS" if ok else "FAIL", name, "VALID" if code==0 else "INVALID", "VALID" if expect else "INVALID"))
         pas += ok; fai += (not ok)
+    # entry-level (fragment) validation controls
+    H = "a"*64
+    bind = {"work_id":"W1","plan_hash":H,"repo_hash":H,"verification_ref":"ver/report.md"}
+    def cap(**x):
+        d = {"kind":"capability_class","id":"cheap-fast","producer_milestone_id":"v0.6.1"}; d.update(bind); d.update(x); return d
+    entry_cases = [
+      ("entry-positive-capability", "capability", cap(), True),
+      ("entry-wrong-kind",          "capability", cap(kind="evidence_receipt"), False),
+      ("entry-wrong-producer",      "capability", cap(producer_milestone_id="v0.6.9"), False),
+      ("entry-bad-class",           "capability", cap(id="not-a-class"), False),
+      ("entry-missing-binding",     "capability", {k:v for k,v in cap().items() if k != "repo_hash"}, False),
+      ("entry-secret",              "capability", cap(id="ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ012345"), False),
+      ("entry-approval-bad-source", "approval",   {"kind":"approval","id":"A1","producer_milestone_id":"human-release-gate","type":"human-release-gate","source":"codex-x", **bind}, False),
+    ]
+    for name, rk, ent, expect in entry_cases:
+        try:
+            validate_entry(rk, ent); code = 0
+        except Bad:
+            code = 1
+        ok = (code == 0) == expect
+        lines.append("  [%s] %-30s -> %s (expect %s)" % ("PASS" if ok else "FAIL", name, "VALID" if code==0 else "INVALID", "VALID" if expect else "INVALID"))
+        pas += ok; fai += (not ok)
     sys.stdout.write("\n".join(lines) + "\n")
     sys.stdout.write("  ---- self-test: %d PASS / %d FAIL ----\n" % (pas, fai))
     return 0 if fai == 0 else 1
@@ -193,9 +255,12 @@ def main():
     if mode == "validate":
         if len(sys.argv) < 3: sys.stderr.write("usage: validate <path>\n"); return 2
         return validate_path(sys.argv[2])
+    if mode == "validate-entry":
+        if len(sys.argv) < 4: sys.stderr.write("usage: validate-entry <register-key> <path>\n"); return 2
+        return validate_entry_path(sys.argv[2], sys.argv[3])
     if mode == "selftest":
         return selftest()
-    sys.stderr.write("usage: validate <path> | selftest\n"); return 2
+    sys.stderr.write("usage: validate <path> | validate-entry <register-key> <path> | selftest\n"); return 2
 
 if __name__ == "__main__":
     sys.exit(main())

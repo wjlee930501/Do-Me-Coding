@@ -10,7 +10,8 @@ never calls git. The runtime enforcement floor stays the hooks.
 
 ## Result
 ```
-self-test: 19 PASS / 0 FAIL   (1 positive fixture + 18 negative controls, one per reject rule incl. completeness)
+self-test: 26 PASS / 0 FAIL   (record-level: 1 positive + 18 negative controls incl. completeness; entry-level: 7 fragment controls)
+modes: --validate (complete record) · --validate-entry <register-key> (single producer fragment; path "-" = stdin, no temp)
 T13 repo byte-unchanged after self-test (sentinel hash equal before==after)
 T12 determinism/env-free: env -i + hostile credential var → identical verdict on the same record
 --validate makes no git call (git only in the --self-test sentinel + root-detect)

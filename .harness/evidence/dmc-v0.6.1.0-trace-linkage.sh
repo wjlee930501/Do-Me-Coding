@@ -7,7 +7,8 @@
 # read-only / no-temp sandbox. `--validate` reads ONLY the record file given and NEVER calls git; the only git use is the
 # `--self-test` byte-unchanged sentinel. Never reads the environment, .env, credentials, or the network.
 #
-# Usage:  dmc-v0.6.1.0-trace-linkage.sh --validate <record.json>   |   --self-test   |   [-h|--help]
+# Usage:  dmc-v0.6.1.0-trace-linkage.sh --validate <record.json>   |   --validate-entry <register-key> <entry.json>
+#         |   --self-test   |   [-h|--help]      (path "-" reads stdin; no temp file)
 # Exit:   0 = valid, 1 = invalid (fail-closed), 2 = usage/refused.
 set -u
 set -o pipefail
@@ -29,6 +30,10 @@ case "${1:-}" in
   --validate)
     [ $# -ge 2 ] || { echo "usage: --validate <record.json>"; exit 2; }
     python3 "$PYCORE" validate "$2"; exit $?
+    ;;
+  --validate-entry)
+    [ $# -ge 3 ] || { echo "usage: --validate-entry <register-key> <entry.json>"; exit 2; }
+    python3 "$PYCORE" validate-entry "$2" "$3"; exit $?
     ;;
   --self-test)
     echo "DMC v0.6.1.0 trace-linkage validator (--self-test) :: root=$ROOTDIR"
