@@ -343,3 +343,94 @@ planned (not started here)**. No further milestone has begun.
 
 **Next:** (open) — the Dynamic Workflow Control Plane is shipped on `main`; **v0.6.0 (or the next milestone) should be
 separately planned (not started here)**. No further milestone has begun.
+
+## v0.6.0 — Harness Landscape & Orchestration Taxonomy — CLOSED (2026-06-23)
+
+- **Published:** clean **fast-forward** to `origin/main` (`2e3b106..838ba5e`) — **no merge commit, no force, no history
+  rewrite** (`2e3b106` remains an ancestor); **local `main` == `origin/main` == `838ba5e`**. **Review branch:**
+  `dmc-harness-taxonomy/v0.6.0 @ 838ba5e` (preserved). This closure note is the immediately-following docs commit.
+- **Type:** research / architecture / decision-framework milestone — **NOT** an implementation milestone. **Architecture
+  guidance, not enforcement.** Additive only: docs + one inert, read-only structure-check script.
+
+### Why v0.6.0 existed
+DMC shipped a substantial bounded-agent substrate bottom-up across v0.1–v0.5. The 2026 agent-harness ecosystem had
+converged on patterns DMC had partly reinvented and partly missed. v0.6.0 exists to decide — with evidence, in DMC's own
+words — which external harness primitives DMC should **adopt / adapt / reject / defer**, and to define the orchestration
+taxonomy the next layer (v0.6.x) is built against. It builds none of them.
+
+### What was researched
+A desk survey across **research categories A–I**, each a section of the **Harness Landscape**
+(`docs/HARNESS_LANDSCAPE_2026.md`): **A** LazyCodex/OmO · **B** Fablize · **C** FableCodex · **D** SuperClaude &
+command/mode frameworks · **E** OpenHands/SWE-agent/Aider-class production agents · **F** skill ecosystems · **G**
+prompt-leak & hidden-guardrail lessons · **H** DMC current-state comparison · **I** **Sakana Fugu** (launched 2026-06-22;
+grounded in ICLR 2026 papers TRINITY 2512.04695 / the Conductor 2512.04388). External descriptions are pattern-level
+own-words; **all Sakana Fugu benchmark numbers (incl. 73.7 SWE-Bench Pro) are recorded self-reported /
+independently-unverified** and noted as not derived from the grounding papers.
+
+### What DMC decided to adopt
+The visible-gate forms of ideas DMC already holds: a systematic investigation protocol, an evidence-receipt stop hook, the
+bounded executor and read-only reviewer role contracts, "evidence is untrusted until inspected," skill-registry security /
+**no-blind-install**, and the prompt-leak meta-lesson (prefer **visible gates over hidden behavior modification**).
+
+### What DMC decided to reject
+The patterns that violate the visibility thesis: **opaque learned routing as the source of truth for gates** (the Fugu
+foil), default **telemetry / auto-update**, **unverifiable token-efficiency claims**, and **default network/live access
+with opaque autonomous action**. A reject is recorded as carefully as an adopt.
+
+### What DMC deferred
+Valuable but out-of-scope-for-a-docs-milestone primitives: **recursive self-delegation** (only behind a hard, deterministic
+depth/budget bound), **hash-anchored / LSP / AST-grep edit precision**, and **coverage accounting** (needs a scope model
+first).
+
+### Core orchestration conclusion — "Learn suggestions, encode gates."
+The **Harness Landscape**'s *Learned Orchestrator vs Deterministic Control Plane* analysis resolves the central question. In
+DMC terms: **encode the gates** — every decision that opens a gate, selects a lane, or authorizes an irreversible action
+stays a **visible deterministic script** that is the source of truth, with a **human as the Release Gate**. A
+learned/adaptive component may **only suggest** — a capability class, a draft delegation — as **advisory input,
+untrusted-until-inspected**, and it **never opens a gate** (the C11 separation). DMC does **not** learn the orchestration
+that gates irreversible actions; Fugu's genuine benefit (pool-agnostic, model-name-free routing) is captured by the
+deterministic **capability-class** abstraction without the opaque learned router.
+
+### Long-term significance
+v0.6.0 codifies DMC's identity — role hierarchy, verification philosophy, release-gate philosophy, orchestration
+philosophy — as an explicit, **model-agnostic** reference that v0.6.x/v0.7 build against. Capability classes are named by
+capability (model names isolated to a dated, replaceable, non-load-bearing lookup), so the taxonomy survives
+frontier-model turnover. The **Benchmark Cards** + **Adoption Decisions** form a durable, ADR-style decision record that
+preserves the *reasoning*, not just the outcome.
+
+### Deliverables (4 docs + 1 verifier + 1 report; the plan & Fugu research note are supporting inputs)
+- `docs/HARNESS_LANDSCAPE_2026.md` — **Harness Landscape**: sections A–I + the source table + the
+  Learned-Orchestrator-vs-Deterministic-Control-Plane analysis.
+- `docs/HARNESS_BENCHMARK_CARDS_2026.md` — **Benchmark Cards**: **23 cards** (10-field schema each) —
+  **adopt 6 · adapt 12 · reject 2 · defer 3**.
+- `docs/ORCHESTRATION_TAXONOMY.md` — **Orchestration Taxonomy**: a **6-role taxonomy** (Strategic Orchestrator ·
+  Implementer · Critic/Falsifier · Release Auditor · Verifier · Human Release Gate), a **6-class capability taxonomy**
+  (frontier-long-horizon · standard-implementation · cheap-fast · adversarial-review · deterministic-tool ·
+  human-only-gate) + a dated replaceable model lookup, and a **7×5 work-delegation matrix** that reduces to the shipped
+  v0.5.3/0.5.4/0.5.5 lane logic.
+- `docs/DMC_ADOPTION_DECISIONS.md` — **Adoption Decisions**: a **29-decision matrix** — **adopt 8 · adapt 14 · reject 4 ·
+  defer 3** — plus **10 explicit anti-goals** (incl. "no opaque learned routing as gate authority" and "no self-reported
+  benchmark taken as verified").
+- `.harness/evidence/dmc-v0.6.0-verify.sh` — read-only, structure-check-only verifier (`--self-test`), env-free
+  content-sensitive `repo_hash`.
+- `.harness/verification/dmc-v0.6.0-harness-landscape-taxonomy.md` — verification report.
+
+### Verification & review posture
+- `dmc-v0.6.0-verify.sh --self-test` → **18 PASS / 0 FAIL** (V1–V18 + checker negative controls ST1–ST3), `repo_hash`
+  before==after (real repo byte-unchanged), re-confirmed on published `main`.
+- Independent **5-lens release audit → ACCEPT** (leak/secret/own-words · plan-conformance · verify-script soundness ·
+  DMC-identity/anti-admiration · scope/safety). A final **independent commit-gate auditor caught 2 decision-tally
+  arithmetic errors** (adapt counts), both **fixed and re-verified**. Publication-surface scan: secret-shape and
+  leak-marker **clean**.
+
+### Safety posture
+- **No runtime behavior changes. No protected-surface changes** (adapters, `provider-router`, schemas, `.claude/hooks/*`,
+  guards, validators, `dmc-glm-smoke` byte-unchanged). **No live provider/model/API call. No network. No `.env` /
+  credential read.** The verify script is inert unless flag-invoked.
+- **Architecture guidance only** — every doc carries the "architecture guidance, not enforcement" disclaimer; the milestone
+  selects no model, opens no gate, installs no hook, authorizes no build.
+- **Future candidates require separate plans and gates** — each adopt/adapt/defer card names a v0.6.1–v0.6.9 candidate that
+  must pass its own approved plan + human gate before any build. Most decisions are `adapt`/`defer`, not "build now".
+
+**Next:** (open) — the harness-landscape & orchestration-taxonomy reference is on `main`; the named v0.6.1–v0.6.9
+candidates are **not** started. No further milestone has begun.
