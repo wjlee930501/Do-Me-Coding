@@ -30,7 +30,8 @@ that the next layer (v0.6.x) will be built against.
 
 - **Not** implementing any benchmarked mechanism in v0.6.0 (no goal ledger, findings gate, lifecycle hooks, team mode, etc.).
 - **Not** installing, running, or invoking LazyCodex / oh-my-openagent / Fablize / FableCodex / SuperClaude / OpenHands /
-  SWE-agent / Aider, or any skill/MCP, during this milestone.
+  SWE-agent / Aider / **Sakana Fugu (no Fugu API call, no live orchestration, no provider-key use)**, or any skill/MCP,
+  during this milestone.
 - **Not** copying, storing, quoting, or paraphrasing-at-phrase-length any leaked proprietary or system-prompt text. Structural
   lessons only, in DMC's own words.
 - **Not** adding hooks, adapters, provider/live routing, or model-name hardcoding.
@@ -64,8 +65,15 @@ in `docs/HARNESS_LANDSCAPE_2026.md`.
 - **G. Prompt-leak & hidden-guardrail lessons:** do **not** copy leaked text; summarize only the *structural* lesson; note
   the false-confidence risk of hidden prompts; prefer **visible gates over hidden behavior modification**. This section
   stores zero leaked content — only the meta-lesson that hidden guardrails create unverifiable trust.
-- **H. DMC current-state comparison:** map DMC v0.5 against A–F; list already-covered capabilities, missing capabilities, and
+- **H. DMC current-state comparison:** map DMC v0.5 against the external-harness categories (A–F and I); list already-covered capabilities, missing capabilities, and
   *dangerous temptations to reject*. This grounds every adoption decision in what DMC already proved.
+- **I. Sakana Fugu (learned orchestration-as-a-model):** Sakana AI's Fugu (launched 2026-06-22) — a learned orchestrator
+  LLM (grounded in ICLR 2026 papers TRINITY `2512.04695` / the Conductor `2512.04388`) that hides model selection,
+  delegation, verification, and synthesis inside one OpenAI-compatible model. *Adopt/adapt-lens:* capability-class /
+  swappable-pool routing, orchestrator-owned (but separate, deterministic) verification, single-facade ergonomics.
+  *Reject-lens:* **opaque learned routing as the source of truth for gates** (the precise visibility-axis foil to DMC);
+  self-reported, independently-unverified benchmark claims taken as fact; unbounded recursive self-delegation. Structural,
+  own-words only; **no Fugu API call** (see §2). Pre-critic research note: `.harness/decisions/dmc-v0.6.0-fugu-benchmark-card.md`.
 
 ## 4. File-level implementation scope (deliverables — built ONLY after critic PASS + APPROVED)
 
@@ -73,16 +81,16 @@ Accepted additive file scope for the *future* implementation step (none created 
 
 | # | File | Contents (spec) |
 |---|------|-----------------|
-| 1 | `docs/HARNESS_LANDSCAPE_2026.md` | Sections A–H above; for each, the structural pattern (own words) + adopt/adapt/reject/defer + rationale + risk. Ends with the **source table** (project · pattern · public source/own-prior-artifact · note that no leaked text is reproduced). |
+| 1 | `docs/HARNESS_LANDSCAPE_2026.md` | Sections A–I above (I = Sakana Fugu); for each, the structural pattern (own words) + adopt/adapt/reject/defer + rationale + risk. Ends with the **source table** (project · pattern · public source/own-prior-artifact · note that no leaked text is reproduced). |
 | 2 | `docs/ORCHESTRATION_TAXONOMY.md` | Taxonomy outputs 1–3 (below): model-role taxonomy, capability-class taxonomy, work-delegation matrix. |
 | 3 | `docs/DMC_ADOPTION_DECISIONS.md` | Taxonomy output 4 (adoption decision table across every surveyed harness) + taxonomy output 5 (explicit anti-goals). |
-| 4 | `docs/HARNESS_BENCHMARK_CARDS_2026.md` | The 18 benchmark cards (§4.1), each in the fixed card schema (§4.2). The concrete, testable primitive-extraction layer. |
+| 4 | `docs/HARNESS_BENCHMARK_CARDS_2026.md` | The ≥23 benchmark cards (§4.1), each in the fixed card schema (§4.2) — incl. Sakana Fugu cards **#19–#23**. The concrete, testable primitive-extraction layer. |
 | 5 | `.harness/evidence/dmc-v0.6.0-verify.sh` | Read-only, structure-check-only script with embedded `--self-test`; verifies all the structural assertions in §6. Inert unless flag-invoked; deterministic; env-free `repo_hash`; no network/live/`.env`. |
 | 6 | `.harness/verification/dmc-v0.6.0-harness-landscape-taxonomy.md` | Verification report: command, PASS/FAIL counts, assertion→requirement map, and an explicit line that **this milestone is architecture guidance, not enforcement**. |
 
 Plus this plan file (`.harness/plans/dmc-v0.6.0-harness-landscape-taxonomy.md`) — the only file touched in the DRAFT step.
 
-### 4.1 Required benchmark cards (≥18) — for `docs/HARNESS_BENCHMARK_CARDS_2026.md`
+### 4.1 Required benchmark cards (≥23) — for `docs/HARNESS_BENCHMARK_CARDS_2026.md`
 
 Each is a concrete, testable harness *primitive* (not a project summary). The implementation step fills each card per §4.2.
 
@@ -104,8 +112,15 @@ Each is a concrete, testable harness *primitive* (not a project summary). The im
 16. **FableCodex — findings gate**
 17. **FableCodex — coverage accounting**
 18. **Skill ecosystem — skill-registry security & no-blind-install**
+19. **Sakana Fugu — learned model-orchestration / capability-routing** (REJECT as gate source-of-truth; ADAPT capability-class only)
+20. **Sakana Fugu — verification-&-synthesis as the orchestrator's responsibility** (ADAPT; keep as a separate deterministic pass)
+21. **Sakana Fugu — recursive self-delegation** (DEFER/REJECT-by-default; only behind hard deterministic depth/budget bounds)
+22. **Sakana Fugu — swappable model pool / capability-class abstraction** (ADAPT — strongest extractable primitive; reinforces Output 2)
+23. **Sakana Fugu — single-endpoint OpenAI-compatible facade** (ADAPT optional; facade must not hide routing from gate logs)
 
-(More cards are allowed; 18 is the floor. Each maps to a DMC-equivalent or an explicit rejection reason.)
+(More cards are allowed; 23 is the floor. Each maps to a DMC-equivalent or an explicit rejection reason. Cards #19–#23 derive
+from the pre-critic Fugu research note `.harness/decisions/dmc-v0.6.0-fugu-benchmark-card.md`; **all Fugu benchmark numbers are
+recorded as self-reported / independently-unverified** — the 73.7 SWE-Bench Pro figure is provably NOT from the grounding papers.)
 
 ### 4.2 Benchmark card schema (every card MUST contain all fields)
 
@@ -127,7 +142,9 @@ Human Release Gate. (Each defined by *owns / must-not / outputs*, reusing the v0
 
 **Output 2 — Capability class taxonomy:** `frontier-long-horizon` · `standard-implementation` · `cheap-fast` ·
 `adversarial-review` · `deterministic-tool` · `human-only-gate`. Classes are **named by capability, never by a hard-coded model
-name** (model names are illustrative + dated, mapped via a separate, replaceable lookup).
+name** (model names are illustrative + dated, mapped via a separate, replaceable lookup). Card #22 (Fugu's swappable-pool,
+pool-agnostic routing) is the real-world existence proof that model-name-free routing is feasible **without** a learned router —
+DMC keeps the selection rule a visible deterministic script.
 
 **Output 3 — Work delegation matrix:** rows = task classes {`docs-only`, `additive tool`, `provider adapter`,
 `protected-surface change`, `security/secret/live risk`, `release/closure`, `recovery/resume`}; columns = {orchestrator model
@@ -140,7 +157,8 @@ not a new enforcement path.
 
 **Output 5 — Explicit anti-goals:** no leaked-prompt reproduction · no hidden prompt magic · no auto-unbounded ultrawork ·
 no skill-marketplace blind install · no live/model call by default · no push/closure automation without a human gate · no
-model-name hardcoding as permanent truth.
+model-name hardcoding as permanent truth · **no opaque learned routing as the source of truth for gates (the Fugu foil)** ·
+**no self-reported benchmark taken as verified**.
 
 ## 5. Safety constraints
 
@@ -169,7 +187,7 @@ Read-only, structure-only. Each row = one assertion the verify script must make.
 | V4 | An **adoption decision table** exists with the columns pattern/evidence/decision/rationale/risk |
 | V5 | The **model-role taxonomy** exists (all six roles named) |
 | V6 | The **work-delegation matrix** exists (all seven task classes × the five columns) |
-| V7 | **≥18 benchmark cards** exist (count distinct card headers) |
+| V7 | **≥23 benchmark cards** exist (count distinct card headers) |
 | V8 | **Every card carries a `adopt`/`adapt`/`reject`/`defer` decision** (one per card) |
 | V9 | **Every card has a DMC-equivalent line or an explicit rejection reason** (`What DMC already has` / `Gap` populated) |
 | V10 | **Every card carries the no-leaked-prompt attestation line** |
@@ -211,7 +229,21 @@ Leak-avoidance is enforced primarily at authoring time by the safety constraints
 - Because v0.6.0 changes no runtime behavior (docs + inert script), there is no operational rollback surface beyond file
   removal.
 
-## 9. Approval Status: **DRAFT**
+## 9. Approval Status: **APPROVED — build deferred**
 
-Do **not** implement until `/dmc-critic` returns PASS **and** this status is flipped to **APPROVED**. No stage / commit /
-push in the DRAFT step. Next action: route to `/dmc-critic` for adversarial plan review.
+**Revision 2 (2026-06-23):** folded in **Sakana Fugu** — added research category **I**, benchmark cards **#19–#23**, the
+Output-2 existence-proof note, two Output-5 anti-goals ("no opaque learned routing as gate authority," "no self-reported
+benchmark taken as verified"), and raised the card floor **≥18 → ≥23** (deliverable §4 row 4, §4.1 heading + floor note, and V7 updated). Source: pre-critic
+research note `.harness/decisions/dmc-v0.6.0-fugu-benchmark-card.md`. This revision **resets the gate** — the plan returns to
+`/dmc-critic` before any build.
+
+**Critic re-pass (2026-06-23):** the `critic` agent returned **APPROVE** — 0 blocking findings (internal consistency,
+scope-non-creep, schema completeness, claim honesty, leak/secret safety, thesis fit, and no-regression all PASS); 2 cosmetic
+nits applied (category-H comparison range A–F→"A–F and I"; revision-note audit trail).
+
+**Approval (2026-06-23, human Release Gate per C11):** the human explicitly authorized **DRAFT → APPROVED** — approval is
+**never** inferred from a critic PASS alone. **Build is deliberately deferred to a separate, focused session.**
+
+Next action (when the build session begins): `/dmc-start-work` builds the §4 deliverables (4 docs + the read-only
+`.harness/evidence/dmc-v0.6.0-verify.sh` + the verification report) under the accepted additive scope, then verify (V1–V18)
+→ evidence → commit. **No push / no closure without further human gates.**
