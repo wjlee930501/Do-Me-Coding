@@ -434,3 +434,84 @@ preserves the *reasoning*, not just the outcome.
 
 **Next:** (open) — the harness-landscape & orchestration-taxonomy reference is on `main`; the named v0.6.1–v0.6.9
 candidates are **not** started. No further milestone has begun.
+
+## v0.6.1–v0.6.5 — Control-Plane Layer (six-question traceability) — CLOSED (2026-06-24)
+
+### Why this layer existed
+v0.6.0 resolved DMC's identity in docs ("learn suggestions, encode gates") but left the **six governance questions**
+answerable only by prose and memory. v0.6.1–v0.6.5 turns that identity into **runnable, deterministic gates**: a control
+plane that answers, from artifacts alone and with no model memory, the six questions any reviewer must be able to ask of a
+completed unit of work.
+
+### What was implemented (additive; one schema + one input-only validator each)
+- **v0.6.1.0 Trace Linkage Contract** (`dmc-v0.6.1.0-trace-linkage.{py,sh}` + `schemas/trace-linkage.schema.md`) — the
+  foundation: a `dmc.trace-linkage.v1` record with canonical subject-binding + per-reference re-bind, typed subject-bound
+  registers, typed non-dangling edges, the verbatim `kind→producer_milestone_id` table, and the positive-allowlist approval
+  namespace. The trust root every other tool composes by read-only subprocess.
+- **v0.6.1 Capability-Class Router** (Q1) — a pure `(task_class, role) → capability_class` table; model-name-free,
+  model-swap-invariant (enforced by a self-scan), no learned routing.
+- **v0.6.2 Evidence Receipt Gate** (Q2) — "no receipt → no DONE"; decidable `artifact_ref` (hex≥16 or safe relative path;
+  prose/URL/traversal rejected); cross-subject binding.
+- **v0.6.3 Findings Gate** (Q3) — finding states {resolved, accepted-risk, deferred, blocked}; refuses a `blocked` finding
+  crossing release; append-only with anti-bypass-by-drop; `accepted-risk` requires a contract-valid human approval waiver.
+- **v0.6.4 Goal Ledger** (Q4) — an explicit goal state machine with append-only history; a completion must trace to an
+  `approved` goal; anti-bypass-by-rewrite.
+- **v0.6.5 Decision Traceability Layer** (Q5/Q6 capstone) — `--answer` validates a complete trace-linkage record via the
+  contract, resolves every decision link to a declared entry, and answers Q1–Q6 from artifacts alone (the mandatory
+  six-question E2E proof).
+
+### What problem was solved — the six-question metric
+At v0.6.5, DMC answers deterministically, with no model memory: **Q1** what capability · **Q2** what evidence · **Q3** what
+findings · **Q4** what goal · **Q5** why the decision · **Q6** approval provenance (a contract-enforced `human-release-gate`
+authorizer). Any unanswerable question → REFUSE.
+
+### Core architectural conclusion — "Artifacts are the source of truth."
+Every governance answer is recomputed from inspectable artifacts by a deterministic, env-free, input-only validator — never
+from model reasoning, git state, or ambient memory (`--answer` is byte-identical under `env -i`). The contract is the trust
+root; the rest compose it by read-only subprocess.
+
+### Governance conclusion — "Learn suggestions, encode gates."
+Every gate is an enumerated set / state machine / static table — **no learned gate authority, no autonomous release** (tools
+emit only advisory ALLOW/REFUSE/ANSWERED; none merges, pushes, or tags), **no hidden approval path** (a laundered
+critic/Codex ACCEPT cannot answer Q6). The C11 separation holds: advisory components may *suggest*; only the human opens the
+release gate.
+
+### v0.6.5a hardening — T7d (non-empty approval-id)
+A pre-main micro-patch closed a validator-vs-schema gap: the approval check accepted a bare `human-release-gate:` (empty
+auth-id). Reject code **T7d** now requires a non-empty, non-whitespace auth-id after the prefix, at **both** record-mode and
+entry-mode — hardening v0.6.3 waivers, v0.6.4 goals, and Q6 transitively. Validator strictness only; backward-compatible
+(only empty/blank ids newly reject); no charset/length/auth/crypto (those remain v0.6.6+).
+
+### Honest scope — Q6 records provenance, not authentication
+Q6 proves a correctly-shaped, subject-bound, linked **human-release-gate** approval **entry exists** — it records approval
+**provenance**, not **authentication**. An input-only / no-crypto / no-network validator cannot authenticate a human; the id
+after the prefix is self-asserted (`human-release-gate:<id>` still passes). **Approval authenticity and live-tree anchoring
+are upstream — the Human Release Gate remains the sole release authority.** Stronger provenance is the v0.6.6+ mission.
+
+### Deliverables (6 tools + 6 schemas + 6 plans + 6 verification reports + 1 roadmap)
+- evidence (each `.py` core + `.sh` wrapper): `dmc-v0.6.1.0-trace-linkage` · `dmc-v0.6.1-capability-router` ·
+  `dmc-v0.6.2-evidence-receipt` · `dmc-v0.6.3-findings-gate` · `dmc-v0.6.4-goal-ledger` · `dmc-v0.6.5-decision-trace`.
+- schemas: trace-linkage · capability-routing · evidence-receipt · findings-register · goal-ledger · decision-trace.
+- per-milestone plans + verification reports; `.harness/plans/dmc-v0.6.1-v0.6.5-roadmap.md`.
+
+### Verification & review posture
+- Consolidated self-tests **118 PASS / 0 FAIL** (29+7+18+25+27+12), env-free, repo-byte-unchanged, re-confirmed on
+  published `main`.
+- Per-milestone DMC `critic` (plan) + DMC `verifier` (build); a Publication Surface Audit (**PASS**) + a 7-dimension
+  Main-Publication review (**MAIN READY**); the v0.6.5a patch independently **critic-APPROVE + verifier-ACCEPT**. Codex
+  dropped mid-layer (slow/flaky) — DMC critic + verifier only thereafter.
+
+### Safety posture
+- Additive only; **no protected-surface change** (adapters, `provider-router`, protected schemas, `.claude/hooks/*`, guards,
+  validators). **No live provider/model/API call, no network, no `.env`/credential read.** Every tool is input-only,
+  env-free, value-blind (reject-on-match), duplicate-key-rejecting, no-heredoc/no-temp, fail-closed, write-safe `--out`, with
+  no git on the operative path. Advisory — the runtime enforcement floor stays the hooks.
+
+### Long-term significance
+The six-question model is the durable spine future DMC versions build on: capability classes survive frontier-model turnover
+(model-name-free) and answers survive provider/workflow change (artifact-derived); the trace-linkage contract is a reusable
+provenance primitive. **v0.6.6–v0.6.9 (Governance Hardening) build on this layer additively** — richer approval provenance,
+trace-integrity, cross-gate consistency, and an adversarial acceptance suite — without redesign.
+
+**Next:** (open) — v0.6.6–v0.6.9 Governance Hardening is decomposed and DMC-critic-APPROVED but **not** started; each
+milestone requires its own approved plan + human gate. No build has begun.
