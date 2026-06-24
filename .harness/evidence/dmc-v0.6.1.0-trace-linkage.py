@@ -97,6 +97,7 @@ def validate_record(rec):
                 if e.get("type") != "human-release-gate": raise Bad("approval.type not human-release-gate (T7)")
                 src = e.get("source")
                 if not (nestr(src) and src.startswith(APPROVAL_PREFIX)): raise Bad("approval.source not 'human-release-gate:' (T7c)")
+                if src[len(APPROVAL_PREFIX):].strip() == "": raise Bad("approval.source missing non-empty auth-id (T7d)")
 
     edges = rec.get("edges", [])
     if not isinstance(edges, list): raise Bad("edges not a list")
@@ -155,6 +156,7 @@ def validate_entry(register_key, e):
     if register_key == "approval":
         if e.get("type") != "human-release-gate": raise Bad("approval.type not human-release-gate (T7)")
         if not (nestr(e.get("source")) and e["source"].startswith(APPROVAL_PREFIX)): raise Bad("approval.source not 'human-release-gate:' (T7c)")
+        if e["source"][len(APPROVAL_PREFIX):].strip() == "": raise Bad("approval.source missing non-empty auth-id (T7d)")
     return True
 
 def validate_entry_path(register_key, path):
@@ -209,6 +211,8 @@ def selftest():
       ("T7-bad-approval-type",        mut(lambda r: r["registers"]["approval"][0].update(type="plan")), False),
       ("T7b-foreign-subject-approval",mut(lambda r: r["registers"]["approval"][0].update(work_id="W2")), False),
       ("T7c-bad-approval-source",     mut(lambda r: r["registers"]["approval"][0].update(source="codex-accept-123")), False),
+      ("T7d-empty-approval-id",       mut(lambda r: r["registers"]["approval"][0].update(source="human-release-gate:")), False),
+      ("T7d-blank-approval-id",       mut(lambda r: r["registers"]["approval"][0].update(source="human-release-gate:   ")), False),
       ("T8-wrong-producer",           mut(lambda r: r["registers"]["evidence"][0].update(producer_milestone_id="v0.6.9")), False),
       ("T9-bad-capability-class",     mut(lambda r: r["registers"]["capability"][0].update(id="not-a-class")), False),
       ("T9-bad-finding-state",        mut(lambda r: r["registers"]["finding"][0].update(state="maybe")), False),
@@ -237,6 +241,7 @@ def selftest():
       ("entry-missing-binding",     "capability", {k:v for k,v in cap().items() if k != "repo_hash"}, False),
       ("entry-secret",              "capability", cap(id="ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ012345"), False),
       ("entry-approval-bad-source", "approval",   {"kind":"approval","id":"A1","producer_milestone_id":"human-release-gate","type":"human-release-gate","source":"codex-x", **bind}, False),
+      ("entry-approval-empty-id",   "approval",   {"kind":"approval","id":"A1","producer_milestone_id":"human-release-gate","type":"human-release-gate","source":"human-release-gate:", **bind}, False),
     ]
     for name, rk, ent, expect in entry_cases:
         try:
