@@ -29,8 +29,11 @@ code was changed; no other milestone has begun.
 ## Evidence
 
 - `.harness/evidence/dmc-v1-m1-docs.md` (deliverables, checker output summary, safety
-  confirmations)
-- Commits: `1c139fb` (Phase 0–4 deliverables), `4ab5c03` (plan Rev 2)
+  confirmations, and the "Operational Exception — Cloud Runtime Commit/Push" section)
+- Branch commits (all on `claude/dmc-v1-runtime-upgrade-c5uch1`, beyond `main` @ `d0edc48`):
+  `1c139fb` (Phase 0–4 deliverables), `4ab5c03` (plan Rev 2), `5b71595` (this report),
+  plus the evidence-consistency-fix commit recorded in
+  `.harness/evidence/dmc-v1-m1-evidence-consistency-fix.md`
 
 ## Carry-forward notes for execution (from critic re-pass; non-blocking)
 

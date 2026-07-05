@@ -316,3 +316,7 @@ Approved At:
 (Rev 2 after DMC critic REJECT — blockers 1–5 closed, items 6–11 addressed. Not self-approved.
 Next gates: critic re-pass on Rev 2 → human approval, which also ratifies M1 retroactively →
 M2 start.)
+
+Ratification-scope note: M1 retroactive ratification covers document creation and the
+cloud-runtime branch-preservation push only. It does not approve M2+ implementation,
+protected-surface edits, runtime code changes, or future push.
