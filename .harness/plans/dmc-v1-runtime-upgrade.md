@@ -309,9 +309,24 @@ Global not-edit for every milestone unless its own list authorizes it:
 
 ## Approval Status
 
-Status: DRAFT
-Approver:
-Approved At:
+Status: APPROVED (M2 ONLY; M1 retroactively ratified) — M3+ remain UNAPPROVED (DRAFT)
+Approver: wjlee (wjlee@motionlabs.kr) — human release gate
+Approved At: 2026-07-05
+
+Approval record (verbatim scope of the human gate, 2026-07-05):
+- **M1 retroactive ratification** covers: Phase 0–4 document deliverables, M1
+  evidence/verification artifacts, the cloud-runtime branch-preservation commit/push to
+  `claude/dmc-v1-runtime-upgrade-c5uch1`, and the M1 evidence consistency correction.
+- **M2-only approval**: Repository Intelligence P1/P2/P4/P5 — orientation/landmarks/
+  depsurface/radius schemas + validators, `dmc orient|landmarks|depsurface|radius`, additive
+  bin/lib files for M2 only, tests/fixtures for M2 only, M2 evidence/verification files.
+- **Explicitly NOT approved**: full v1.0 implementation, M3+, protected-surface edits, hook
+  changes, worker-validator changes, installer changes, runtime hardening beyond M2, future
+  push (cloud branch-preservation exception only), live provider calls, secret access,
+  main/master changes.
+- **M2 must not edit**: `.claude/hooks/*`, `.claude/settings.json`, `.claude/skills/*`,
+  `.claude/agents/*`, `.claude/install/*`, `.claude/workers/providers/**`, worker validators,
+  installer/uninstaller, provider adapters/router, live provider paths, main/master.
 
 (Rev 2 after DMC critic REJECT — blockers 1–5 closed, items 6–11 addressed. Not self-approved.
 Next gates: critic re-pass on Rev 2 → human approval, which also ratifies M1 retroactively →

@@ -1,0 +1,11 @@
+{
+  "name": "dmc-fixture-node",
+  "version": "0.0.0",
+  "private": true,
+  "main": "src/a.js",
+  "scripts": {
+    "test": "node --test",
+    "lint": "echo lint-ok",
+    "build": "echo build-ok"
+  }
+}

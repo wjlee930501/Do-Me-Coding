@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# dmc — DMC v1.0 Ring-0 entry point (M2 surface: repository intelligence P1/P2/P4/P5).
+# Additive, advisory, offline: no network, no live provider call, no secret read (path-only
+# exclusion in the core). The runtime enforcement floor stays the hooks.
+set -u
+
+HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+CORE="$HERE/lib/dmc-repo-intel.py"
+
+usage() {
+  cat <<'EOF'
+usage: dmc <command> [args]
+
+commands (M2):
+  orient      [--root DIR] [--out FILE] | --validate FILE [--root DIR] | --self-test
+  landmarks   [--root DIR] [--out FILE] | --validate FILE | --self-test
+  depsurface  [--root DIR] [--out FILE] | --validate FILE | --self-test
+  radius      --depsurface F --landmarks F --checks F --scope P [P...]
+              [--out FILE] | --validate FILE | --self-test
+  selftest    [orient|landmarks|depsurface|radius ...]   (default: all four)
+  help
+
+Artifacts conform to .harness/schemas/{orientation,landmarks,depsurface,radius}.schema.md.
+Validators are fail-closed: VALID => exit 0, REFUSED => exit 3.
+EOF
+}
+
+cmd=${1:-help}
+[ $# -gt 0 ] && shift
+
+case "$cmd" in
+  orient|landmarks|depsurface|radius)
+    exec python3 "$CORE" "$cmd" "$@"
+    ;;
+  selftest)
+    [ $# -eq 0 ] && set -- orient landmarks depsurface radius
+    rc=0
+    for t in "$@"; do
+      case "$t" in
+        orient|landmarks|depsurface|radius) ;;
+        *) echo "dmc selftest: unknown target: $t" >&2; exit 2 ;;
+      esac
+      python3 "$CORE" "$t" --self-test || rc=1
+    done
+    exit "$rc"
+    ;;
+  help|-h|--help)
+    usage
+    ;;
+  *)
+    echo "dmc: unknown command: $cmd" >&2
+    usage >&2
+    exit 2
+    ;;
+esac

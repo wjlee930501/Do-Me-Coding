@@ -1,0 +1,9 @@
+[project]
+name = "dmc-fixture-python"
+version = "0.0.0"
+
+[project.scripts]
+fixture-cli = "pkg.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
