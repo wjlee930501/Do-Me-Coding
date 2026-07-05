@@ -1,6 +1,15 @@
 # Plan: DMC v1.0 Runtime Upgrade — model-independent AI runtime
 
 Plan ID: dmc-v1-runtime-upgrade · Date: 2026-07-05 · Format: PLAN_SCHEMA.md
+**Rev 2** — revised after DMC critic REJECT (same session). Blockers closed: (1) every REQUIRED
+primitive now has an owning task (P-coverage map in §Execution Tasks); (2) Relevant Files table
+authorizes all planned edits incl. M1 deliverables and pointer-ized docs; (3) milestone tags
+reconciled (hooks: M6+M7, fixtures: M2/M8/M9; M7 carries the protected-surface tag); (4) M3
+rollback re-specified as **copy-then-shim** with a tested procedure; (5) run-lifecycle core (M4)
+now precedes skill wiring (M5). Non-blocking items 6–11 also addressed inline.
+Format note (critic item 11): Execution Tasks extend the schema's `Notes:` field into a
+per-milestone block {Acceptance, Verification, Rollback, Evidence, Not-edit, Risk}; the M3 plan
+validator MUST accept this extension.
 
 ## Goal
 
@@ -12,27 +21,27 @@ capability classes, and a host install that actually ships the control plane.
 
 ## User Intent
 
-Classify: **feature** (runtime layer) + **refactor** (relocation/wiring of shipped tools) +
-**docs** (v1.0 architecture + release docs). Primary: feature.
+Classify: **feature** (secondary aspects: refactor — relocation/wiring of shipped tools;
+docs — v1.0 architecture and release docs).
 
 ## Current Repo Findings
 
 - Finding: only 6 Claude Code hooks enforce anything at runtime; all v0.2.6–v0.6.5 control-plane
   tools are advisory and unwired; zero hooks invoke `.harness/evidence/` validators.
-  Source: `.harness/plans/dmc-v1-runtime-upgrade-audit.md` §1, §4.3 (settings.json;
-  grep evidence).
+  Source: `.harness/plans/dmc-v1-runtime-upgrade-audit.md` §1, §4.3 (settings.json; grep
+  evidence).
 - Finding: enforcement bypasses in the wired layer — Bash write bypass of scope, scope
   self-escalation via `.harness/runs` auto-allow, fail-open on missing python3/jq, secret-guard
   reads wrong tool-input keys, `/dmc-ultrawork` never arms the stop gate, `git apply` unblocked.
   Source: audit §3 (scope-guard.sh:58-78, secret-guard.sh:102-103, dmc-ultrawork/SKILL.md:29,
-  pre-tool-guard.sh).
+  pre-tool-guard.sh). Critic re-verified 9/9 citations (critic verdict, this session).
 - Finding: `worker-result-check.py` accepts JWT-bearing results and rename-diff scope bypasses;
   empty `allowed_files` disables scope; review stage is 100% prose. Source: audit §3
   (empirical), worker-result-check.py:21-34,59-61.
 - Finding: host installs are frozen at the v0.1.3 surface; INSTALL_MANIFEST's SSoT claim is
   false; uninstaller gitignore strip is a no-op; CLAUDE.md append non-idempotent.
   Source: audit §10 (INSTALL_MANIFEST.md:3,44-47; dmc-install.sh:106-112;
-  dmc-uninstall.sh:38-42).
+  dmc-uninstall.sh:34-44).
 - Finding: no single entry point, no CI, no plan/run/verification validators, no repository
   intelligence, agents orphaned, three drifted role taxonomies, version identity "v0.1" vs
   v0.6.5 reality, tracked stray backups/zip. Source: audit §4, §5, §11, §12, §13.
@@ -41,200 +50,262 @@ Classify: **feature** (runtime layer) + **refactor** (relocation/wiring of shipp
 
 | Path | Reason | Allowed to Edit |
 |---|---|---|
-| bin/** (new) | Ring-0 CLI façade + relocated tool routing | yes (new) |
-| adapters/** (new) | Ring-1 harness adapters (claude-code, codex, opencode) | yes (new) |
-| orchestration/** (new) | roles.json, models.json | yes (new) |
-| .claude/hooks/*.sh, .claude/hooks/worker-result-check.py | harden + convert to Ring-1 shims | yes (M5, gated) |
-| .claude/settings.json | rewire hooks to shims; add write-radius matcher coverage | yes (M5) |
-| .claude/skills/*/SKILL.md | bind skills to `dmc` verbs + role registry | yes (M4) |
-| .claude/agents/*.md (+ release-auditor.md new) | contract-ized prompts | yes (M4) |
-| .claude/install/dmc-install.sh, dmc-uninstall.sh | P19 fixes + Ring-0 shipping | yes (M7) |
-| INSTALL_MANIFEST.md | regenerate from installer (generated section) | yes (M7) |
-| .harness/schemas/*.schema.md (new: orientation, landmarks, depsurface, radius, acceptance, scope-lock, fixloop, delegation, critic-verdict, worker-review) | new primitive schemas | yes (M3) |
-| PLAN_SCHEMA.md / RUN_SCHEMA.md / VERIFICATION_SCHEMA.md | add validator refs; declare canonical home | yes (M3) |
-| DMC.md, CLAUDE.md, AGENTS.md, docs/CONTEXT_MAP.md, docs/MILESTONES.md | v1.0 identity + index refresh; closure | yes (M10) |
-| .harness/evidence/dmc-v0.*.{sh,py} | RELOCATION ONLY (bin/lib) with compat shims; no logic edits except named hardening | yes (M3/M5, per-file listed) |
-| tests/fixtures/** (new) | fixture repos for P1/P2/P4, install round-trip, E2E dry run | yes (M9) |
-| .github/workflows/dmc-ci.yml (new) | run self-tests + new suites | yes (M8) |
+| bin/** (new) | Ring-0 CLI façade + relocated-tool routing | yes (new; M2–M9) |
+| adapters/** (new) | Ring-1 harness adapters (claude-code, codex, opencode) | yes (new; M6, M8) |
+| orchestration/** (new) | roles.json, models.json | yes (new; M5, M8) |
+| tests/fixtures/** (new) | fixture repos (M2 intelligence, M8 install hosts, M9 E2E) | yes (new; M2/M8/M9) |
+| .harness/plans/dmc-v1-runtime-upgrade*.md | this plan + audit (M1 deliverables) | yes (M1) |
+| docs/FABLE_WORKFLOW_TRANSFER.md, docs/DMC_V1_RUNTIME_ARCHITECTURE.md, docs/DMC_V1_ORCHESTRATION_MODEL.md | M1 deliverables; consistency edits when plan revs | yes (M1, M10) |
+| .harness/evidence/dmc-v1-*.md, .harness/verification/dmc-v1-*.md | per-milestone evidence/verification | yes (all milestones) |
+| .claude/hooks/*.sh, .claude/settings.json | Ring-1 shims + hardening | yes (M6 — protected, gated) |
+| .claude/hooks/worker-result-check.py, .claude/hooks/worker-context-guard.sh | worker validator hardening | yes (M7 — protected, gated) |
+| .claude/skills/*/SKILL.md | bind skills to `dmc` verbs + role registry | yes (M5) |
+| .claude/agents/*.md (+ release-auditor.md new) | contract-ized prompts | yes (M5) |
+| docs/DMC_AGENT_HANDOFF.md, docs/DYNAMIC_DELEGATION.md, docs/DMC_DELEGATION_HARNESS.md | become pointers to orchestration/roles.json | yes (M5) |
+| .claude/install/dmc-install.sh, dmc-uninstall.sh | P19 fixes + Ring-0 shipping | yes (M8) |
+| INSTALL_MANIFEST.md | regenerated-from-installer section | yes (M8) |
+| .harness/schemas/*.schema.md (new: orientation, landmarks, depsurface, radius, acceptance, scope-lock, fixloop, delegation, critic-verdict, worker-review; existing: evidence-receipt check_id extension) | primitive schemas | yes (M3; evidence-receipt extension M4) |
+| PLAN_SCHEMA.md / RUN_SCHEMA.md / VERIFICATION_SCHEMA.md (+ .harness/schemas mirrors) | validator refs; canonical-home declaration + mirror check | yes (M3) |
+| .github/workflows/dmc-ci.yml (new) | CI running selftest + suites | yes (M9) |
+| docs/DMC_V1_ENFORCEMENT_MATRIX.md, docs/DMC_V1_RELEASE_CHECKLIST.md, docs/DMC_V1_HONEST_SCOPE.md (new) | M10 release docs | yes (M10) |
+| DMC.md, CLAUDE.md, AGENTS.md, docs/CONTEXT_MAP.md | v1.0 identity refresh | yes (M10) |
+| docs/MILESTONES.md | append-only closure entry | yes (M10, human-gated) |
+| .harness/evidence/dmc-v0.*.{sh,py} | **copy** sources for bin/lib (originals untouched until M10 deprecation decision) | copy-only (M3); no in-place edit |
 
 ## Out of Scope
 
 - Any live provider call, any network call, any credential handling change beyond redaction
   patterns. GLM/OAuth adapters' live paths untouched.
-- Cryptographic approval authentication (stays honest-scope-labeled; v1.1+).
+- `.claude/workers/providers/**` (adapters, router, contract) — no edits in any milestone.
+- Cryptographic approval authentication (honest-scope-labeled; v1.1+).
 - LSP/AST dependency analysis; async worker jobs/retry/cost routing; OpenCode full adapter;
   web/mobile/MCP surfaces.
-- Rewriting shipped v0.2.6–v0.6.5 validator logic (relocation + routing + named hardening only).
-- Deleting `.before-dmc`/zip strays (proposed as a separate hygiene commit needing explicit human
-  approval — history/back-compat decision).
-- Any push, any main/master work, any closure entry before human gates.
+- Rewriting shipped v0.2.6–v0.6.5 validator logic (copy + route + named hardening only).
+- Deleting `.before-dmc`/zip strays (separate hygiene proposal, own human approval).
+- Any push to main/master, any closure entry before human gates.
 
 ## Proposed Changes
 
-- Change: Ring-0 `bin/dmc` façade + state root (§0.1–0.4 of architecture doc).
-  Files: bin/**, .harness layout. Rationale: single entry point; portability (audit B4, B5).
-- Change: repository-intelligence primitives P1/P2/P4/P5 (+P3 schema only).
-  Files: bin/, .harness/schemas/. Rationale: audit B10.
-- Change: enforcement hardening (P7 scope-lock, Bash write-radius classifier, secret-guard key
-  fix + case-insensitivity, fail-closed-in-active on missing interpreter, run-id arming, stop
-  gate → P18 quick tier, `git apply`/`patch` deny).
-  Files: .claude/hooks/*, settings.json, bin/. Rationale: audit B1, B3.
-- Change: worker bridge hardening + review validator + apply authorization chain (P15).
-  Files: worker-result-check.py, new bin/worker-review-check, contract suite fixtures.
-  Rationale: audit B2.
-- Change: orchestration registry + 6 contract-ized agents + skill bindings (P14/P16/P17).
-  Files: orchestration/, .claude/agents/, .claude/skills/. Rationale: audit §11.
-- Change: install/adaptation upgrade (P19) + doctor; generated manifest.
-  Files: .claude/install/*, INSTALL_MANIFEST.md. Rationale: audit B7, §4.4.
-- Change: CI + E2E dry-run fixture + release-readiness composition (P18) + v1.0 docs/identity.
+- Change: Ring-0 `bin/dmc` façade + state root. Files: bin/**. Rationale: single entry point;
+  portability (audit B4, B5).
+- Change: repository-intelligence primitives P1/P2/P4/P5 (P3 schema only, tool deferred).
+  Files: bin/, .harness/schemas/, tests/fixtures/. Rationale: audit B10.
+- Change: run-lifecycle core — P7 constructive (run start, scope-lock compile), P8, P9, P10,
+  P11, P12, P13, P17. Files: bin/, .harness/schemas/. Rationale: the spine that makes behaviors
+  non-optional (FABLE_WORKFLOW_TRANSFER conclusion).
+- Change: enforcement hardening — P7 enforcement half (Bash write-radius classifier incl.
+  `git apply`/`patch` deny), P6 bounds wiring, secret-guard superset keys + case-insensitivity,
+  fail-closed-in-active, stop gate → receipt-coverage quick check. Files: .claude/hooks/*,
+  settings.json, adapters/claude-code/. Rationale: audit B1, B3.
+- Change: worker bridge hardening + review validator + apply-authorization chain (P15) +
+  delegation records (P14). Files: .claude/hooks/worker-*, bin/. Rationale: audit B2.
+- Change: orchestration registry + 6 contract-ized agents + skill bindings (P14/P16).
+  Files: orchestration/, .claude/agents/, .claude/skills/, pointer-ized delegation docs.
+  Rationale: audit §11.
+- Change: install/adaptation upgrade (P19) + doctor + P20 matrices; generated manifest.
+  Files: .claude/install/*, INSTALL_MANIFEST.md, adapters/. Rationale: audit B7, §4.4.
+- Change: CI + release-readiness composition (P18 full) + E2E dry run + v1.0 docs/identity.
   Files: .github/workflows/, tests/fixtures/, docs/. Rationale: audit B3, B4, B6.
 
 ## Acceptance Criteria
 
 - Criterion: every audit blocker B1–B10 has a closing change or an explicit deferred/waived
   entry in the release-readiness report.
-  Verification Method: traceability table in `.harness/verification/dmc-v1-runtime-upgrade.md`
-  mapping B1–B10 → milestone → evidence.
-- Criterion: the five empirically-confirmed bypasses (Bash write, scope self-edit, Glob pattern
-  secret read, JWT worker result, rename-diff worker result) are denied, each with a permanent
-  regression test.
-  Verification Method: new adversarial suites exit 0 with those cases as negative controls.
-- Criterion: `dmc doctor` + `dmc gate release --quick` run under 2s in a fixture repo; the Stop
-  path blocks an uncovered completion on the ultrawork path.
-  Verification Method: E2E dry-run suite (M9).
-- Criterion: all pre-existing self-tests still pass after relocation (500+ assertions).
-  Verification Method: `bin/dmc selftest --all` aggregate run, 0 FAIL.
+  Verification Method: traceability table in `.harness/verification/dmc-v1-runtime-upgrade.md`.
+- Criterion: the **canonical five bypass regressions** are denied, each with a permanent
+  negative-control fixture: (1) Bash-mediated write outside scope, (2) agent edit of its own
+  scope/lock file, (3) secret read via Glob `pattern` (and case-variant paths), (4) worker
+  result carrying a JWT-class token, (5) worker rename-diff touching a forbidden file.
+  (The audit's further findings — fail-open interpreter, run-id arming, `git apply` deny,
+  empty-allowed deny — are covered by their milestones' own criteria below.)
+  Verification Method: adversarial suites exit 0 with these as negative controls.
+- Criterion: `dmc doctor` and the Stop-path quick gate run under 2s in a fixture repo; the Stop
+  path blocks an uncovered completion on the ultrawork path; a run explicitly suspended via
+  `dmc run suspend` does NOT block session stop (critic item 10).
+  Verification Method: M9 E2E suite incl. latency measurement and the suspend scenario.
+- Criterion: all pre-existing self-tests pass after copy-routing, against an **exact pinned
+  baseline**: M3's first task records the per-tool assertion count into
+  `.harness/evidence/dmc-v1-m3-baseline.md`; the aggregate must equal that count with 0 FAIL.
+  Verification Method: `bin/dmc selftest --all` vs baseline.
 - Criterion: host install round-trip (install → doctor PASS → uninstall → byte-clean) on 4
-  fixture hosts.
-  Verification Method: M7 suite.
+  fixture hosts. Verification Method: M8 suite.
 - Criterion: Ring-0 contains no model-name strings; capability routing byte-identical under
-  model-lookup swap.
-  Verification Method: extended v0.6.1 self-scan over bin/**.
+  model-lookup swap. Verification Method: extended v0.6.1 self-scan over bin/**.
 
 ## Risks
 
 | Risk | Severity | Mitigation |
 |---|---|---|
-| Relocating .harness/evidence tools breaks sibling-path composition (dmc-v0.6.5-decision-trace.py:23) | high | compat shims at old paths through v1.0; composition tests before/after; per-file move list |
+| bin/lib copies drift from `.harness/evidence/` originals during M3–M9 | high | copy-then-shim with a **mirror-check test** (byte-equality bin/lib vs originals) in CI; originals remain canonical until the M10 deprecation decision |
 | Fail-closed-in-active bricks sessions on hosts missing python3 | medium | `dmc doctor` at install; adapter emits actionable error; passive mode unaffected |
-| Bash write-radius classifier false positives block legitimate commands | medium | ask-tier (not deny) for ambiguous forms in v1.0; allowlist file; measured on E2E fixture |
-| Hook latency budget exceeded at Stop (P18 quick) | medium | state-file-only quick tier; benchmark in M9; fallback to receipt-count check |
-| Scope: 10 milestones is large; drift risk mid-stream | medium | milestone-per-gate lifecycle; each independently shippable; M1–M3 land value even if later milestones slip |
+| Bash write-radius classifier false positives | medium | ask-tier (not deny) for ambiguous forms in v1.0; allowlist file; measured on E2E fixture |
+| Stop-path quick gate latency or over-blocking | medium | state-file-only quick tier; `dmc run suspend` escape hatch; benchmark in M9 |
+| M4 is the largest milestone (8 primitives) | medium | all additive bin/ work, uniform validator pattern, two independently-verifiable tasks; no protected surface touched |
 | Another harness (OMC) coexistence regression | low | passive-mode auto-detect preserved; doctor non-interference check |
-| Worker hardening rejects previously-accepted legitimate results | low | fixtures re-run; empty-allowed DENY is announced as breaking in release notes |
+| Worker hardening rejects previously-accepted legitimate results | low | fixtures re-run; empty-allowed DENY announced as breaking in release notes |
 
 ## Assumptions
 
 | Assumption | Confidence | How to Verify |
 |---|---|---|
 | Claude Code hook API (events/JSON) stable for the adapter | high | doctor probes at install |
-| Glob tool param is `pattern`, Grep dir param is `path` (secret-guard fix target) | high | verify against harness docs before M5; keep old keys too (superset read) |
-| Codex-side minimal binding is feasible via pre-commit/CI (no hook API assumed) | medium | M7 spike task, timeboxed; downgrade to documented-manual if not |
-| python3 available on target hosts | medium | doctor check; POSIX-sh fallbacks only for the deny floor |
-| No concurrent DMC runs per repo (single run-id) | high | P7 refuses second concurrent lock |
+| Glob tool param is `pattern`, Grep dir param is `path` | high | verify against harness docs before M6; guard reads a **superset** of keys either way |
+| Codex minimal binding feasible via pre-commit/CI | medium | M8 spike, timeboxed; downgrade to documented-manual if not |
+| python3 available on target hosts | medium | doctor check; POSIX-sh deny floor as fallback |
+| No concurrent DMC runs per repo | high | P7 refuses a second concurrent lock |
 
 ## Execution Tasks
 
-(Each milestone = own approved lifecycle; verify + evidence before the next. Files-not-to-edit
-for every milestone unless its list says otherwise: `.claude/workers/providers/**` (adapters/
-router), live-path code, `docs/MILESTONES.md` (append-only, M10 only), root schemas outside M3.)
+REQUIRED-primitive coverage map (critic blocker 1):
+P1,P2,P4,P5→M2 · P3(schema only),relocation→M3 · P7c,P8,P9,P10,P11,P12,P13,P17→M4 ·
+P14(registry),P16→M5 · P6,P7e,P10(feeder),P18(quick)→M6 · P14(records),P15→M7 · P19,P20→M8 ·
+P18(full),CI→M9 · docs/identity→M10. Deferred (consistent with architecture §4): P3 tool,
+AST/LSP tier, approval auth, patch-content fidelity beyond names+hunk-count, async workers,
+OpenCode full adapter.
 
-### M1 — Audit + v1.0 architecture docs  [risk: low] — DONE in this session, pending review
-- [x] DMC-T001: audit doc. Files: .harness/plans/dmc-v1-runtime-upgrade-audit.md.
-- [x] DMC-T002: workflow transfer. Files: docs/FABLE_WORKFLOW_TRANSFER.md.
-- [x] DMC-T003: runtime architecture. Files: docs/DMC_V1_RUNTIME_ARCHITECTURE.md.
-- [x] DMC-T004: orchestration model. Files: docs/DMC_V1_ORCHESTRATION_MODEL.md.
-- Acceptance: docs exist, evidence-cited, cross-referenced. Verification: structural check
-  (sections present; cited paths exist). Rollback: revert docs commit. Evidence:
-  .harness/evidence/dmc-v1-m1-docs.md. Not-edit: everything else.
+Global not-edit for every milestone unless its own list authorizes it:
+`.claude/workers/providers/**`, live-path code, `docs/MILESTONES.md` (M10 only, append-only),
+`.harness/evidence/dmc-v0.*` in place (copy-only per M3).
 
-### M2 — Repository Intelligence specs + P1/P2 implementation  [risk: low]
-- [ ] DMC-T005: orientation.schema.md + landmarks.schema.md + validators. Files:
-  .harness/schemas/, bin/lib/.
-- [ ] DMC-T006: `dmc orient` (P1), `dmc landmarks` (P2) with fixture-repo self-tests; DMC
-  self-scan seeds landmark migration from existing protected lists.
-- Acceptance: deterministic at fixed HEAD; negative controls; self-scan classifies
-  hooks/schemas/adapters as landmarks. Verification: `bin/dmc selftest orient landmarks`.
-  Rollback: delete bin/ additions (additive). Evidence: .harness/evidence/dmc-v1-m2-*.md.
+### M1 — Audit + v1.0 architecture docs  [risk: low] — executed this session, DRAFT-stage
+- [x] DMC-T001: audit → .harness/plans/dmc-v1-runtime-upgrade-audit.md
+- [x] DMC-T002: docs/FABLE_WORKFLOW_TRANSFER.md
+- [x] DMC-T003: docs/DMC_V1_RUNTIME_ARCHITECTURE.md
+- [x] DMC-T004: docs/DMC_V1_ORCHESTRATION_MODEL.md
+- Note (critic item 6): M1 ran before plan approval — docs-only, disclosed. **The human gate is
+  asked to ratify M1 retroactively when approving this plan**; rejection = revise/delete docs.
+- Acceptance: docs exist, evidence-cited, cross-consistent. Verification: structural checker
+  (86 PASS / 0 FAIL this session) + DMC critic pass (verdict recorded; Rev 2 = its blockers
+  closed). Rollback: revert the docs commit. Evidence: .harness/evidence/dmc-v1-m1-docs.md.
 
-### M3 — Schema upgrades + tool relocation under bin/  [risk: high — compat]
-- [ ] DMC-T007: new primitive schemas (depsurface, radius, acceptance, scope-lock, fixloop,
-  delegation, critic-verdict, worker-review) + plan/run/verification instance validators;
-  canonical-home decision (root files become pointers) + mirror check.
-- [ ] DMC-T008: relocate `.harness/evidence/dmc-v0.*.{sh,py}` → bin/lib/ with compat shims;
-  re-run all embedded self-tests; `dmc selftest --all` aggregator.
-- Acceptance: 500+ legacy assertions 0 FAIL post-move; plan validator refuses a section-missing
-  plan (negative control: the v0.5.4 stub plan). Verification: selftest aggregate. Rollback:
-  compat shims make revert = delete bin/, restore nothing. Evidence: dmc-v1-m3-*.md.
-  Not-edit: tool *logic* (move-only; any logic diff is a REJECT).
+### M2 — Repository intelligence: P1, P2, P4, P5  [risk: low]
+- [ ] DMC-T005: orientation/landmarks/depsurface/radius schemas + validators (negative controls).
+  Files: .harness/schemas/{orientation,landmarks,depsurface,radius}.schema.md, bin/lib/.
+- [ ] DMC-T006: `dmc orient` (P1) + `dmc landmarks` (P2); landmark seed = union of existing
+  protected lists; DMC self-scan classifies own hooks/schemas/adapters as landmarks.
+- [ ] DMC-T006b: `dmc depsurface` (P4, regex tier, unscanned-labeled) + `dmc radius` (P5;
+  every radius entry must carry ≥1 check-id — schema-refused otherwise).
+  Files: bin/, tests/fixtures/{node,python,empty}/.
+- Acceptance: deterministic at fixed HEAD; seeded fake landmark + seeded dependent detected.
+  Verification: `bin/dmc selftest orient landmarks depsurface radius`. Rollback: delete bin/
+  additions (additive). Evidence: dmc-v1-m2-*.md. Not-edit: hooks, skills, install.
 
-### M4 — Skill/subagent updates + orchestration registry  [risk: medium]
-- [ ] DMC-T009: orchestration/roles.json + models.json; 6 agent prompts contract-ized
-  (+release-auditor); skills bound to `dmc` verbs; `/dmc-ultrawork` creates run-id via
-  `dmc run start` (arms the gate); handoff/delegation docs → pointers.
-- Acceptance: no skill/agent references a nonexistent artifact path (link check); ultrawork
-  E2E arms stop gate. Verification: link-check tool + M9 scenario. Rollback: git revert (text
-  surfaces). Evidence: dmc-v1-m4-*.md.
+### M3 — Schema upgrades + tool copy-routing + instance validators  [risk: high — drift]
+- [ ] DMC-T007: remaining new schemas (acceptance, scope-lock, fixloop, delegation,
+  critic-verdict, worker-review) + **plan/run/verification instance validators**; canonical-home
+  declaration (root `*_SCHEMA.md` canonical; `.harness/schemas/` mirrors carry a generated
+  header) + mirror-check test. Negative control: the v0.5.4 stub plan must be refused; **this
+  Rev 2 plan must be accepted** (incl. the extended milestone-block format).
+- [ ] DMC-T008: **baseline pin first** — record exact per-tool self-test assertion counts →
+  .harness/evidence/dmc-v1-m3-baseline.md. Then **copy** `.harness/evidence/dmc-v0.*.{sh,py}` →
+  bin/lib/ + `dmc` routing + `dmc selftest --all` aggregator + bin↔original mirror-check.
+  Originals stay in place and canonical; sibling-path composition (e.g.
+  dmc-v0.6.5-decision-trace.py:23) keeps working in both trees.
+- Acceptance: aggregate == pinned baseline, 0 FAIL, in both trees; mirror-check green.
+  Verification: selftest + mirror-check. **Rollback: delete bin/ — originals were never moved
+  or edited; rollback procedure itself is tested in the M3 suite** (critic blocker 4).
+  Evidence: dmc-v1-m3-*.md. Not-edit: tool logic (any logic diff fails the mirror-check).
 
-### M5 — Hook/guard hardening (Ring-1 shims)  [risk: high — protected surface]
-- [ ] DMC-T010: hooks become shims calling Ring-0 verdict CLIs; scope.lock immutability;
-  Bash write-radius classifier (deny `git apply|patch`, redirection/sed -i/tee into non-scope);
-  secret-guard superset keys (`pattern`,`path`) + case-insensitive matching; fail-closed-in-
-  active on interpreter absence; stop gate → `dmc gate release --quick` (keyword regex removed).
-- Acceptance: the 5 audited bypasses denied (regression fixtures); all legacy hook behaviors
-  preserved for allowed operations (fixture matrix). Verification: new adversarial hook suite +
-  `bash -n` + E2E. Rollback: settings.json + hooks are small; revert commit restores v0.6.5
-  behavior. Evidence: dmc-v1-m5-*.md. Explicitly authorized protected-surface edit.
+### M4 — Run-lifecycle core (the spine)  [risk: medium — largest milestone, additive only]
+- [ ] DMC-T009: run/scope/approval core — `dmc run start|suspend|resume|status` writing
+  `runs/<run>/run.json` + run-id; scope-lock compiler (P7 constructive) from an APPROVED plan
+  (hash-bound, immutable, concurrent-lock refusal); typed approvals `approvals.jsonl` (P17,
+  v0.6.5 namespace); evidence ledger core + `check_id` receipt extension (P10); checkpoints
+  (P12).
+- [ ] DMC-T009b: loop primitives — acceptance compiler (P8), verification planner promotion
+  (P9: consumes acceptance+radius, reusing v0.5.5 logic via bin/lib), fix-loop counters + bound
+  + STOP verdict (P13, counters bound to plan_hash), context recovery on observed git state
+  (P11, next-safe-action).
+- Acceptance: full state-file round-trip on a fixture run (start→lock→checks→receipts→fail→
+  counter→checkpoint→suspend→resume→recover); scope.lock/acceptance immutable post-approval
+  (hash-chain detects tamper); approval laundering refused (R12 re-test).
+  Verification: `bin/dmc selftest run-core loop-core` + v0.6.x validators re-run over the new
+  artifacts. Rollback: delete bin/ additions (additive; nothing consumes them yet).
+  Evidence: dmc-v1-m4-*.md. Not-edit: hooks, skills, settings.json.
 
-### M6 — Worker/subagent orchestration hardening  [risk: medium]
-- [ ] DMC-T011: worker-result-check hardening (token classes, rename/binary diffs,
-  empty-allowed⇒DENY, task_id/provider cross-check, presence checks); review validator;
-  apply-authorization chain + post-apply fidelity (names+hunk-count); worker-context-guard
-  fail-closed on parse error; delegation records + subagent artifact validation.
-- Acceptance: JWT/rename/empty-allowed fixtures REJECT; v0.3.3 contract suite still green;
-  apply without chain refused by P18. Verification: extended contract suite. Rollback: revert;
-  old validator kept as bin/lib compat until v1.0 tag. Evidence: dmc-v1-m6-*.md.
+### M5 — Skills/subagents/orchestration registry  [risk: medium]
+- [ ] DMC-T010: orchestration/roles.json (single taxonomy) + 6 contract-ized agent prompts
+  (+release-auditor, P16 critic-verdict artifact contract); skills bound to `dmc` verbs;
+  `/dmc-ultrawork` and `/dmc-start-work` call `dmc run start` (arms the gate — depends on M4,
+  now satisfied); DMC_AGENT_HANDOFF/DYNAMIC_DELEGATION/DMC_DELEGATION_HARNESS role lists →
+  pointers to the registry.
+- Acceptance: link check — no skill/agent references a nonexistent artifact/verb; ultrawork
+  fixture transcript arms run-id; critic verdict artifact schema-valid; start-work refused
+  without a critic-verdict ref. Verification: link-check + M9 scenario pre-run. Rollback: git
+  revert (text surfaces only). Evidence: dmc-v1-m5-*.md. Not-edit: hooks, settings.json.
 
-### M7 — Host install/adaptation (P19)  [risk: medium]
-- [ ] DMC-T012: installer ships Ring 0+1; generated manifest section; uninstaller strip fixes;
-  idempotent CLAUDE.md marker; `dmc doctor`; Codex minimal binding spike (pre-commit/CI).
-- Acceptance: 4-fixture round-trip byte-clean; doctor detects missing python3, foreign harness,
-  unfired hooks. Verification: install suite. Rollback: installer changes are self-contained.
-  Evidence: dmc-v1-m7-*.md.
+### M6 — Hook/guard hardening (Ring-1 shims)  [risk: high — **protected surface, explicitly authorized for this milestone**]
+- [ ] DMC-T011: hooks become shims over Ring-0 verdict CLIs; scope.lock + approvals immutability
+  at Ring 1; Bash write-radius classifier (deny `git apply`/`patch`; deny/ask redirection,
+  `sed -i`, `tee`, `mv`/`cp` into non-scope; fail-closed on unparseable in active); secret-guard
+  superset keys (`file_path`,`glob`,`pattern`,`path`) + case-insensitive matching;
+  fail-closed-in-active on missing interpreter; stop gate → quick coverage check (receipts ⊇
+  required checks; keyword regex removed; suspended runs don't block); P6 bounds enforcement
+  (v0.4.3 logic via bin/lib).
+- Acceptance: canonical-five fixtures (1)(2)(3) denied + `git apply` denied + interpreter-absent
+  ⇒ deny-in-active; all legitimate-operation fixtures still allowed (compatibility matrix);
+  stop-block E2E on ultrawork path. Verification: adversarial hook suite + `bash -n` + matrix.
+  Rollback: single revert commit restores v0.6.5 hooks+settings byte-identically (kept as
+  fixtures for the test). Evidence: dmc-v1-m6-*.md.
+- Not-edit: worker-result-check.py, worker-context-guard.sh (M7's surface).
 
-### M8 — CI + release-readiness gate (P18)  [risk: low]
-- [ ] DMC-T013: `dmc gate release` (quick/full) composing v0.2.6/v0.6.2-5 + scope/landmark
-  checks; .github/workflows/dmc-ci.yml running selftest --all + suites.
-- Acceptance: seeded-gap fixtures each FAIL their sub-gate; CI green on branch. Verification:
-  gate self-test + CI run. Rollback: additive. Evidence: dmc-v1-m8-*.md.
+### M7 — Worker/delegation hardening  [risk: medium — **protected surface (worker validators), explicitly authorized for this milestone**]
+- [ ] DMC-T012: worker-result-check hardening (token classes imported from oauth-cli detectors;
+  rename/copy/binary diff parsing; empty-allowed ⇒ DENY; task_id/provider cross-check;
+  required-field presence); worker-context-guard fail-closed on parse error; NEW review
+  validator (`dmc worker review-check`); hash-chained apply-authorization consumed by P7 at
+  apply; post-apply fidelity (names+hunk-count); delegation records + subagent artifact
+  validation (P14 records).
+- Acceptance: canonical-five fixtures (4)(5) + empty-allowed REJECT; v0.3.3 contract suite green
+  unchanged; apply without chain refused. Verification: extended contract suite. Rollback:
+  revert commit; pre-M7 validator retained as fixture. Evidence: dmc-v1-m7-*.md.
+  Not-edit: provider adapters/router (never), M6 hook surface.
 
-### M9 — End-to-end dry run on fixture repo  [risk: low]
-- [ ] DMC-T014: full loop on tests/fixtures/host-node: orient→landmarks→plan→critic→approve→
-  scope.lock→execute (incl. a denied bypass attempt each class)→receipts→fix-loop→resume→
-  release gate→human gate; latency budget measured.
-- Acceptance: loop completes; every deny fixture denies; real repo byte-unchanged.
-  Verification: e2e script, self-contained. Evidence: dmc-v1-m9-*.md.
+### M8 — Host install/adaptation (P19 + P20)  [risk: medium]
+- [ ] DMC-T013: installer ships Ring 0+1 (bin/, adapters/, schemas, orchestration/); generated
+  manifest section (INSTALL_MANIFEST regenerated-from-installer, drift-tested); uninstaller
+  strip fixes (gitignore skip bug, CLAUDE.md marker section removal); idempotent marker-based
+  CLAUDE.md append; `${DRY:+}`/eval-quoting fixes; `dmc doctor` (interpreters, hook firing,
+  foreign-harness detection, enforcement matrix print); P20 models.json + harness feature
+  matrix; Codex minimal binding spike (pre-commit/CI; timeboxed).
+- Acceptance: 4-fixture round-trip byte-clean (empty, node, existing-claude-settings,
+  existing-OMC); double-install idempotent; doctor catches seeded defects. Verification: M8
+  install suite. Rollback: installer self-contained; revert commit. Evidence: dmc-v1-m8-*.md.
+
+### M9 — Release gate composition + CI + E2E dry run  [risk: low]
+- [ ] DMC-T014: `dmc gate release --full` composing v0.2.6/v0.6.2-5 + diff⊆scope (git ground
+  truth) + landmark-diff flag + delegation/import-chain checks; .github/workflows/dmc-ci.yml
+  (selftest --all vs baseline, mirror-check, adversarial suites, install suite).
+- [ ] DMC-T015: E2E dry run on tests/fixtures/host-node: orient→landmarks→plan→critic→approve→
+  run start→execute (one denied attempt per canonical-five class)→receipts→fix-loop→suspend/
+  resume→release gate→human-gate record; latency budget measured (<2s quick tier).
+- Acceptance: seeded-gap fixtures each FAIL their sub-gate; loop completes; real repo
+  byte-unchanged; CI green on branch. Verification: gate self-test + e2e script + CI run.
+  Rollback: additive. Evidence: dmc-v1-m9-*.md.
 
 ### M10 — Final docs + release checklist  [risk: low]
-- [ ] DMC-T015: DMC.md/CLAUDE.md/AGENTS.md/CONTEXT_MAP v1.0 identity refresh; enforcement
-  matrix doc (per-harness enforced-vs-advisory); honest-scope register; release checklist;
-  MILESTONES closure entry (human-gated); stray-file hygiene proposal (separate approval).
-- Acceptance: no doc claims v0.1; B1–B10 traceability table complete; checklist consumed by
-  release gate. Verification: doc link/claim check + `dmc gate release --full`. Evidence:
-  dmc-v1-m10-*.md.
+- [ ] DMC-T016: DMC.md/CLAUDE.md/AGENTS.md/CONTEXT_MAP v1.0 identity refresh; NEW
+  docs/DMC_V1_ENFORCEMENT_MATRIX.md (per-harness enforced-vs-advisory),
+  docs/DMC_V1_HONEST_SCOPE.md (approval-provenance-not-authentication, redaction
+  known-shapes-only, regex-dep-scan best-effort), docs/DMC_V1_RELEASE_CHECKLIST.md (consumed by
+  the release gate); B1–B10 traceability table; decision on deprecating `.harness/evidence/`
+  tool copies (originals) — human-gated; stray-file hygiene proposal (separate approval);
+  MILESTONES closure entry (human-gated).
+- Acceptance: no doc claims v0.1; traceability complete; `dmc gate release --full` PASS.
+  Verification: doc link/claim check + full gate. Evidence: dmc-v1-m10-*.md.
 
 ## Verification Commands
 
 | Command | Reason | Required |
 |---|---|---|
-| bash -n .claude/hooks/*.sh adapters/**/*.sh bin/** (sh files) | syntax floor | yes |
-| bin/dmc selftest --all | aggregate legacy + new self-tests, 0 FAIL | yes |
+| bash -n .claude/hooks/*.sh adapters/**/*.sh (+ sh under bin/) | syntax floor | yes |
+| bin/dmc selftest --all (vs pinned M3 baseline) | legacy+new self-tests, exact-count 0 FAIL | yes |
 | bin/dmc doctor (repo + fixtures) | wiring/interpreter/enforcement matrix | yes |
-| M5 adversarial hook suite | bypass regressions | yes |
-| extended v0.3.3 contract suite | worker invariants | yes |
-| M7 install round-trip suite | host adaptation | yes |
-| M9 e2e dry-run | full-loop proof, repo byte-unchanged | yes |
-| git status --porcelain (before/after each suite) | real-repo cleanliness | yes |
+| M6 adversarial hook suite | canonical-five (1)(2)(3) + git-apply + fail-closed regressions | yes |
+| M7 extended contract suite | canonical-five (4)(5) + empty-allowed + v0.3.3 green | yes |
+| M8 install round-trip suite | host adaptation | yes |
+| M9 e2e dry-run + latency | full-loop proof, repo byte-unchanged, <2s quick tier | yes |
+| git status --porcelain before/after each suite | real-repo cleanliness | yes |
 
 ## Approval Status
 
@@ -242,5 +313,6 @@ Status: DRAFT
 Approver:
 Approved At:
 
-(Not self-approved. Next gates: /dmc-critic on this plan → human approval → M2 start. M1's
-document deliverables exist in-session and await the same review.)
+(Rev 2 after DMC critic REJECT — blockers 1–5 closed, items 6–11 addressed. Not self-approved.
+Next gates: critic re-pass on Rev 2 → human approval, which also ratifies M1 retroactively →
+M2 start.)
