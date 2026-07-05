@@ -45,6 +45,12 @@ Committed and pushed to the dedicated branch only, under the cloud-runtime
 branch-preservation exception pre-authorized in the M2 approval; recorded in
 `.harness/evidence/dmc-v1-m2-repo-intel.md`. main/master untouched.
 
+Final branch state addendum (2026-07-05): the auto-logged `.harness/evidence/dmc-v1-m2.md`
+was subsequently committed as `eafe062` (cloud clean-tree exception; content-reviewed, tool
+event logs only, 0 secret-shaped strings) — so the final M2 branch state includes that file.
+See the "Operational Exception — Auto-log Commit" section of the M2 evidence file. No new
+risk introduced; **Status remains PASS**.
+
 ## Unresolved risks
 
 - Depsurface is regex-tier best-effort (attested in-artifact); AST/LSP deferred by design.

@@ -32,8 +32,11 @@ Authorization: human approval 2026-07-05 (M2 ONLY; recorded in the plan's Approv
   contract, MILESTONES ⇒ release, dmc-glm-smoke ⇒ enforcement (protected-union seed) —
   the M2 acceptance criterion from the plan.
 - Repo cleanliness: `git status --porcelain` shows only in-scope paths (plan, 4 schemas,
-  bin/, tests/) + auto-logged `.harness/evidence/dmc-v1-m2.md` from the PostToolUse hook,
-  which is intentionally left uncommitted per the standing auto-log exclusion policy.
+  bin/, tests/) + auto-logged `.harness/evidence/dmc-v1-m2.md` from the PostToolUse hook.
+  (Correction 2026-07-05: this line originally said the auto-log was "intentionally left
+  uncommitted per the standing auto-log exclusion policy" — that became stale when the
+  cloud runtime's clean-tree requirement forced its commit; see "Operational Exception —
+  Auto-log Commit" below.)
 
 ## Total: 41 assertions, 0 FAIL.
 
@@ -59,3 +62,23 @@ container is ephemeral. Already-authorized M2 work was therefore committed and p
 same dedicated branch `claude/dmc-v1-runtime-upgrade-c5uch1` only (branch-preservation push,
 as pre-authorized by the M2 approval's push clause). main/master untouched. This exception
 does not authorize any other push.
+
+## Operational Exception — Auto-log Commit
+
+- **Original policy:** hook-auto-generated evidence logs (`.harness/evidence/manual-*` and
+  per-run auto-logs like `dmc-v1-m2.md`) are local-only by default (standing auto-log
+  exclusion policy; v0.2.6 G3 lineage).
+- **Actual event:** `.harness/evidence/dmc-v1-m2.md` was committed (`eafe062`) and pushed.
+- **Reason:** the cloud runtime's stop hook requires a clean tree, and the ephemeral remote
+  container requires branch preservation of session work.
+- **Scope:** dedicated branch only — `claude/dmc-v1-runtime-upgrade-c5uch1`.
+- **main/master:** untouched (local `main` == `origin/main` == `d0edc48`).
+- **Content review before commit:** inspected — tool event logs only (Write/Bash events with
+  redacted commands, 153 lines); **0 secret-shaped strings** (grep for sk-/token/password/
+  api-key classes returned zero).
+- **Runtime/product/protected-surface code:** unchanged by that commit (single evidence file,
+  +153/−0).
+- **M3:** not started.
+- **Authorization boundary:** this exception does NOT make auto-log commits the default going
+  forward. Auto-logs remain local-only by policy; committing one again requires the same
+  explicit cloud clean-tree justification, recorded per-instance as an operational exception.
