@@ -1,3 +1,6 @@
+<!-- GENERATED MIRROR — canonical home: VERIFICATION_SCHEMA.md; do not edit by hand. Regenerate from the canonical root. -->
+<!-- DMC canonical home: VERIFICATION_SCHEMA.md (root). Generated mirror: .harness/schemas/verification.schema.md — edit here; regenerate the mirror; never hand-edit the mirror. -->
+
 # VERIFICATION_SCHEMA.md
 
 Use this format for `.harness/verification/<run-id>.md`.

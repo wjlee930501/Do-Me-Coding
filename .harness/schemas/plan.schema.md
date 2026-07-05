@@ -1,3 +1,6 @@
+<!-- GENERATED MIRROR — canonical home: PLAN_SCHEMA.md; do not edit by hand. Regenerate from the canonical root. -->
+<!-- DMC canonical home: PLAN_SCHEMA.md (root). Generated mirror: .harness/schemas/plan.schema.md — edit here; regenerate the mirror; never hand-edit the mirror. -->
+
 # PLAN_SCHEMA.md
 
 Use this format for `.harness/plans/<plan-id>.md`.

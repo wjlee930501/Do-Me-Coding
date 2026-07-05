@@ -1,3 +1,5 @@
+<!-- DMC canonical home: RUN_SCHEMA.md (root). Generated mirror: .harness/schemas/run.schema.md — edit here; regenerate the mirror; never hand-edit the mirror. -->
+
 # RUN_SCHEMA.md
 
 Use this format for `.harness/runs/<run-id>.md`.

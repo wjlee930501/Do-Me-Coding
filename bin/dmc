@@ -6,6 +6,8 @@ set -u
 
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 CORE="$HERE/lib/dmc-repo-intel.py"
+ICORE="$HERE/lib/dmc-instance-validate.py"
+LCORE="$HERE/lib/dmc-legacy-selftest.py"
 
 usage() {
   cat <<'EOF'
@@ -17,10 +19,29 @@ commands (M2):
   depsurface  [--root DIR] [--out FILE] | --validate FILE | --self-test
   radius      --depsurface F --landmarks F --checks F --scope P [P...]
               [--out FILE] | --validate FILE | --self-test
-  selftest    [orient|landmarks|depsurface|radius ...]   (default: all four)
+
+commands (M3):
+  validate    plan|run|verification <path>   instance validator (ACCEPT => 0, REFUSED => 3)
+  validate    schemas-mirror                 mirrors == canonical roots modulo generated header
+
+  legacy      list                           list the copy-routed v0.x tools (bin/lib)
+  legacy      <tool-id> [args...]            route to a copied v0.x tool, e.g.
+                                              `dmc legacy v0.6.0-verify --self-test`
+  mirror-check                               bin/lib <-> .harness/evidence byte-equality (55 files)
+  rollback-test                              verify 'rm -rf bin/' loses no functionality
+                                              (simulated in a disposable temp copy only)
+
+  selftest    [orient|landmarks|depsurface|radius|validate-plan|validate-run|
+               validate-verification|schemas-mirror|legacy-mirror ...]   (default: all sections)
+  selftest    --all                          above + all 49 legacy tools (bin/lib) vs the
+                                              pinned baseline + rollback-test (slow: ~2-3 min)
   help
 
 Artifacts conform to .harness/schemas/{orientation,landmarks,depsurface,radius}.schema.md.
+Instance validators check plan/run/verification docs against PLAN_SCHEMA.md / RUN_SCHEMA.md /
+VERIFICATION_SCHEMA.md (canonical roots; mirrored under .harness/schemas/).
+Legacy v0.x tools are copy-routed (never moved) from .harness/evidence/dmc-v0.*.{sh,py} into
+bin/lib/; the originals stay canonical (per .harness/evidence/dmc-v1-m3-baseline.md).
 Validators are fail-closed: VALID => exit 0, REFUSED => exit 3.
 EOF
 }
@@ -32,15 +53,81 @@ case "$cmd" in
   orient|landmarks|depsurface|radius)
     exec python3 "$CORE" "$cmd" "$@"
     ;;
+  validate)
+    sub=${1:-}
+    [ $# -gt 0 ] && shift
+    case "$sub" in
+      plan|run|verification)
+        [ $# -ge 1 ] || { echo "usage: dmc validate $sub <path>" >&2; exit 2; }
+        exec python3 "$ICORE" "$sub" --validate "$1"
+        ;;
+      schemas-mirror)
+        exec python3 "$ICORE" mirror --check
+        ;;
+      *)
+        echo "dmc validate: unknown target: ${sub:-<none>} \
+(plan|run|verification|schemas-mirror)" >&2
+        exit 2
+        ;;
+    esac
+    ;;
+  legacy)
+    sub=${1:-}
+    [ $# -gt 0 ] && shift
+    case "$sub" in
+      ""|list)
+        (cd "$HERE/lib" && ls dmc-v0.*.sh 2>/dev/null | sed -E 's/^dmc-(v0\.[0-9.]+-[a-z0-9.-]+)\.sh$/\1/')
+        ;;
+      *)
+        tool="$sub"
+        case "$tool" in
+          dmc-*.sh) : ;;
+          *.sh) tool="dmc-$tool" ;;
+          *) tool="dmc-$tool.sh" ;;
+        esac
+        [ -f "$HERE/lib/$tool" ] || { echo "dmc legacy: unknown tool: $sub (see 'dmc legacy list')" >&2; exit 2; }
+        exec bash "$HERE/lib/$tool" "$@"
+        ;;
+    esac
+    ;;
+  mirror-check)
+    exec python3 "$LCORE" mirror --check
+    ;;
+  rollback-test)
+    exec python3 "$LCORE" rollback-test
+    ;;
   selftest)
-    [ $# -eq 0 ] && set -- orient landmarks depsurface radius
+    if [ "${1:-}" = "--all" ]; then
+      rc=0
+      for t in orient landmarks depsurface radius \
+        validate-plan validate-run validate-verification schemas-mirror legacy-mirror; do
+        case "$t" in
+          orient|landmarks|depsurface|radius)
+            python3 "$CORE" "$t" --self-test || rc=1 ;;
+          validate-plan)          python3 "$ICORE" plan --self-test || rc=1 ;;
+          validate-run)           python3 "$ICORE" run --self-test || rc=1 ;;
+          validate-verification)  python3 "$ICORE" verification --self-test || rc=1 ;;
+          schemas-mirror)         python3 "$ICORE" mirror --self-test || rc=1 ;;
+          legacy-mirror)          python3 "$LCORE" mirror --self-test || rc=1 ;;
+        esac
+      done
+      python3 "$LCORE" selftest-all || rc=1
+      exit "$rc"
+    fi
+    [ $# -eq 0 ] && set -- orient landmarks depsurface radius \
+      validate-plan validate-run validate-verification schemas-mirror legacy-mirror
     rc=0
     for t in "$@"; do
       case "$t" in
-        orient|landmarks|depsurface|radius) ;;
+        orient|landmarks|depsurface|radius)
+          python3 "$CORE" "$t" --self-test || rc=1 ;;
+        validate-plan)          python3 "$ICORE" plan --self-test || rc=1 ;;
+        validate-run)           python3 "$ICORE" run --self-test || rc=1 ;;
+        validate-verification)  python3 "$ICORE" verification --self-test || rc=1 ;;
+        schemas-mirror)         python3 "$ICORE" mirror --self-test || rc=1 ;;
+        legacy-mirror)          python3 "$LCORE" mirror --self-test || rc=1 ;;
         *) echo "dmc selftest: unknown target: $t" >&2; exit 2 ;;
       esac
-      python3 "$CORE" "$t" --self-test || rc=1
     done
     exit "$rc"
     ;;

@@ -309,9 +309,9 @@ Global not-edit for every milestone unless its own list authorizes it:
 
 ## Approval Status
 
-Status: APPROVED (M2 ONLY; M1 retroactively ratified) — M3+ remain UNAPPROVED (DRAFT)
+Status: APPROVED (M2 + M3; M1 retroactively ratified) — M4+ remain UNAPPROVED (DRAFT)
 Approver: wjlee (wjlee@motionlabs.kr) — human release gate
-Approved At: 2026-07-05
+Approved At: 2026-07-05 (M1/M2) · 2026-07-06 (M3)
 
 Approval record (verbatim scope of the human gate, 2026-07-05):
 - **M1 retroactive ratification** covers: Phase 0–4 document deliverables, M1
@@ -327,6 +327,19 @@ Approval record (verbatim scope of the human gate, 2026-07-05):
 - **M2 must not edit**: `.claude/hooks/*`, `.claude/settings.json`, `.claude/skills/*`,
   `.claude/agents/*`, `.claude/install/*`, `.claude/workers/providers/**`, worker validators,
   installer/uninstaller, provider adapters/router, live provider paths, main/master.
+
+Approval record — M3 (verbatim scope of the human gate, 2026-07-06, granted in the local
+resume session):
+- **M3-only approval**: DMC-T007 + DMC-T008 as specified in §Execution Tasks M3 — six new
+  schemas (acceptance, scope-lock, fixloop, delegation, critic-verdict, worker-review),
+  plan/run/verification instance validators, canonical-home declaration on root `*_SCHEMA.md`
+  + generated-header mirrors + mirror-check, baseline pin (`dmc-v1-m3-baseline.md`), copy-only
+  relocation of `.harness/evidence/dmc-v0.*.{sh,py}` into bin/lib with `dmc` routing +
+  `selftest --all` aggregator + bin↔original byte mirror-check; M3 evidence/verification
+  files; run-state under `.harness/runs/`.
+- **Explicitly NOT approved**: M4+, staging/commit/push (each a separate human gate),
+  hook/skill/agent/settings/installer/worker-validator/provider changes, in-place edits of
+  `.harness/evidence/dmc-v0.*` originals, main/master changes, live calls, secret access.
 
 (Rev 2 after DMC critic REJECT — blockers 1–5 closed, items 6–11 addressed. Not self-approved.
 Next gates: critic re-pass on Rev 2 → human approval, which also ratifies M1 retroactively →
