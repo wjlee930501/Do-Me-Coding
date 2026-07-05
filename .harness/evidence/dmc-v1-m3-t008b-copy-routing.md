@@ -159,14 +159,17 @@ $ bin/dmc legacy list | wc -l
 
 $ bin/dmc legacy v0.6.0-verify --self-test   # spot-check routing works end-to-end
 ...
-RESULT: 17 PASS / 1 FAIL   (same result running via bin/lib as via .harness/evidence directly)
+RESULT: 18 PASS / 0 FAIL   (same result running via bin/lib as via .harness/evidence directly;
+                            at T008b build time this read 17/1 — the pre-commit V15
+                            working-tree artifact explained above, cleared by commit 1b9a4c3)
 
 $ bin/dmc mirror-check
 ... 55x PASS byte-identical ...
 PASS no stray dmc-v0.* copies beyond the pinned 55-file set
 RESULT: PASS mirror-check green
 
-$ bin/dmc selftest --all
+$ bin/dmc selftest --all    # refreshed capture: post-M3-commit (1b9a4c3), fully-committed
+                            # tree, incl. the validate-run hermeticity follow-up fix
 [orient] 10 PASS / 0 FAIL
 [landmarks] 11 PASS / 0 FAIL
 [depsurface] 8 PASS / 0 FAIL
@@ -175,22 +178,33 @@ $ bin/dmc selftest --all
 [validate-run] 6 PASS / 0 FAIL
 [validate-verification] 6 PASS / 0 FAIL
 [schemas-mirror] 15 PASS / 0 FAIL
+[legacy-mirror] 4 PASS / 0 FAIL
 == dmc selftest --all : legacy tool aggregate (bin/lib copies) ==
   ... 49 tool lines ...
-  -- aggregate: tools=49 PASS=800 FAIL=5 N/A=3 timeouts=0 unparsed=0 --
-  FAIL aggregate DRIFTED from pinned baseline {'tools': 49, 'pass': 802, 'fail': 3, 'na': 3}
-== mirror-check : bin/lib <-> .harness/evidence byte-equality (55 files) ==
-  ... RESULT: PASS mirror-check green
+  -- aggregate: tools=49 PASS=802 FAIL=3 N/A=3 timeouts=0 unparsed=0 --
+  PASS aggregate == pinned baseline exactly ({'tools': 49, 'pass': 802, 'fail': 3, 'na': 3}, see .harness/evidence/dmc-v1-m3-baseline.md)
 == rollback-test : simulate 'rm -rf bin/' in a disposable temp copy ==
   PASS real .harness/evidence originals byte-unchanged during rollback sim (55 files re-hashed)
-  FAIL originals alone do not reproduce the pinned baseline: got tools=49 PASS=800 FAIL=5 N/A=3
-  RESULT: FAIL rollback procedure verification failed
-==== SELFTEST-ALL RESULT: FAIL ====
+  PASS originals alone (bin/ absent from the equation) still reproduce the pinned baseline: tools=49 PASS=802 FAIL=3 N/A=3
+  RESULT: PASS rollback procedure verified safe
+==== SELFTEST-ALL RESULT: PASS ====
 ```
 
-M2 (orient/landmarks/depsurface/radius) and M3 validator/schemas-mirror sections: all green,
-unaffected (65/65 PASS across those eight sections), confirming DMC-T007's work is otherwise
-intact and this task did not regress it.
+Historical note (superseded capture): at T008b build time — pre-commit, before the
+legacy-mirror default section and the mirror-check de-dup — this command emitted an 8-section
+structure with a standalone `== mirror-check … ==` block and aggregate `800/5/3` /
+`SELFTEST-ALL FAIL`, the uncommitted-working-tree artifact analyzed above (v0.5.9 AC13 +
+v0.6.0 V15 reacting to the then-uncommitted tracked schema edits). The M3 commit `1b9a4c3`
+cleared it, as the refreshed capture shows.
+
+M2 (orient/landmarks/depsurface/radius) and M3 validator/schemas-mirror sections plus
+legacy-mirror: all green — 75/75 PASS across the nine default sections (an earlier capture
+read "65/65 across eight sections" before schemas-mirror grew 9→15 assertions and the 4-assertion
+legacy-mirror section was promoted into the default run), confirming DMC-T007's work is intact
+and this task did not regress it. The validate-run section's live-state read (a hermeticity
+defect found post-commit: its self-test read the gitignored `.harness/runs/current-run.md`) was
+fixed in the immediate follow-up — self-tests are now fully synthetic; its per-section tally is
+unchanged at 6/0.
 
 ## Repo-cleanliness / scope check
 

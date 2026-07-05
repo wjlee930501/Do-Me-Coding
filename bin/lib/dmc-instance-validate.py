@@ -309,6 +309,16 @@ class ST:
             self.failed += 1
             print("FAIL [%s] %s" % (self.name, label))
 
+    def check(self, label, thunk):
+        """Run thunk()->bool, turning any exception (e.g. a missing/unreadable fixture) into a
+        graceful FAIL. Keeps a broken fixture from aborting the section before its footer."""
+        try:
+            cond = bool(thunk())
+        except Exception as e:  # noqa: BLE001 — a broken fixture must FAIL, never abort the run
+            self.ok("%s [EXC:%s]" % (label, e.__class__.__name__), False)
+            return
+        self.ok(label, cond)
+
     def done(self):
         print("[%s] %d PASS / %d FAIL" % (self.name, self.passed, self.failed))
         sys.exit(0 if self.failed == 0 else 1)
@@ -366,14 +376,17 @@ Approved At:
 def selftest_plan():
     t = ST("validate-plan")
     pd = _plans_dir()
-    rev2 = read_text(os.path.join(pd, "dmc-v1-runtime-upgrade.md"))
-    t.ok("P1 Rev 2 runtime-upgrade plan ACCEPTED (incl. extended milestone block)",
-         validate_plan(rev2) == [])
-    stub = read_text(os.path.join(pd, "dmc-v0.5.4-workflow-state-machine.md"))
-    stub_errs = validate_plan(stub)
-    t.ok("P2 negative control: v0.5.4 stub plan REFUSED", stub_errs != [])
-    t.ok("P2b stub refusal names a missing required section",
-         any(e.startswith("PLAN-MISSING-SECTION:") for e in stub_errs))
+    # P1/P2 reference the two tracked canonical plans (present in any clone); reads are guarded so
+    # a missing/renamed plan FAILs loudly instead of aborting the section.
+    rev2_path = os.path.join(pd, "dmc-v1-runtime-upgrade.md")
+    stub_path = os.path.join(pd, "dmc-v0.5.4-workflow-state-machine.md")
+    t.check("P1 Rev 2 runtime-upgrade plan ACCEPTED (incl. extended milestone block)",
+            lambda: validate_plan(read_text(rev2_path)) == [])
+    t.check("P2 negative control: v0.5.4 stub plan REFUSED",
+            lambda: validate_plan(read_text(stub_path)) != [])
+    t.check("P2b stub refusal names a missing required section",
+            lambda: any(e.startswith("PLAN-MISSING-SECTION:")
+                        for e in validate_plan(read_text(stub_path))))
     t.ok("P3 synthetic minimal plan ACCEPTED", validate_plan(SYNTH_PLAN) == [])
     no_approval = SYNTH_PLAN.replace("## Approval Status\n", "")
     t.ok("P4 negative control: missing '## Approval Status' REFUSED",
@@ -385,7 +398,7 @@ def selftest_plan():
     no_task = SYNTH_PLAN.replace("- [ ] DMC-T001: t", "- a prose task")
     t.ok("P6 negative control: no DMC-T task checkbox REFUSED",
          any(e.startswith("PLAN-NO-TASKS") for e in validate_plan(no_task)))
-    t.ok("P7 determinism", validate_plan(rev2) == validate_plan(rev2))
+    t.ok("P7 determinism", validate_plan(SYNTH_PLAN) == validate_plan(SYNTH_PLAN))
     t.done()
 
 
@@ -418,10 +431,14 @@ session_ids: s1
 
 
 def selftest_run():
+    # Fully synthetic: no dependency on `.harness/runs/current-run.md` (gitignored, local-only,
+    # absent in a fresh clone / CI). The old real-instance coverage — a run carrying extra
+    # non-required sections — is preserved by U2 below.
     t = ST("validate-run")
-    cur = read_text(os.path.join(repo_root(), ".harness", "runs", "current-run.md"))
-    t.ok("U1 current-run.md ACCEPTED", validate_run(cur) == [])
-    t.ok("U2 synthetic minimal run ACCEPTED", validate_run(SYNTH_RUN) == [])
+    t.ok("U1 synthetic minimal run ACCEPTED", validate_run(SYNTH_RUN) == [])
+    extra = SYNTH_RUN + "## Not-Edit (fail-closed outside scope)\n- x\n"
+    t.ok("U2 run with an extra non-required section ACCEPTED (extras tolerated)",
+         validate_run(extra) == [])
     no_status = SYNTH_RUN.replace("status: RUNNING\n", "")
     t.ok("U3 negative control: missing status field REFUSED",
          any(e == "RUN-MISSING-FIELD: status" for e in validate_run(no_status)))
@@ -472,9 +489,11 @@ PASS
 
 def selftest_verification():
     t = ST("validate-verification")
-    v = read_text(os.path.join(repo_root(), ".harness", "verification",
-                               "dmc-v0.2-worker-bridge.md"))
-    t.ok("V1 dmc-v0.2-worker-bridge.md ACCEPTED", validate_verification(v) == [])
+    # V1 references a tracked verification report (present in any clone); read is guarded so a
+    # missing/renamed file FAILs loudly instead of aborting the section.
+    v_path = os.path.join(repo_root(), ".harness", "verification", "dmc-v0.2-worker-bridge.md")
+    t.check("V1 dmc-v0.2-worker-bridge.md ACCEPTED",
+            lambda: validate_verification(read_text(v_path)) == [])
     t.ok("V2 synthetic minimal verification ACCEPTED", validate_verification(SYNTH_VERIF) == [])
     no_final = SYNTH_VERIF.replace("## Final Status\nPASS\n", "")
     t.ok("V3 negative control: missing '## Final Status' REFUSED",
@@ -493,29 +512,46 @@ def selftest_verification():
     t.done()
 
 
+def _root_text(name):
+    root_name, _ = MIRRORS[name]
+    return root_name, read_text(os.path.join(repo_root(), root_name))
+
+
 def selftest_mirror():
+    # All reads (tracked root schemas + generated mirrors) go through graceful `check`, so a
+    # missing/renamed root or mirror FAILs loudly instead of aborting before the footer.
     t = ST("schemas-mirror")
     for name in ("plan", "run", "verification"):
-        ok, reason = mirror_status(name)
-        t.ok("M-%s on-disk mirror == canonical modulo header (%s)" % (name, reason), ok)
+        t.check("M-%s on-disk mirror == canonical modulo header" % name,
+                lambda n=name: mirror_status(n)[0])
+
+    def reconstructed_ok(n):
+        root_name, root_text = _root_text(n)
+        return compare_mirror(gen_header(root_name) + "\n" + root_text, root_text, root_name)[0]
+
+    def tampered_refused(n):
+        root_name, root_text = _root_text(n)
+        return not compare_mirror(gen_header(root_name) + "\n" + root_text + "DRIFT\n",
+                                  root_text, root_name)[0]
+
+    def header_refused(n):
+        root_name, root_text = _root_text(n)
+        return not compare_mirror(root_text, root_text, root_name)[0]
+
+    def declares_home(n):
+        root_name, root_text = _root_text(n)
+        return canonical_home_marker(root_name) in root_text
+
     for name in ("plan", "run", "verification"):
-        root_name, _ = MIRRORS[name]
-        root_text = read_text(os.path.join(repo_root(), root_name))
-        good = gen_header(root_name) + "\n" + root_text
-        ok, _ = compare_mirror(good, root_text, root_name)
-        t.ok("M-%s reconstructed mirror validates" % name, ok)
-        tampered_body = gen_header(root_name) + "\n" + root_text + "DRIFT\n"
-        okt, _ = compare_mirror(tampered_body, root_text, root_name)
-        t.ok("M-%s negative control: tampered body REFUSED" % name, not okt)
-        no_header = root_text
-        okh, _ = compare_mirror(no_header, root_text, root_name)
-        t.ok("M-%s negative control: missing generated header REFUSED" % name, not okh)
-    # canonical roots each declare their canonical home
+        t.check("M-%s reconstructed mirror validates" % name,
+                lambda n=name: reconstructed_ok(n))
+        t.check("M-%s negative control: tampered body REFUSED" % name,
+                lambda n=name: tampered_refused(n))
+        t.check("M-%s negative control: missing generated header REFUSED" % name,
+                lambda n=name: header_refused(n))
     for name in ("plan", "run", "verification"):
-        root_name, _ = MIRRORS[name]
-        root_text = read_text(os.path.join(repo_root(), root_name))
-        t.ok("M-%s root declares canonical home" % name,
-             canonical_home_marker(root_name) in root_text)
+        t.check("M-%s root declares canonical home" % name,
+                lambda n=name: declares_home(n))
     t.done()
 
 
