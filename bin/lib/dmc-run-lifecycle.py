@@ -9,8 +9,15 @@ and report the INIT->RUNNING->SUSPENDED->RESUMING->RUNNING->DONE state machine.
 
 Subcommands:
   start --plan FILE [--root DIR] [--work-id ID]   mint + arm a run (refuses unless plan APPROVED;
-                                                  refuses a second start while a run is active)
+                                                  refuses a second start while a run is active;
+                                                  M6: also refuses a plan-bound critic REJECT, and
+                                                  writes snapshot.txt — the post-Bash diff baseline)
   suspend|resume|status [--root DIR] [--run-id ID] transition / report; SUSPENDED != active
+  block --reason R [--paths P...] [--created-by CHECK] | blocked-status | unblock --resolution TEXT
+                                                  M6 BLOCKED sidecar marker (blocked.json) —
+                                                  written/read/cleared ONLY here; the STATES tuple
+                                                  and run.json schema are UNTOUCHED (BLOCKED is not
+                                                  a run state)
   --validate FILE                                  fail-closed run.json validator (VALID=>0,
                                                    REFUSED=>3)
   --self-test                                      hermetic section self-test (tempdir only)
@@ -51,6 +58,17 @@ HASH_RE = re.compile(r"^[0-9a-f]{16,}$")
 POINTER_NAME = "current-run-id"   # local-only pointer (gitignored via .harness/runs/current-*)
 REQUIRED_FIELDS = ["schema", "run_id", "work_id", "plan_path", "plan_hash", "repo_hash",
                    "status", "seq", "created_at", "updated_at", "prev_hash", "state_hash"]
+
+# M6 additions (sidecar only — the STATES tuple + run.json schema above are UNTOUCHED).
+# A plan-bound critic verdict of REJECT refuses arming (C11 floor: never grants). The scan is
+# value-blind — it matches by schema/binding, never echoes verdict prose.
+CRITIC_VERDICT_SCHEMA = "dmc.critic-verdict.v1"
+# BLOCKED is a sidecar marker (`.harness/runs/<run-id>/blocked.json`), NOT a run state; the M4 state
+# machine never sees it. Cleared only by `run unblock`, which appends to blocked-resolved.jsonl.
+BLOCKED_SCHEMA = "dmc.blocked-marker.v1"
+BLOCKED_MARKER_NAME = "blocked.json"
+BLOCKED_RESOLVED_NAME = "blocked-resolved.jsonl"
+SNAPSHOT_NAME = "snapshot.txt"
 
 SECRET_ALLOW_BASENAMES = {".env.example", ".env.sample", ".env.template", ".env.dist"}
 
@@ -247,6 +265,108 @@ def load_run(root, run_id):
     return load_json_strict(p)
 
 
+# ---------------------------------------------------- M6: verdict-REJECT arming floor
+
+def evidence_dir(root):
+    return os.path.join(root, ".harness", "evidence")
+
+
+def plan_bound_rejects(root, work_id, ph):
+    """Return sorted repo-relative paths of critic-verdict.json records that REJECT THIS plan.
+
+    A machine floor (critic B3 / C11): a plan-bound REJECT refuses arming. It never GRANTS — an
+    APPROVE or NEEDS_CLARIFICATION verdict, or no hash-matching verdict, arms exactly as before, so
+    the human gate remains the only thing that opens the door. Value-blind: matches by schema +
+    (work_id, plan_hash) binding, never echoes the verdict's prose. Secret-shaped files skipped by
+    path; unreadable/non-verdict JSON ignored (only a well-formed, plan-bound REJECT blocks).
+    """
+    d = evidence_dir(root)
+    if not os.path.isdir(d):
+        return []
+    hits = []
+    for name in sorted(os.listdir(d)):
+        if not name.endswith(".json"):
+            continue
+        p = os.path.join(d, name)
+        if is_secret_path(p) or not os.path.isfile(p):
+            continue
+        try:
+            obj = load_json_strict(p)
+        except Exception:
+            continue
+        if not isinstance(obj, dict):
+            continue
+        if obj.get("schema") != CRITIC_VERDICT_SCHEMA:
+            continue
+        if obj.get("work_id") != work_id or obj.get("plan_hash") != ph:
+            continue
+        if obj.get("verdict") == "REJECT":
+            hits.append(os.path.join(".harness", "evidence", name))
+    return sorted(hits)
+
+
+# ---------------------------------------------------- M6: arming worktree snapshot
+
+def snapshot_path(root, run_id):
+    return os.path.join(runs_dir(root), run_id, SNAPSHOT_NAME)
+
+
+def worktree_snapshot_paths(root):
+    """Sorted changed-path baseline (status --porcelain -uall ∪ diff --name-only) — the exact set
+    dmc-postbash-diff diffs the post-Bash worktree against. git-absent ⇒ empty (no baseline)."""
+    git = shutil.which("git")
+    if not git:
+        return []
+    paths = set()
+    try:
+        r = subprocess.run([git, "-C", root, "status", "--porcelain", "--untracked-files=all"],
+                           capture_output=True, text=True, timeout=15)
+        if r.returncode == 0:
+            for line in r.stdout.splitlines():
+                if len(line) >= 4:
+                    body = line[3:]
+                    body = body.split(" -> ", 1)[1] if " -> " in body else body
+                    paths.add(body.strip().strip('"').replace("\\", "/"))
+    except Exception:
+        pass
+    try:
+        r2 = subprocess.run([git, "-C", root, "diff", "--name-only"],
+                            capture_output=True, text=True, timeout=15)
+        if r2.returncode == 0:
+            paths.update(x.strip().strip('"').replace("\\", "/")
+                         for x in r2.stdout.splitlines() if x.strip())
+    except Exception:
+        pass
+    return sorted(p for p in paths if p)
+
+
+def write_snapshot(root, run_id):
+    d = os.path.join(runs_dir(root), run_id)
+    os.makedirs(d, exist_ok=True)
+    paths = worktree_snapshot_paths(root)
+    with open(snapshot_path(root, run_id), "w", encoding="utf-8") as f:
+        f.write(("\n".join(paths) + "\n") if paths else "")
+
+
+# ---------------------------------------------------- M6: BLOCKED sidecar helpers
+
+def blocked_marker_path(root, run_id):
+    return os.path.join(runs_dir(root), run_id, BLOCKED_MARKER_NAME)
+
+
+def blocked_resolved_path(root, run_id):
+    return os.path.join(runs_dir(root), run_id, BLOCKED_RESOLVED_NAME)
+
+
+def _require_run_dir(root, run_id_override):
+    rid = run_id_override or read_pointer(root)
+    if not rid:
+        refuse(["RUN-NO-ACTIVE: no run-id given and no pointer present"])
+    if not os.path.isdir(os.path.join(runs_dir(root), rid)):
+        refuse(["RUN-NOT-FOUND: no run directory for the requested run-id"])
+    return rid
+
+
 # --------------------------------------------------------------------- verbs
 
 def cmd_start(root, plan, work_id_override):
@@ -259,6 +379,15 @@ def cmd_start(root, plan, work_id_override):
     rh = repo_hash(root)
     work_id = work_id_override or derive_work_id(text, plan)
     run_id = mint_run_id(work_id, ph, rh)
+
+    # M6 verdict-gate VALUE floor (C11): a plan-bound critic REJECT refuses arming — a machine
+    # floor that never opens a gate (an APPROVE/NEEDS_CLARIFICATION verdict arms as today). Bound
+    # to the PLAN id (not a --work-id override) so the verdict tracks the reviewed plan revision.
+    rejects = plan_bound_rejects(root, derive_work_id(text, plan), ph)
+    if rejects:
+        refuse(["RUN-VERDICT-REJECT: a plan-bound critic verdict REJECTs this plan revision — "
+                "arming refused (resolve the blockers + re-review; C11: no machine verdict opens "
+                "the human gate). verdict file(s): %s" % ", ".join(rejects)])
 
     os.makedirs(runs_dir(root), exist_ok=True)
     # Concurrent-lock: one active run per repo (architecture §0.4). SUSPENDED/DONE do not block.
@@ -279,6 +408,9 @@ def cmd_start(root, plan, work_id_override):
     armed = advance(genesis, "RUNNING", now)                       # INIT -> RUNNING
     save_run(root, armed)
     write_pointer(root, run_id)
+    # M6: capture the arming-time worktree baseline for dmc-postbash-diff (run.json, just written,
+    # is now part of the baseline, so later dmc-CLI edits to it are never "new" out-of-scope churn).
+    write_snapshot(root, run_id)
     print("run_id: %s" % run_id)
     print("status: RUNNING")
     print("active: true")
@@ -328,6 +460,77 @@ def cmd_status(root, run_id_override):
     print("run_id: %s" % rid)
     print("status: %s" % rec["status"])
     print("active: %s" % ("true" if active else "false"))
+
+
+# --------------------------------------------------------------- M6: BLOCKED verbs
+
+def cmd_block(root, run_id_override, reason, paths, created_by):
+    """Write the sticky BLOCKED sidecar marker (run-state machine untouched). Refuses a second
+    block while one is outstanding — the marker clears only through `run unblock`."""
+    rid = _require_run_dir(root, run_id_override)
+    if not (isinstance(reason, str) and reason.strip()):
+        refuse(["RUN-BLOCK-NO-REASON: --reason is required (no vague block)"])
+    mp = blocked_marker_path(root, rid)
+    if os.path.exists(mp):
+        refuse(["RUN-ALREADY-BLOCKED: a blocked.json already exists for this run; resolve it via "
+                "`dmc run unblock` before re-blocking (the marker is sticky)"])
+    marker = {
+        "schema": BLOCKED_SCHEMA,
+        "run_id": rid,
+        "reason": reason,
+        "paths": sorted(set(paths or [])),
+        "created_by_check": created_by or "manual",
+        "created_at": iso_now(),
+    }
+    with open(mp, "w", encoding="utf-8") as f:
+        f.write(json.dumps(marker, sort_keys=True, indent=2, ensure_ascii=False) + "\n")
+    print("run_id: %s" % rid)
+    print("blocked: true")
+    print("created_by_check: %s" % marker["created_by_check"])
+
+
+def cmd_blocked_status(root, run_id_override):
+    """Report the BLOCKED sidecar. Exit 0 when clear, 4 when blocked (mirrors the stop-gate hold)."""
+    rid = _require_run_dir(root, run_id_override)
+    mp = blocked_marker_path(root, rid)
+    print("run_id: %s" % rid)
+    if not os.path.exists(mp):
+        print("blocked: false")
+        sys.exit(0)
+    try:
+        marker = load_json_strict(mp)
+    except Exception:
+        marker = {}
+    print("blocked: true")
+    print("reason: %s" % (marker.get("reason") if isinstance(marker, dict) else ""))
+    sys.exit(4)
+
+
+def cmd_unblock(root, run_id_override, resolution):
+    """Resolve a BLOCKED marker: append its content to the append-only blocked-resolved.jsonl and
+    remove the marker. The only sanctioned way to clear a block."""
+    rid = _require_run_dir(root, run_id_override)
+    if not (isinstance(resolution, str) and resolution.strip()):
+        refuse(["RUN-UNBLOCK-NO-RESOLUTION: --resolution is required (record how it was resolved)"])
+    mp = blocked_marker_path(root, rid)
+    if not os.path.exists(mp):
+        refuse(["RUN-NOT-BLOCKED: no blocked.json to resolve for this run"])
+    try:
+        marker = load_json_strict(mp)
+    except Exception:
+        marker = {}
+    entry = {
+        "run_id": rid,
+        "resolution": resolution,
+        "resolved_at": iso_now(),
+        "marker": marker,
+    }
+    with open(blocked_resolved_path(root, rid), "a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n")
+    os.remove(mp)
+    print("run_id: %s" % rid)
+    print("blocked: false")
+    print("resolved: true")
 
 
 # ----------------------------------------------------------------- validator
@@ -583,6 +786,103 @@ def selftest():
         for d in (tmp1, tmp2, tmp3):
             shutil.rmtree(d, ignore_errors=True)
 
+    # ---- M6: verdict-REJECT arming floor (C11) -----------------------------------
+    tmp_v, plan_v = _mkfixture(SYNTH_APPROVED_PLAN)
+    tmp_a, plan_a = _mkfixture(SYNTH_APPROVED_PLAN)
+    tmp_n, plan_n = _mkfixture(SYNTH_APPROVED_PLAN)
+    try:
+        def _verdict(td, plan, verdict, plan_hash_override=None):
+            ph = plan_hash_override or plan_hash(plan)
+            obj = {
+                "schema": CRITIC_VERDICT_SCHEMA, "work_id": "dmc-selftest-run",
+                "plan_hash": ph, "repo_hash": "b" * 40,
+                "target_ref": "plan.md", "verdict": verdict,
+                "lenses": ["scope"], "advisory": True, "context_provenance": "fresh",
+                "blockers": ([{"id": "B1", "statement": "must fix X"}] if verdict == "REJECT" else []),
+            }
+            d = os.path.join(td, ".harness", "evidence")
+            os.makedirs(d, exist_ok=True)
+            with open(os.path.join(d, "verdict.json"), "w", encoding="utf-8") as f:
+                f.write(json.dumps(obj))
+
+        _verdict(tmp_v, plan_v, "REJECT")
+        r_rej = _run_cli(tmp_v, "start", "--plan", plan_v)
+        t.ok("M1 NEG plan-bound critic REJECT refuses arming (C11 floor) exit 3",
+             r_rej.returncode == 3 and "RUN-VERDICT-REJECT" in r_rej.stdout
+             and read_pointer(tmp_v) is None)
+
+        _verdict(tmp_a, plan_a, "APPROVE")
+        r_appr = _run_cli(tmp_a, "start", "--plan", plan_a)
+        t.ok("M2 an APPROVE verdict arms as today (the floor never grants nor blocks APPROVE)",
+             r_appr.returncode == 0 and read_pointer(tmp_a) is not None)
+
+        # A REJECT bound to a DIFFERENT plan revision (non-matching plan_hash) does NOT block.
+        _verdict(tmp_n, plan_n, "REJECT", plan_hash_override="f" * 64)
+        r_nomatch = _run_cli(tmp_n, "start", "--plan", plan_n)
+        t.ok("M3 a REJECT bound to another plan revision does NOT refuse arming",
+             r_nomatch.returncode == 0 and read_pointer(tmp_n) is not None)
+    finally:
+        for d in (tmp_v, tmp_a, tmp_n):
+            shutil.rmtree(d, ignore_errors=True)
+
+    # ---- M6: arming snapshot + BLOCKED sidecar round-trip ------------------------
+    tmp_b, plan_b = _mkfixture(SYNTH_APPROVED_PLAN)
+    try:
+        r_start = _run_cli(tmp_b, "start", "--plan", plan_b)
+        rid_b = read_pointer(tmp_b)
+        snap = snapshot_path(tmp_b, rid_b) if rid_b else None
+        t.ok("M4 start writes snapshot.txt (post-Bash diff baseline) incl. this run's run.json",
+             r_start.returncode == 0 and snap is not None and os.path.isfile(snap)
+             and (shutil.which("git") is None
+                  or any("run.json" in ln for ln in open(snap, encoding="utf-8"))))
+
+        r_blk = _run_cli(tmp_b, "block", "--reason", "out-of-scope write", "--paths",
+                         "src/other.py", "--created-by", "dmc-postbash-diff")
+        marker = blocked_marker_path(tmp_b, rid_b)
+        t.ok("M5 run block writes a sticky blocked.json sidecar",
+             r_blk.returncode == 0 and os.path.isfile(marker))
+
+        r_dup = _run_cli(tmp_b, "block", "--reason", "again")
+        t.ok("M6 NEG a second block while one is outstanding REFUSED (sticky marker)",
+             r_dup.returncode == 3 and "RUN-ALREADY-BLOCKED" in r_dup.stdout)
+
+        r_stat = _run_cli(tmp_b, "blocked-status")
+        t.ok("M7 blocked-status reports blocked (exit 4)", r_stat.returncode == 4
+             and "blocked: true" in r_stat.stdout)
+
+        r_unb = _run_cli(tmp_b, "unblock", "--resolution", "reverted the stray write")
+        resolved = blocked_resolved_path(tmp_b, rid_b)
+        t.ok("M8 unblock removes the marker + appends to blocked-resolved.jsonl",
+             r_unb.returncode == 0 and not os.path.exists(marker) and os.path.isfile(resolved))
+
+        r_stat2 = _run_cli(tmp_b, "blocked-status")
+        t.ok("M9 blocked-status reports clear after unblock (exit 0)",
+             r_stat2.returncode == 0 and "blocked: false" in r_stat2.stdout)
+
+        r_unb2 = _run_cli(tmp_b, "unblock", "--resolution", "noop")
+        t.ok("M10 NEG unblock with no outstanding marker REFUSED",
+             r_unb2.returncode == 3 and "RUN-NOT-BLOCKED" in r_unb2.stdout)
+    finally:
+        shutil.rmtree(tmp_b, ignore_errors=True)
+
+    # M11 the M6 Rev 3 operative-snapshot record (written into run.json by the sanctioned scope-lock
+    # compile — content hashes of the compiled lock AND the arming snapshot.txt) round-trips through
+    # run-lifecycle's OWN helpers: seal covers the nested object, validate_run_state ACCEPTs the
+    # re-sealed record, and advance() carries it across a transition. This is the "via run-lifecycle
+    # helpers" contract compile relies on — run.json shape gains ONE additive key; the STATES tuple
+    # and run-state schema stay untouched.
+    g11 = genesis_record("dmc-run-op11", "w", "plan.md", "a" * 64, "b" * 64, iso_now())
+    armed11 = advance(g11, "RUNNING", iso_now())
+    body11 = {k: v for k, v in armed11.items() if k != "state_hash"}
+    body11["operative_snapshot"] = {"scope_lock_sha256": "c" * 64, "snapshot_sha256": "d" * 64}
+    sealed11 = seal(body11)                                # re-seal in place (same seq/status)
+    moved11 = advance(sealed11, "SUSPENDED", iso_now())    # a real transition preserves the key
+    t.ok("M11 additive operative_snapshot: re-seal validates, survives advance(), still validates",
+         validate_run_state(sealed11) == []
+         and moved11.get("operative_snapshot") == {"scope_lock_sha256": "c" * 64,
+                                                   "snapshot_sha256": "d" * 64}
+         and validate_run_state(moved11) == [])
+
     # -- hermeticity: the real repo working tree is byte-unchanged -----------------
     after = _real_repo_porcelain()
     t.ok("S12 real repo git status --porcelain byte-identical before/after (or git absent)",
@@ -594,11 +894,17 @@ def selftest():
 
 def main():
     ap = argparse.ArgumentParser(prog="dmc-run-lifecycle")
-    ap.add_argument("command", nargs="?", choices=["start", "suspend", "resume", "status"])
+    ap.add_argument("command", nargs="?", choices=["start", "suspend", "resume", "status",
+                                                   "block", "blocked-status", "unblock"])
     ap.add_argument("--plan", metavar="FILE")
     ap.add_argument("--root", default=".")
     ap.add_argument("--run-id", dest="run_id", metavar="ID")
     ap.add_argument("--work-id", dest="work_id", metavar="ID")
+    ap.add_argument("--reason", metavar="TEXT", help="BLOCKED marker reason (run block)")
+    ap.add_argument("--paths", nargs="*", metavar="PATH", help="offending paths (run block)")
+    ap.add_argument("--created-by", dest="created_by", metavar="CHECK",
+                    help="the check_id that created the block (run block)")
+    ap.add_argument("--resolution", metavar="TEXT", help="how the block was resolved (run unblock)")
     ap.add_argument("--validate", metavar="FILE")
     ap.add_argument("--self-test", action="store_true")
     a = ap.parse_args()
@@ -621,8 +927,9 @@ def main():
         return
 
     if not a.command:
-        die("usage: dmc-run-lifecycle (start --plan FILE | suspend | resume | status) "
-            "[--root DIR] [--run-id ID] | --validate FILE | --self-test", 2)
+        die("usage: dmc-run-lifecycle (start --plan FILE | suspend | resume | status | "
+            "block --reason R [--paths P...] [--created-by CHECK] | blocked-status | "
+            "unblock --resolution TEXT) [--root DIR] [--run-id ID] | --validate FILE | --self-test", 2)
 
     root = os.path.abspath(a.root)
     if not os.path.isdir(root):
@@ -638,6 +945,12 @@ def main():
         cmd_resume(root, a.run_id)
     elif a.command == "status":
         cmd_status(root, a.run_id)
+    elif a.command == "block":
+        cmd_block(root, a.run_id, a.reason, a.paths, a.created_by)
+    elif a.command == "blocked-status":
+        cmd_blocked_status(root, a.run_id)
+    elif a.command == "unblock":
+        cmd_unblock(root, a.run_id, a.resolution)
 
 
 if __name__ == "__main__":

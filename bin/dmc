@@ -15,6 +15,11 @@ VERDICTLIB="$HERE/lib/dmc-critic-verdict.py"
 GATELIB="$HERE/lib/dmc-verdict-gate.py"
 DELEGLIB="$HERE/lib/dmc-delegation.py"
 LINKLIB="$HERE/lib/dmc-orchestration-linkcheck.py"
+BASHRADIUSLIB="$HERE/lib/dmc-bash-radius.py"
+POSTBASHLIB="$HERE/lib/dmc-postbash-diff.py"
+CROSSCHECKLIB="$HERE/lib/dmc-verify-crosscheck.py"
+STOPGATELIB="$HERE/lib/dmc-stop-gate.py"
+M6SUITEDIR="$HERE/../tests/fixtures/m6"
 
 usage() {
   cat <<'EOF'
@@ -30,9 +35,24 @@ commands (M2):
 commands (M4):
   run         start --plan FILE [--root DIR] [--work-id ID]   mint + arm a run (refuses unless
                                               the plan is APPROVED; refuses a second start while a
-                                              run is active) -> .harness/runs/<run-id>/run.json
+                                              run is active; M6: refuses a plan-bound critic REJECT +
+                                              writes snapshot.txt) -> .harness/runs/<run-id>/run.json
   run         suspend|resume|status [--root DIR] [--run-id ID]   drive/report the run state machine
                                               (INIT->RUNNING->SUSPENDED->RESUMING->RUNNING->DONE)
+
+commands (M6 hook-hardening — Ring-0 verdict CLIs the Ring-1 shims call):
+  bash-radius [--cmd STR | JSON stdin] [--scope-lock FILE]   classify a Bash command's write radius
+                                              (L0 deny git apply/patch always; L1 scope-lock
+                                              adjudication when armed) -> 0 allow / 3 ask / 4 deny
+  postbash-diff --scope-lock FILE --snapshot FILE [--root DIR]   post-Bash out-of-scope change
+                                              detector vs the arming snapshot -> 0 clean / 4 blocked
+  verify-crosscheck --report FILE --run DIR   semantic verification-report cross-check (run-id bind,
+                                              changed-files in scope, honest PASS) -> 0 ACCEPT / 3 REFUSE
+  stop-gate   quick [--run DIR | --root DIR | --run-id ID] [--report FILE]   completion quick gate:
+                                              receipt coverage + BLOCKED + cross-check -> 0 pass / 4 hold
+  run         block --reason R [--paths P...] [--created-by CHECK] | blocked-status | unblock
+              --resolution TEXT [--root DIR] [--run-id ID]   BLOCKED sidecar marker (blocked.json);
+                                              written/read/cleared only here (run state machine untouched)
 
 commands (M5 orchestration):
   roles       validate <path> | lookup <role> [--registry PATH]   role-registry validator + lookup
@@ -67,9 +87,17 @@ commands (M3):
                                               delegation validator; orchestration link-check +
                                               arm-run-id pre-run). Named-only; also under --all;
                                               NOT in the no-arg default.
+  selftest    m6-core                        M6 Ring-0 verdict-CLI self-tests (bash-radius,
+                                              postbash-diff, verify-crosscheck, stop-gate).
+                                              Named-only; also under --all; NOT in the no-arg default.
+  selftest    m6-suite                       M6 hook-hardening suites (tests/fixtures/m6):
+                                              adversarial negative controls, compatibility matrix,
+                                              ultrawork stop-block E2E, pre-commit restore proof.
+                                              Named-only; also under --all; NOT in the no-arg default.
   selftest    --all                          above + all 49 legacy tools (bin/lib) vs the
                                               pinned baseline + rollback-test + run-core/loop-core
-                                              + the four M5 orchestration sections (slow: ~10+ min)
+                                              + the four M5 orchestration sections + m6-core + m6-suite
+                                              (slow: ~10+ min)
   help
 
 Artifacts conform to .harness/schemas/{orientation,landmarks,depsurface,radius}.schema.md.
@@ -79,6 +107,21 @@ Legacy v0.x tools are copy-routed (never moved) from .harness/evidence/dmc-v0.*.
 bin/lib/; the originals stay canonical (per .harness/evidence/dmc-v1-m3-baseline.md).
 Validators are fail-closed: VALID => exit 0, REFUSED => exit 3.
 EOF
+}
+
+# M6 hook-hardening suites (tests/fixtures/m6). Each is a self-contained bash
+# script (mktemp sandboxes; the live repo is left byte-identical). Returns 0 iff
+# every suite passes.
+run_m6_suite() {
+  local rc=0 s
+  for s in test-adversarial.sh test-compat.sh test-e2e-ultrawork.sh test-restore.sh; do
+    if [ -f "$M6SUITEDIR/$s" ]; then
+      bash "$M6SUITEDIR/$s" || rc=1
+    else
+      echo "dmc selftest m6-suite: missing suite script: $s" >&2; rc=1
+    fi
+  done
+  return "$rc"
 }
 
 cmd=${1:-help}
@@ -129,14 +172,28 @@ case "$cmd" in
     sub=${1:-}
     [ $# -gt 0 ] && shift
     case "$sub" in
-      start|suspend|resume|status)
+      start|suspend|resume|status|block|blocked-status|unblock)
         exec python3 "$RCORE" "$sub" "$@"
         ;;
       *)
-        echo "dmc run: unknown verb: ${sub:-<none>} (start|suspend|resume|status)" >&2
+        echo "dmc run: unknown verb: ${sub:-<none>} \
+(start|suspend|resume|status|block|blocked-status|unblock)" >&2
         exit 2
         ;;
     esac
+    ;;
+  bash-radius)
+    exec python3 "$BASHRADIUSLIB" "$@"
+    ;;
+  postbash-diff)
+    exec python3 "$POSTBASHLIB" "$@"
+    ;;
+  verify-crosscheck)
+    exec python3 "$CROSSCHECKLIB" "$@"
+    ;;
+  stop-gate)
+    [ "${1:-}" = "quick" ] && shift   # `dmc stop-gate quick ...` == `dmc stop-gate ...`
+    exec python3 "$STOPGATELIB" "$@"
     ;;
   roles)
     exec python3 "$ROLESLIB" "$@"
@@ -193,6 +250,11 @@ case "$cmd" in
       python3 "$GATELIB" --self-test || rc=1
       python3 "$DELEGLIB" --self-test || rc=1
       python3 "$LINKLIB" --self-test || rc=1
+      python3 "$BASHRADIUSLIB" --self-test || rc=1
+      python3 "$POSTBASHLIB" --self-test || rc=1
+      python3 "$CROSSCHECKLIB" --self-test || rc=1
+      python3 "$STOPGATELIB" --self-test || rc=1
+      run_m6_suite || rc=1
       exit "$rc"
     fi
     [ $# -eq 0 ] && set -- orient landmarks depsurface radius \
@@ -214,6 +276,11 @@ case "$cmd" in
                                 python3 "$GATELIB" --self-test || rc=1 ;;
         delegation)             python3 "$DELEGLIB" --self-test || rc=1 ;;
         linkcheck)              python3 "$LINKLIB" --self-test || rc=1 ;;
+        m6-core)                python3 "$BASHRADIUSLIB" --self-test || rc=1
+                                python3 "$POSTBASHLIB" --self-test || rc=1
+                                python3 "$CROSSCHECKLIB" --self-test || rc=1
+                                python3 "$STOPGATELIB" --self-test || rc=1 ;;
+        m6-suite)               run_m6_suite || rc=1 ;;
         *) echo "dmc selftest: unknown target: $t" >&2; exit 2 ;;
       esac
     done

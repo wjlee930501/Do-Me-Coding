@@ -99,15 +99,36 @@ is_secret_glob() {
   return 1
 }
 
-FILE_PATH="$(json_get 'tool_input.file_path')"   # Read target; Grep scope
-GLOB="$(json_get 'tool_input.glob')"             # Glob pattern
+# Superset tool_input keys (robust to harness key drift). PATH/GLOB-STRING decisions ONLY — this
+# guard never opens or reads the target, so it cannot itself leak a secret. Matching is
+# case-insensitive: a lowercased COPY is fed to the detectors, whose bodies stay byte-identical to
+# lib/secret-paths.sh (md5-identity check). The original value is shown in the deny reason.
+FILE_PATH="$(json_get 'tool_input.file_path')"         # Read target
+PATH_DIR="$(json_get 'tool_input.path')"               # Grep/Glob search directory
+GLOB="$(json_get 'tool_input.glob')"                   # Glob pattern (this harness' key)
+PATTERN="$(json_get 'tool_input.pattern')"             # Glob pattern (other harness' key) / Grep regex
 
-if is_secret_path "$FILE_PATH"; then
-  deny "Do-Me-Coding blocked $TOOL_NAME of a secret-bearing path ($FILE_PATH). Reading secrets is off-limits; inventory secret files by filename only."
-fi
+lower() { printf '%s' "$1" | tr 'A-Z' 'a-z'; }
 
-if is_secret_glob "$GLOB"; then
+# Path-shaped keys -> path detector (case-insensitive). file_path/path both select a concrete file or
+# directory, so a path-block is correct and precise. (Notebook tools are intentionally not covered:
+# the tool-name gate + settings matcher are Read|Grep|Glob, and settings.json wiring is out of M6 scope.)
+for _spec in "file_path=$FILE_PATH" "path=$PATH_DIR"; do
+  _key="${_spec%%=*}"; _val="${_spec#*=}"
+  [ -n "$_val" ] || continue
+  if is_secret_path "$(lower "$_val")"; then
+    deny "Do-Me-Coding blocked $TOOL_NAME of a secret-bearing path ($_val via $_key). Reading secrets is off-limits; inventory secret files by filename only."
+  fi
+done
+
+# Glob-shaped keys -> glob detector (case-insensitive). `glob` is always a path glob. `pattern` is a
+# path glob ONLY under Glob; under Grep it is a content regex, so it is NOT glob-checked there (that
+# would deny legitimate code searches for words like "secret"). Grep's directory (path) is covered above.
+if is_secret_glob "$(lower "$GLOB")"; then
   deny "Do-Me-Coding blocked a $TOOL_NAME pattern targeting secret-bearing files ($GLOB). Narrow to non-secret paths; do not enumerate secret file contents."
+fi
+if [ "$TOOL_NAME" = "Glob" ] && is_secret_glob "$(lower "$PATTERN")"; then
+  deny "Do-Me-Coding blocked a $TOOL_NAME pattern targeting secret-bearing files ($PATTERN). Narrow to non-secret paths; do not enumerate secret file contents."
 fi
 
 exit 0

@@ -48,6 +48,19 @@ REQUIRED_FIELDS = ["schema", "work_id", "plan_hash", "repo_hash", "run_id", "app
 
 SECRET_ALLOW_BASENAMES = {".env.example", ".env.sample", ".env.template", ".env.dist"}
 
+# M6 Rev 3 (human-gated 2026-07-06): the operative-snapshot record — content hashes of BOTH the
+# compiled scope.lock.json AND the arming snapshot.txt — is written INLINE here at the sanctioned
+# lock-compile, INTO run.json (the run's dmc-CLI-only, hash-sealed state record, already in the
+# run-state DENY set), so the root of trust guards itself. It is WRITE-ONCE per run (P1): only the
+# FIRST compile whose dest == the run's default lock path records it, and any later compile for that
+# run-id is REFUSED regardless of lock-file existence (closes delete-then-recompile). A `--out`
+# override compile never touches it (P2). There is NO standalone refresh verb anywhere (laundering-
+# hole prohibition). dmc-postbash-diff re-hashes scope.lock.json AND snapshot.txt against these
+# entries and DENIES a mismatch — a path-set diff alone cannot see an in-place tamper, and an
+# unprotected snapshot.txt baseline is itself a laundering vector.
+OPERATIVE_KEY = "operative_snapshot"
+SNAPSHOT_NAME = "snapshot.txt"
+
 
 # ------------------------------------------------------------------- helpers
 
@@ -325,6 +338,68 @@ def default_lock_path(root, run_id):
     return os.path.join(runs_dir(root), run_id, "scope.lock.json")
 
 
+def run_json_path(root, run_id):
+    return os.path.join(runs_dir(root), run_id, "run.json")
+
+
+def snapshot_path(root, run_id):
+    return os.path.join(runs_dir(root), run_id, SNAPSHOT_NAME)
+
+
+def sha256_file(path):
+    with open(path, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+
+def is_default_dest(root, run_id, dest):
+    """P2: True iff `dest` is the run's canonical lock path (a `--out` override is not)."""
+    return os.path.abspath(dest) == os.path.abspath(default_lock_path(root, run_id))
+
+
+def operative_recorded(root, run_id):
+    """True iff run.json already carries the write-once operative-snapshot entry (P1).
+
+    Persisting in run.json means the entry survives a deletion of scope.lock.json, so a
+    delete-then-recompile is still refused."""
+    p = run_json_path(root, run_id)
+    if not os.path.isfile(p):
+        return False
+    try:
+        rec = load_json_strict(p)
+    except Exception:
+        return False
+    return isinstance(rec, dict) and OPERATIVE_KEY in rec
+
+
+def record_operative_snapshot(root, run_id, lock_path):
+    """Write the operative-snapshot record INTO run.json (P3), atomically bound to this compile.
+
+    Records content hashes of BOTH the just-written scope.lock.json AND the arming snapshot.txt so
+    dmc-postbash-diff can prove neither was tampered before it trusts snapshot.txt's baseline. Re-seals
+    run.json in place (same seq/status, state_hash re-covers the added key) so the run's own validator
+    still ACCEPTs it and `advance()` carries the key across later transitions. Best-effort: if there is
+    no run.json (a direct compile with no `run start`) the entry is simply not recorded — the
+    write-once/postbash guards then have nothing to enforce, which is correct for that case. Reuses the
+    module's own `seal`/`load_json_strict` — no cross-module import, no verb.
+    """
+    p = run_json_path(root, run_id)
+    if not os.path.isfile(p):
+        return None
+    rec = load_json_strict(p)
+    if not isinstance(rec, dict):
+        return None
+    op = {"scope_lock_sha256": sha256_file(lock_path)}
+    snap = snapshot_path(root, run_id)
+    if os.path.isfile(snap):
+        op["snapshot_sha256"] = sha256_file(snap)
+    body = {k: v for k, v in rec.items() if k != "state_hash"}
+    body[OPERATIVE_KEY] = op
+    resealed = seal(body)
+    with open(p, "w", encoding="utf-8") as f:
+        f.write(json.dumps(resealed, sort_keys=True, indent=2, ensure_ascii=False) + "\n")
+    return op
+
+
 def _resolve_chain(root, run_id_override, run_path, prev_override):
     """Resolve (prev_hash, run_id) so the lock chains onto the T009a run-state (or GENESIS)."""
     if run_path:
@@ -419,18 +494,31 @@ def cmd_compile(root, plan_path, landmarks_path, run_id_override, run_path, prev
         refuse(errs)   # fail-closed: never emit a non-conforming lock
 
     dest = out_path or default_lock_path(root, run_id)
+    default_dest = is_default_dest(root, run_id, dest)
     # Immutable §0.4: a second lock for the same run is refused — amendment = new plan revision +
     # re-approval, never an in-place edit / overwrite.
     if os.path.exists(dest):
         refuse(["SCOPE-LOCK-EXISTS: a scope.lock already exists for this run; the lock is immutable "
                 "(amendment = new plan revision + re-approval, never in-place edit)"])
+    # P1 write-once: even if scope.lock.json was DELETED, a run whose run.json already records the
+    # operative snapshot may not recompile its default lock — this closes the delete-then-recompile
+    # laundering hole. A scope change is a new prev-chained lock under re-approval, never a recompile.
+    if default_dest and operative_recorded(root, run_id):
+        refuse(["SCOPE-LOCK-RECOMPILE: this run already compiled its lock (operative snapshot "
+                "recorded in run.json); recompilation is refused — a scope change is a NEW "
+                "prev-chained lock under re-approval, never a recompile"])
     os.makedirs(os.path.dirname(os.path.abspath(dest)), exist_ok=True)
     with open(dest, "w", encoding="utf-8") as f:
         f.write(json.dumps(lock, sort_keys=True, indent=2, ensure_ascii=False) + "\n")
+    # P2/P3: record the operative-snapshot record (lock + snapshot.txt hashes) INTO run.json — ONLY
+    # for the run's default lock path (a `--out` override never touches it). Bound to this compile.
+    recorded = record_operative_snapshot(root, run_id, dest) if default_dest else None
     print("run_id: %s" % run_id)
     print("scope_lock: %s" % dest)
     print("immutable: true")
     print("state_hash: %s" % lock["state_hash"][:16])
+    if recorded:
+        print("operative_snapshot: recorded in run.json")
 
 
 # ------------------------------------------------------------------- self-test
@@ -724,6 +812,61 @@ def selftest():
         rvb = _run_cli("--validate", bad_path)
         t.ok("N9b --validate REFUSEs a tampered lock (exit 3)",
              rvb.returncode == 3 and "SCOPE-LOCK-TAMPER" in rvb.stdout)
+
+        # -- M6 Rev 3: operative-snapshot entry in run.json + write-once (P1/P2/P3) ------
+        def _seed_run(tmp, rid):
+            """A minimal run.json + arming snapshot.txt so compile can record/reseal the operative
+            snapshot (compile reads + reseals run.json, never validates the run schema)."""
+            rec = seal({"schema": "dmc.run-state.v1", "run_id": rid, "work_id": "w",
+                        "plan_path": "plan.md", "plan_hash": "a" * 64, "repo_hash": "b" * 64,
+                        "status": "RUNNING", "seq": 1, "created_at": "2026-07-06T00:00:00Z",
+                        "updated_at": "2026-07-06T00:00:00Z", "prev_hash": "c" * 64})
+            os.makedirs(os.path.dirname(run_json_path(tmp, rid)), exist_ok=True)
+            with open(run_json_path(tmp, rid), "w", encoding="utf-8") as f:
+                f.write(json.dumps(rec, sort_keys=True, indent=2) + "\n")
+            with open(snapshot_path(tmp, rid), "w", encoding="utf-8") as f:
+                f.write("src/app.py\n")           # a paths-only arming baseline
+
+        tmp_op, plan_op, lm_op = _mkfixture()
+        tmp_out, plan_out, lm_out = _mkfixture()
+        try:
+            RID_OP = "dmc-run-op"
+            _seed_run(tmp_op, RID_OP)
+            lock_op = default_lock_path(tmp_op, RID_OP)
+            r_op = _run_cli("--compile", "--plan", plan_op, "--landmarks", lm_op,
+                            "--run-id", RID_OP, "--root", tmp_op)
+            rec_after = load_json_strict(run_json_path(tmp_op, RID_OP))
+            op = rec_after.get(OPERATIVE_KEY)
+            exp_lock = hashlib.sha256(open(lock_op, "rb").read()).hexdigest()
+            exp_snap = hashlib.sha256(open(snapshot_path(tmp_op, RID_OP), "rb").read()).hexdigest()
+            t.ok("R1 compile records operative_snapshot{lock,snapshot} into run.json (P3)",
+                 r_op.returncode == 0 and isinstance(op, dict)
+                 and op.get("scope_lock_sha256") == exp_lock
+                 and op.get("snapshot_sha256") == exp_snap
+                 and validate_lock(load_json_strict(lock_op)) == [])
+
+            r_dup2 = _run_cli("--compile", "--plan", plan_op, "--landmarks", lm_op,
+                              "--run-id", RID_OP, "--root", tmp_op)
+            t.ok("R2 second compile REFUSED while the lock is present (SCOPE-LOCK-EXISTS)",
+                 r_dup2.returncode == 3)
+
+            os.remove(lock_op)   # delete the lock, then try to recompile
+            r_recompile = _run_cli("--compile", "--plan", plan_op, "--landmarks", lm_op,
+                                   "--run-id", RID_OP, "--root", tmp_op)
+            t.ok("R3 (P1) delete-then-recompile REFUSED via the run.json entry (no laundering)",
+                 r_recompile.returncode == 3 and "SCOPE-LOCK-RECOMPILE" in r_recompile.stdout)
+
+            RID_OUT = "dmc-run-out"
+            _seed_run(tmp_out, RID_OUT)
+            out_lock = os.path.join(tmp_out, "custom-lock.json")
+            r_out = _run_cli("--compile", "--plan", plan_out, "--landmarks", lm_out,
+                             "--run-id", RID_OUT, "--root", tmp_out, "--out", out_lock)
+            rec_out = load_json_strict(run_json_path(tmp_out, RID_OUT))
+            t.ok("R4 (P2) --out compile succeeds + leaves the run.json operative entry UNTOUCHED",
+                 r_out.returncode == 0 and os.path.isfile(out_lock) and OPERATIVE_KEY not in rec_out)
+        finally:
+            shutil.rmtree(tmp_op, ignore_errors=True)
+            shutil.rmtree(tmp_out, ignore_errors=True)
     finally:
         for d in (tmp_a, tmp_b, tmp_draft, tmp_run):
             shutil.rmtree(d, ignore_errors=True)

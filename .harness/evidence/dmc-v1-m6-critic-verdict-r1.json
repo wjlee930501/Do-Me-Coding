@@ -1,0 +1,96 @@
+{
+  "schema": "dmc.critic-verdict.v1",
+  "work_id": "dmc-v1-m6-hook-hardening",
+  "plan_hash": "06cd949595ebb0f25cab4fdd0011835ca5013de6a5be885c78a8d5de4b29238a",
+  "repo_hash": "299987047e448cff6ea9ddaf8011d66992901003",
+  "target_ref": ".harness/plans/dmc-v1-m6-hook-hardening.md",
+  "verdict": "REJECT",
+  "lenses": [
+    "correctness",
+    "scope",
+    "security",
+    "completeness",
+    "migration"
+  ],
+  "criteria_checked": [
+    {
+      "criterion_ref": "protected-surface-safety (fixtures-first, single-revert)",
+      "result": "unmet",
+      "note": "Ordering is stated (T011a before T011c) but the fixture SET is incomplete vs the plan's own Allowed-to-Edit list: .claude/hooks/lib/** is editable yet not fixtured, so the byte-identical single-revert guarantee has a hole (B1); fixture bytes are not pinned to the pre-M6 commit (optional O3)."
+    },
+    {
+      "criterion_ref": "bypass-closure completeness vs audited findings",
+      "result": "unmet",
+      "note": "Each of the six audited bypasses has a closing change and a fixture (verified accurate against live hooks), but the ultrawork-path stop-block E2E required by master §M6 acceptance is silently dropped (B7), and the BLOCKED sticky run-state the closures depend on has no mechanism or file authorization (B5)."
+    },
+    {
+      "criterion_ref": "handoff carry-forward #5 verdict-gate Ring-1 wiring",
+      "result": "unmet",
+      "note": "The plan neither wires verdict-value judgment at Ring-1 nor explicitly defers it; the handoff names this as M6's job (B3)."
+    },
+    {
+      "criterion_ref": "scope honesty (Relevant Files vs tasks; router row)",
+      "result": "unmet",
+      "note": ".claude/hooks/lib/ exists (secret-paths.sh) as the plan assumes; but a dmc-run-lifecycle.py edit is implied yet unauthorized (B5); the dmc-router.sh row is a conditional authorization with an unstated condition and conflicts with docs/CODEX_ADAPTER.md section 2 'Ring-0 owns the logic' (O4)."
+    },
+    {
+      "criterion_ref": "acceptance-criteria falsifiability + compatibility matrix",
+      "result": "unmet",
+      "note": "Criteria are mostly mechanical (fixtures, exit codes, cmp, bash -n, counts; latency measurable within the 10s hook timeout), but the matrix omits no-active-run rows (B6), legacy live-hook behavioral contract rows (B2), and per-hook mode-floor rows (O1)."
+    },
+    {
+      "criterion_ref": "pinned 802/3/3 baseline integrity",
+      "result": "unmet",
+      "note": "Additive stance and mirror-check are correct, but the plan does not acknowledge that the pinned baseline EXECUTES the live hooks with behavioral assertions (empty-stdout-on-allow, npm-install ask, mode=off secret deny, synthetic CLAUDE_PROJECT_DIR) — shims violating any of these make 802/3/3 unattainable without masking (B2); the committed-replica --all pattern is not restated though three legacy drift checks target exactly the files M6 edits (O2)."
+    },
+    {
+      "criterion_ref": "mode semantics per changed hook",
+      "result": "unmet",
+      "note": "Generic 'passive/off preserved' sentence only; the all-modes secret-guard floor and pre-tool-guard Block-A all-modes denies are not individually pinned; fail-closed correctly restricted to active (O1, partially backstopped by B2's baseline assertions)."
+    },
+    {
+      "criterion_ref": "factual accuracy of Current Repo Findings",
+      "result": "met",
+      "note": "All six findings verified against live code: scope-guard.sh:54 (Edit|Write only), :58 (legacy scope file), :73-78 (.harness/runs + .harness/decisions auto-allow), :62-64 (fail-open without python3); secret-guard.sh:102-103 (file_path/glob keys only, case-sensitive); stop-verify-gate.sh:64 (keyword regex), :68 (existence-only); pre-tool-guard.sh has no git-apply/patch deny; dmc-scope-lock.py --adjudicate exists; plan is schema-VALID."
+    }
+  ],
+  "blockers": [
+    {
+      "id": "B1-fixture-set-incomplete",
+      "statement": "The rollback fixture set ('all six hooks + settings.json', plan lines 54, 83-85, 137-138) does not cover .claude/hooks/lib/** even though the plan authorizes editing it (line 62). An M6 edit to .claude/hooks/lib/secret-paths.sh would fall outside the byte-identical single-revert guarantee, and the legacy drift check dmc-v0.2.1-verify.sh:59 explicitly tracks that file. Fix: fixture the entire pre-M6 .claude/hooks/ tree (every path with an Allowed-to-Edit row, including lib/) plus settings.json, and run the rollback cmp over the whole tree.",
+      "evidence_ref": ".harness/plans/dmc-v1-m6-hook-hardening.md:54,62,83-85,137-138; bin/lib/dmc-v0.2.1-verify.sh:59; .claude/hooks/lib/secret-paths.sh"
+    },
+    {
+      "id": "B2-legacy-baseline-executes-live-hooks",
+      "statement": "The pinned 802/3/3 baseline EXECUTES the live hooks with behavioral assertions the plan never mentions: bin/lib/dmc-v0.1.3-verify.sh runs the live secret-guard.sh and pre-tool-guard.sh asserting empty stdout on allow (lines 18,22,32), 'ask' on npm install (line 31), deny on destructive-rm and the dot-env secret-read command (lines 29-30), and secret deny in mode=active|passive|off under a synthetic CLAUDE_PROJECT_DIR temp dir with no bin/dmc and no .harness (line 25). The shims must preserve every one of these behaviors or the plan's own criterion 'selftest --all equals 802/3/3' (lines 134-136) is unattainable without masking, which carry-forward #1 forbids. Fix: state a shim runtime contract (empty stdout on allow; ask/deny tier parity; all-modes secret + catastrophic floor preserved; Ring-0 CLI resolution robust to synthetic CLAUDE_PROJECT_DIR, i.e. script-relative rather than project-relative) and add these as required compatibility-matrix rows.",
+      "evidence_ref": "bin/lib/dmc-v0.1.3-verify.sh:4,7,14,18,21-22,25,29-32; .harness/plans/dmc-v1-m6-hook-hardening.md:103-109,131-136; .harness/plans/dmc-v1-runtime-upgrade-handoff.md:65-66"
+    },
+    {
+      "id": "B3-verdict-gate-ring1-wiring-absent",
+      "statement": "Handoff carry-forward #5 names M6 as the milestone that wires verdict-value judgment at Ring-1 ('No machine check blocks a REJECT until M6 Ring-1 wiring — that wiring is M6's job'), and bin/dmc already ships the Ring-0 half ('dmc verdict gate', value-blind by design). The plan contains no task, file row, or acceptance criterion for this wiring, and no explicit deferral. Fix: either add the Ring-1 wiring (the run-arming path consumes 'dmc verdict gate' and refuses arming on a plan-bound REJECT, with a negative-control fixture; C11 stays intact — blocking on REJECT adds a floor, it never opens a gate) or record an explicit, human-visible deferral with a target milestone in this plan and the handoff.",
+      "evidence_ref": ".harness/plans/dmc-v1-runtime-upgrade-handoff.md:73-74; bin/dmc help (verdict gate: 'opens nothing, C11'); .harness/plans/dmc-v1-m6-hook-hardening.md (no occurrence of 'verdict' in Proposed Changes/Tasks/Criteria)"
+    },
+    {
+      "id": "B4-task-id-collision-unresolved",
+      "statement": "The plan's DMC-T011b (line 164) collides with master plan section M6.5's DMC-T011b (dmc-v1-runtime-upgrade.md:288, the Codex spike task). Handoff carry-forward #8 explicitly scheduled the renumbering for this critic pass. Fix: renumber the four M6 tasks to a collision-free namespace — e.g. DMC-T011.1 through DMC-T011.4 (or DMC-T011-M6A..D) — leaving the master plan's approval-record-bound text untouched.",
+      "evidence_ref": ".harness/plans/dmc-v1-m6-hook-hardening.md:161-176; .harness/plans/dmc-v1-runtime-upgrade.md:288; .harness/plans/dmc-v1-runtime-upgrade-handoff.md:79-81"
+    },
+    {
+      "id": "B5-blocked-state-mechanism-unspecified",
+      "statement": "The plan requires 'run BLOCKED' as a sticky, stop-gate-holding condition (lines 93-94, 124-126, 148), but the M4 state machine has no such state (bin/lib/dmc-run-lifecycle.py:37 STATES = INIT|RUNNING|SUSPENDED|RESUMING|DONE) and dmc-run-lifecycle.py is not in Relevant Files; schema additions are authorized only 'if a new verdict artifact needs one' (line 65), which a run-state change is not. Fix: specify the mechanism — either (a) a sidecar blocked-marker under .harness/runs/<run-id>/ consumed by the stop gate (no state-machine edit), or (b) a real BLOCKED state, in which case add bin/lib/dmc-run-lifecycle.py (plus run-schema/validator and run-core selftest impact) to Relevant Files with justification.",
+      "evidence_ref": "bin/lib/dmc-run-lifecycle.py:37,347-348; .harness/plans/dmc-v1-m6-hook-hardening.md:64-65,93-94,124-126,148"
+    },
+    {
+      "id": "B6-no-active-run-semantics-unstated",
+      "statement": "The Bash write-radius classifier and post-Bash diff guard have no stated behavior for the no-active-run state (no scope.lock, no current-run-id) — the repo's normal state, the state during the M6 build itself, and the OMC-coexistence state. If they enforce scope with no lock, every Bash write is out-of-scope and the session bricks; if they stand down, that must be stated and fixtured. Fix: specify unarmed semantics per new guard (expected: static deny tiers always apply; scope-radius and post-Bash diff checks arm only when a run is active) and add unarmed rows to the compatibility matrix.",
+      "evidence_ref": ".harness/plans/dmc-v1-m6-hook-hardening.md:88-101,110-117,131-133; bin/lib/dmc-run-lifecycle.py:51 (current-run-id pointer); .harness/runs (no current-run-id present)"
+    },
+    {
+      "id": "B7-master-acceptance-item-dropped",
+      "statement": "Master plan section M6 acceptance requires 'stop-block E2E on ultrawork path' (dmc-v1-runtime-upgrade.md:282); the milestone plan's Acceptance Criteria omit it without recording a deferral, silently narrowing the governing acceptance. Fix: add the E2E fixture (M5 already binds the ultrawork skill to 'dmc run start', so arming is testable) or record an explicit deferral to M9's E2E dry run in both this plan and the master-plan closure record.",
+      "evidence_ref": ".harness/plans/dmc-v1-runtime-upgrade.md:280-282; .harness/plans/dmc-v1-m6-hook-hardening.md:119-138"
+    }
+  ],
+  "advisory": true,
+  "context_provenance": "fresh"
+}

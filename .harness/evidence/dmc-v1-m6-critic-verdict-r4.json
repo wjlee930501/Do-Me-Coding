@@ -1,0 +1,70 @@
+{
+  "schema": "dmc.critic-verdict.v1",
+  "work_id": "dmc-v1-m6-hook-hardening",
+  "plan_hash": "8ce3c1c3e7bce5f47ca35e9486f16f9c17f69af68a560134e8c2130ebbd9f52d",
+  "repo_hash": "192dce6a72e133323530ed46ee95f9b1107c7c34",
+  "target_ref": ".harness/plans/dmc-v1-m6-hook-hardening.md",
+  "verdict": "APPROVE",
+  "lenses": [
+    "correctness",
+    "scope",
+    "security",
+    "completeness",
+    "migration"
+  ],
+  "criteria_checked": [
+    {
+      "criterion_ref": "hash binding (Rev 3 post-apply)",
+      "result": "met",
+      "note": "File sha256 re-hashed from disk: 8ce3c1c3... (matches the stated amendment hash); `dmc validate plan` VALID (exit 0). NOTE: repo HEAD moved to 192dce6a (M6 execution commits landed since r1-r3, which bound 2999870) — this verdict binds the new HEAD; the approval chain should record the repo_hash transition alongside the plan_hash chain r1 06cd9495 -> r2 968cd191 (intermediate) -> r3 45c35fe9 (gated) -> r4 8ce3c1c3 (Rev 3 amendment, human-gated 2026-07-06)."
+    },
+    {
+      "criterion_ref": "delta pin P1 write-once operative snapshot",
+      "result": "met",
+      "note": "Lines 139-144: snapshot written only by the FIRST sanctioned cmd_compile for the run; ANY later compile for that run-id REFUSED regardless of lock-file existence — the full no-recompile invariant, closing the delete-lock-then-recompile laundering hole; both negative fixtures named (delete-then-recompile refused; second compile refused)."
+    },
+    {
+      "criterion_ref": "delta pin P2 --out isolation",
+      "result": "met",
+      "note": "Lines 144-146: refresh fires only when the compile destination equals the active run's default lock path; --out compiles never touch the operative snapshot; fixture named (snapshot unchanged)."
+    },
+    {
+      "criterion_ref": "delta pin P3 snapshot self-protection",
+      "result": "met",
+      "note": "Lines 146-148: operative-snapshot record lives INSIDE run.json (already in the run-state DENY set, dmc-CLI-only writer) as a content-hash entry; Bash/Edit writes denied with fixture. Root of trust is now itself tamper-guarded."
+    },
+    {
+      "criterion_ref": "folded item: Delta-1 stricter-refusals wording",
+      "result": "met",
+      "note": "Relevant Files row (line 87): 'Compile may gain STRICTER refusals (operative-snapshot-exists / write-once); no loosening' — and the untouched-semantics list correctly narrows to adjudicate/seal, since compile gains a refusal."
+    },
+    {
+      "criterion_ref": "folded item: approvals byte-prefix check",
+      "result": "met",
+      "note": "Lines 148-152: approvals.jsonl checked as 'prior snapshot is a byte-PREFIX of current AND the chain validates' — no refresh at the append site, no dmc-approvals.py edit expected; the executor STOP clause is retained as backstop only."
+    },
+    {
+      "criterion_ref": "folded item: amendment mechanics",
+      "result": "met",
+      "note": "Lines 152-157: active legacy run = human-gated append to current-scope.txt (the mechanism the legacy guard names); lock world = NEW prev-chained lock under re-approval, never in-place — consistent with the dmc-scope-lock.py:422-426 immutability doctrine; fixtures exercise the new-lock path. Advisory: under the new O5-narrowed shim the current-scope.txt append path becomes human/dmc-CLI-only (agent self-append is the self-escalation the milestone closes) — transitional use for the presently active legacy run is coherent."
+    },
+    {
+      "criterion_ref": "folded item: armed out-of-project Edit/Write DENY",
+      "result": "met",
+      "note": "Lines 157-159: stays DENY while armed (no relaxation of an existing deny), scratchpad-class exceptions only via the audited allowlist file DEFAULT EMPTY, unarmed L1 stands down; pinned in the T011.4 matrix. The earlier 'allow' lean is withdrawn in text."
+    },
+    {
+      "criterion_ref": "human-gate provenance of the mid-run amendment",
+      "result": "met",
+      "note": "Rev 3 preamble (lines 23-29) records the human gate (2026-07-06, AskUserQuestion) covering the amendment and the two scope additions (plan file, bin/lib/dmc-scope-lock.py); the Relevant Files row (87) carries the scoped authorization. C11 preserved: this verdict is advisory evidence; the gate record is the approval."
+    },
+    {
+      "criterion_ref": "prior closures intact",
+      "result": "met",
+      "note": "Spot-verified in the Rev 3 bytes: SHIM RUNTIME CONTRACT six assertions (173-189), O5 internal-allow replacement (184-188), O7 path-only property (188-189), O6 untracked-noise rows (201-204), ARMING SEMANTICS L0/L1 (160-166), verdict-REJECT arming refusal + NEEDS_CLARIFICATION disposition (128-132), blocked.json sidecar with STATES untouched (133-136). No prior closure was weakened by the amendment."
+    }
+  ],
+  "blockers": [],
+  "advisory": true,
+  "context_provenance": "fresh"
+}

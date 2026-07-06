@@ -105,4 +105,38 @@ case "$TOOL_NAME" in
     ;;
 esac
 
+# --- M6 post-Bash out-of-scope diff guard (PostToolUse, Bash tool, armed run only) ---
+# Logging above is never gated by this; a guard failure must NEVER break the tool flow. PostToolUse
+# cannot deny retroactively — an out-of-scope change records a sticky BLOCKED marker (via the dmc CLI)
+# and emits feedback; the actual hold lands at the stop gate. Armed := run-id + this run's
+# scope.lock.json + arming snapshot.txt all present (the repo's normal unarmed state skips this).
+if [ "$TOOL_NAME" = "Bash" ] && [ -f "$RUN_ID_FILE" ]; then
+  EL_RUN_ID="$(head -n 1 "$RUN_ID_FILE" | tr -cd 'A-Za-z0-9._-')"
+  EL_LOCK="$PROJECT_DIR/.harness/runs/$EL_RUN_ID/scope.lock.json"
+  EL_SNAP="$PROJECT_DIR/.harness/runs/$EL_RUN_ID/snapshot.txt"
+  if [ -n "$EL_RUN_ID" ] && [ -f "$EL_LOCK" ] && [ -f "$EL_SNAP" ] && command -v python3 >/dev/null 2>&1; then
+    EL_DMC=""
+    for _cand in "$PROJECT_DIR/bin/dmc" "$(cd "$(dirname "$0")/../.." 2>/dev/null && pwd)/bin/dmc"; do
+      [ -n "$_cand" ] && [ -x "$_cand" ] && { EL_DMC="$_cand"; break; }
+    done
+    if [ -n "$EL_DMC" ]; then
+      EL_OUT="$("$EL_DMC" postbash-diff --scope-lock "$EL_LOCK" --snapshot "$EL_SNAP" --root "$PROJECT_DIR" 2>/dev/null)"
+      EL_RC=$?
+      if [ "$EL_RC" -eq 4 ]; then
+        EL_REASON="$(printf '%s' "$EL_OUT" | sed -n 's/.*"reason":"\([^"]*\)".*/\1/p')"
+        [ -n "$EL_REASON" ] || EL_REASON="post-Bash out-of-scope change detected"
+        EL_PATHS="$(printf '%s' "$EL_OUT" | sed -n 's/.*"blocked_paths":\[\([^]]*\)\].*/\1/p' | tr -d '"' | tr ',' ' ')"
+        # Sticky BLOCKED marker via the dmc CLI, scoped to THIS run (--root, not cwd — the hook's cwd
+        # is the parent session's, not necessarily PROJECT_DIR). Idempotent: a pre-existing marker is fine.
+        # shellcheck disable=SC2086
+        "$EL_DMC" run block --root "$PROJECT_DIR" --reason "$EL_REASON" ${EL_PATHS:+--paths $EL_PATHS} --created-by dmc-postbash-diff >/dev/null 2>&1 || true
+        fb="Do-Me-Coding post-Bash guard: an out-of-scope change was recorded and run '$EL_RUN_ID' is now BLOCKED ($EL_REASON${EL_PATHS:+ — paths:$EL_PATHS}). Revert the stray change; completion is held until you resolve it with dmc run unblock."
+        fb_json="$(printf '%s' "$fb" | json_string)"
+        printf '{"decision":"block","reason":%s}\n' "$fb_json"
+        exit 0
+      fi
+    fi
+  fi
+fi
+
 exit 0

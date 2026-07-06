@@ -48,28 +48,53 @@ json_string() {
 
 
 STOP_ACTIVE="$(json_get 'stop_hook_active')"
-LAST_MESSAGE="$(json_get 'last_assistant_message')"
 CWD="$(json_get 'cwd')"
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$CWD}"
-
-[ "$STOP_ACTIVE" = "true" ] && exit 0
 [ -n "$PROJECT_DIR" ] || PROJECT_DIR="$(pwd)"
 
+# Prevent an infinite stop loop: if we are here because a prior Stop hook already blocked, let it pass.
+[ "$STOP_ACTIVE" = "true" ] && exit 0
+
+# The gate arms from RUN STATE, not from completion keywords (the keyword regex is removed): no active
+# run => nothing to gate.
 RUN_ID_FILE="$PROJECT_DIR/.harness/runs/current-run-id"
 [ -f "$RUN_ID_FILE" ] || exit 0
-
 RUN_ID="$(head -n 1 "$RUN_ID_FILE" | tr -cd 'A-Za-z0-9._-')"
 [ -n "$RUN_ID" ] || exit 0
 
-if ! printf '%s' "$LAST_MESSAGE" | grep -Eiq '(completed|done|implemented|fixed|finished|완료|구현했습니다|고쳤습니다|끝났습니다|수정했습니다|해결했습니다)'; then
+block() {
+  reason="$1"
+  reason_json="$(printf '%s' "$reason" | json_string)"
+  printf '{"decision":"block","reason":%s}\n' "$reason_json"
   exit 0
+}
+
+# Resolve bin/dmc script-relative (robust to a synthetic CLAUDE_PROJECT_DIR).
+DMC_BIN=""
+for _cand in "$PROJECT_DIR/bin/dmc" "$(cd "$(dirname "$0")/../.." 2>/dev/null && pwd)/bin/dmc"; do
+  [ -n "$_cand" ] && [ -x "$_cand" ] && { DMC_BIN="$_cand"; break; }
+done
+
+# Fail-closed: a run is active but the Ring-0 stop gate is unreachable.
+if [ -z "$DMC_BIN" ] || ! command -v python3 >/dev/null 2>&1; then
+  block "Do-Me-Coding cannot verify completion for active run '$RUN_ID': the Ring-0 stop gate (bin/dmc + python3) is unavailable. Restore it, or suspend the run (dmc run suspend), before claiming completion."
 fi
 
-if ls "$PROJECT_DIR/.harness/verification/$RUN_ID"* >/dev/null 2>&1; then
-  exit 0
-fi
+# Pass the verification report if it lives under .harness/verification/<run-id>*.md (the stop gate
+# also checks <run-dir>/verification.md itself). The quick gate is state-file-only and stays < 2s.
+REPORT_ARG=""
+for _r in "$PROJECT_DIR/.harness/verification/$RUN_ID.md" "$PROJECT_DIR/.harness/verification/$RUN_ID"*.md; do
+  [ -f "$_r" ] && { REPORT_ARG="$_r"; break; }
+done
 
-reason="Do-Me-Coding verification artifact missing for active run '$RUN_ID'. Run /dmc-verify-hard, write .harness/verification/$RUN_ID.md, and report PASS/FAIL/PARTIAL before claiming completion."
-reason_json="$(printf '%s' "$reason" | json_string)"
-printf '{"decision":"block","reason":%s}\n' "$reason_json"
-exit 0
+GATE_ARGS=(stop-gate quick --root "$PROJECT_DIR")
+[ -n "$REPORT_ARG" ] && GATE_ARGS+=(--report "$REPORT_ARG")
+
+OUT="$("$DMC_BIN" "${GATE_ARGS[@]}" 2>&1)"
+RC=$?
+
+# Exit 0 => pass (SUSPENDED/DONE/covered runs pass). Non-zero (4 hold, or any unexpected status) =>
+# hold the stop and surface the reason to the model.
+[ "$RC" -eq 0 ] && exit 0
+[ -n "$OUT" ] || OUT="stop-gate quick held completion for run '$RUN_ID'"
+block "Do-Me-Coding held completion for active run '$RUN_ID': $OUT. Satisfy the required verification/receipts (or run dmc run suspend) before claiming done."

@@ -1,0 +1,75 @@
+{
+  "schema": "dmc.critic-verdict.v1",
+  "work_id": "dmc-v1-m6-hook-hardening",
+  "plan_hash": "45c35fe915ab99088f25595b4f370d90f313a33dd70c2cdc81b7131dbaab717b",
+  "repo_hash": "299987047e448cff6ea9ddaf8011d66992901003",
+  "target_ref": ".harness/plans/dmc-v1-m6-hook-hardening.md",
+  "verdict": "APPROVE",
+  "lenses": [
+    "correctness",
+    "scope",
+    "security",
+    "completeness",
+    "migration"
+  ],
+  "criteria_checked": [
+    {
+      "criterion_ref": "hash binding",
+      "result": "met",
+      "note": "PROCESS NOTE: this verdict binds the bytes actually on disk at review time, sha256 45c35fe9... — NOT the 5cd874ce... hash the requesting message stated; the file changed again after that message (it additionally folds in the R2-message residual advisories: the '(armed run)' qualifier and the NEEDS_CLARIFICATION arming disposition). Consumers must reconcile the hash chain against 45c35fe9...; `dmc validate plan` VALID (exit 0) on these bytes at repo HEAD 2999870."
+    },
+    {
+      "criterion_ref": "R1-B1 fixture set completeness",
+      "result": "met",
+      "note": "ENTIRE pre-M6 .claude/hooks/ tree incl. lib/** and worker guards + settings.json, pinned to the recorded pre-M6 HEAD commit, whole-tree cmp (lines 68, 100-107, 217-220, 245-248)."
+    },
+    {
+      "criterion_ref": "R1-B2 legacy live-hook behavioral coupling",
+      "result": "met",
+      "note": "SHIM RUNTIME CONTRACT (142-158) pins the six baseline assertions as REQUIRED matrix rows with script-relative Ring-0 resolution + inline L0 floor; baseline UNMODIFIED (211-213), masking forbidden (94-95), high-severity risk row (231), committed-replica pattern (177-180, 215)."
+    },
+    {
+      "criterion_ref": "R1-B3 verdict-gate Ring-1 value wiring",
+      "result": "met",
+      "note": "Item (v) (120-124): run-arming refuses a plan-bound REJECT (floor, never opens a gate, C11 intact); NEEDS_CLARIFICATION explicitly does NOT refuse arming (123-124); negative-control fixture; acceptance criterion + R12/C11 re-test (205-207); scoped dmc-run-lifecycle.py row (79); suite row (276)."
+    },
+    {
+      "criterion_ref": "R1-B4 task-ID collision",
+      "result": "met",
+      "note": "Tasks DMC-T011.1-.4; remaining DMC-T011b strings (16, 267) are references to the master's M6.5 ID in the resolution notes."
+    },
+    {
+      "criterion_ref": "R1-B5 BLOCKED mechanism + file authorization",
+      "result": "met",
+      "note": "blocked.json sidecar (125-128) with dmc-CLI-only write/resolve and stop-gate consumption; STATES/run.json untouched (79, 91-92, 128); schemas row (80); run-core risk row (232); selftest run-core required (279)."
+    },
+    {
+      "criterion_ref": "R1-B6 no-active-run semantics",
+      "result": "met",
+      "note": "ARMING SEMANTICS L0/L1 (129-135); unarmed criterion with positive+negative fixture pair (201-204); unarmed matrix rows (169-170)."
+    },
+    {
+      "criterion_ref": "R1-B7 ultrawork stop-block E2E",
+      "result": "met",
+      "note": "Suites Change (174-177), acceptance criterion (208-210), required Verification Commands row (278)."
+    },
+    {
+      "criterion_ref": "R1 optional O1-O4",
+      "result": "met",
+      "note": "O1 per-hook per-mode floor rows (150-152, 168, 196-199); O2 committed-replica note (177-180, 215); O3 fixture-byte pinning (68, 220); O4 dmc-router.sh not-edit row + Out of Scope (74, 91)."
+    },
+    {
+      "criterion_ref": "R1 optional O5-O7 (this revision)",
+      "result": "met",
+      "note": "O5: Edit/Write internal-allow REPLACED by the NARROW exemption, blanket .harness/runs + .harness/decisions auto-allow at scope-guard.sh:73-78 removed, run-state files via dmc CLI only (153-157) — verified as a tightening: no runtime writer of .harness/decisions exists outside legacy verify scripts, so no over-block; a run needing decision writes scopes them in its plan. O6: untracked-noise rows — post-Bash guard snapshots the worktree at ARMING time, pre-existing untracked noise never trips BLOCKED, selftest-under-armed-run stays green via mktemp-only writes (170-173). O7: secret-guard shim path-only, NEVER opens or reads file contents (157-158)."
+    },
+    {
+      "criterion_ref": "R2-message residual advisories 1-2",
+      "result": "met",
+      "note": "'(armed run)' qualifier added to acceptance criterion 1 (187); NEEDS_CLARIFICATION arming disposition stated (123-124). Remaining cosmetic-only: the Rev 2 header summary (8-21) does not list the O5-O7 closures — normative sections contain them; header text is non-binding."
+    }
+  ],
+  "blockers": [],
+  "advisory": true,
+  "context_provenance": "fresh"
+}

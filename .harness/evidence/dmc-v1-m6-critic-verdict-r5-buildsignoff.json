@@ -1,0 +1,50 @@
+{
+  "schema": "dmc.critic-verdict.v1",
+  "work_id": "dmc-v1-m6-hook-hardening",
+  "plan_hash": "8ce3c1c3e7bce5f47ca35e9486f16f9c17f69af68a560134e8c2130ebbd9f52d",
+  "repo_hash": "192dce6a72e133323530ed46ee95f9b1107c7c34",
+  "target_ref": ".harness/verification/dmc-v1-m6-hook-hardening.md (T011.1-.4 build + reports, final critic gate)",
+  "verdict": "APPROVE",
+  "lenses": [
+    "correctness",
+    "scope",
+    "security",
+    "completeness",
+    "migration"
+  ],
+  "criteria_checked": [
+    {
+      "criterion_ref": "wrapper hardening real hard assertions",
+      "result": "met",
+      "note": "bash-radius WRAPPER_SHELLS/_wrapper_verdict/BASH-L1-WRAPPER-EXEC present, inner check reuses anchored detect_l0. Adversarial wrapper rows are HARD assert_eq (armed sh -c/bash -c/xargs => deny; unarmed => allow with documented-boundary label; benign payload => ask) — the earlier either-branch RESIDUAL/BONUS soft-pass is gone. Live: bash-radius 50/0, adversarial 38/0, m6-core 99/0 (bash-radius 50 + postbash-diff 25 + verify-crosscheck 13 + stop-gate 11)."
+    },
+    {
+      "criterion_ref": "drift table matches +16 substantiation (13-script)",
+      "result": "met",
+      "note": "Both reports carry the per-script drift table: dirty 786/19/3 cited, +16 fully accounted across 13 scripts (my 8 + v0.2.3 double-count + v0.2.9 H4 / v0.3.1 V12 / v0.3.3 C9 evidence-log byte-pins + v0.5.9/v0.6.0 working-tree drift), with an explicit accuracy note that the initial 8+2 scoping under-counted by 3. Matches and improves on my substantiation."
+    },
+    {
+      "criterion_ref": "committed-replica --all is an actual run",
+      "result": "met",
+      "note": "Evidence lines 148-161: throwaway cp -R (incl .git) + commit in the copy + `selftest --all` run IN THE REPLICA; live-repo porcelain+HEAD proven byte-identical before/after (HEAD stayed 192dce6). Concrete result recorded: legacy EXACTLY 802/3/3 (the 3 accepted: v0.1.3 44/1, v0.2.3 19/1, v0.3.2 7/1) + every new section 0 FAIL. Reads as an executed run with results, not a deferred promise; the standing post-commit live re-run remains the gate's closure condition."
+    },
+    {
+      "criterion_ref": "minor 1 notebook_path",
+      "result": "met",
+      "note": "Dead key REMOVED from code (grep count 0 in secret-guard.sh) AND disclosed in honest-scope (added T011.3, dropped as dead code; notebooks intentionally uncovered; settings.json unmodified). Both fix and disclosure present."
+    },
+    {
+      "criterion_ref": "no regression in the two reports",
+      "result": "met",
+      "note": "Verification report re-validates VALID (exit 0), Final Status PASS; Changed Files still reconciles with git; verdict chain r1-r4 hashes intact; live-fire events + human gates intact. T011.3 residuals (Grep, wrapper, run-id-armed-without-lock window, evidence-log wording, snapshot design, bash-radius message text) still disclosed."
+    },
+    {
+      "criterion_ref": "read-only review confinement",
+      "result": "met",
+      "note": "This critic review made no repo writes: live tree still 9 tracked-modified (the M6 working-tree edits, unchanged by me), HEAD 192dce6a. All my probes ran in mktemp/scratchpad; the live git-apply floor denied one of my own probe command lines mid-review (recorded as live-fire event (d))."
+    }
+  ],
+  "blockers": [],
+  "advisory": true,
+  "context_provenance": "fresh"
+}
