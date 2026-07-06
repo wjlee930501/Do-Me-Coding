@@ -1,0 +1,22 @@
+{
+  "schema": "dmc.critic-verdict.v1",
+  "work_id": "dmc-v0.5-codex-adapter-direction",
+  "plan_hash": "277ee35de6dac36af66518ede477212ad1cd81181270c9d3606978f5e732b3cd",
+  "repo_hash": "1c672a0d07c7b0275db6d9c9675c08180a6b5525",
+  "target_ref": ".harness/plans/dmc-v0.5-codex-adapter-direction.md",
+  "verdict": "APPROVE",
+  "lenses": ["scope", "security", "sequencing", "verifiability", "gate-integrity"],
+  "criteria_checked": [
+    {"criterion_ref": "R1-B1 post-Bash guard exemption", "result": "met", "note": "Closed. Proposed Changes item (b) lines 162-166: exemption narrowed to .harness/evidence/, .harness/verification/, append-only run logs; Bash-mediated writes to scope.lock.json, approvals.jsonl, run.json explicitly DENIED (state mutations only via dmc CLI); canonical bypass fixture (2) AND the audit's .harness/runs self-escalation finding both named. DMC-T101 (lines 274-275) repeats the constraint so it survives into the amendment spec."},
+    {"criterion_ref": "R1-B2 authorization bookkeeping", "result": "met", "note": "Closed. New item (f) lines 175-180: adapters/** extended to M6.5, NEW .agents/** and .codex/** rows, .claude/install/* stays M8-only; P-coverage map gains P21->M6.5; M8 DMC-T013 spike line replaced with 'ship/install the M6.5 adapter (--host codex|claude|both)' - no duplicate ownership. Installer --host reassigned to M8 consistently in all four places it appears: direction answer 4 (lines 48-50), item (a) (158-159), item (f) (177-178), DMC-T104 (line 295)."},
+    {"criterion_ref": "R1-B3 M7-after-M8 consequence", "result": "met", "note": "Closed. Item (c) lines 168-170: M7 authorization extended with INSTALL_MANIFEST.md regeneration + post-M7 manifest drift re-run, with the rationale stated; new Risks row (line 258) records the M8-ships-pre-M7-validators interim window as an accepted risk with the M9 release-gate backstop."},
+    {"criterion_ref": "R1-O1 dmc-init-deep factual overstatement", "result": "met", "note": "Closed. Finding lines 98-99 now acknowledges the informal one-line Unknown rule ('Add unknowns explicitly') and claims only the absence of a required-content contract and determinism - matches SKILL.md."},
+    {"criterion_ref": "R1-O2 AC2 mechanical byte-compare", "result": "met", "note": "Closed. AC2 lines 227-229: extract approval blocks from git show HEAD:... and post-amendment file by heading markers, byte-compare with cmp, command + output recorded in evidence."},
+    {"criterion_ref": "R1-O3 architecture-doc P20 supersession", "result": "met", "note": "Closed. Item (d) lines 170-174: DMC_V1_RUNTIME_ARCHITECTURE.md P20 marked superseded-by-Rev-3 with in-doc cleanup assigned to M10; doc untouched until M10, consistent with its 'no' row in Relevant Files."},
+    {"criterion_ref": "R1-O4 skill-surface drift check", "result": "met", "note": "Closed. DMC-T104 lines 299-300 requires a mirror/drift check (M3 pattern) between .agents/skills/dmc-* and .claude/skills equivalents."},
+    {"criterion_ref": "revision integrity", "result": "met", "note": "Rev header accurately describes the closures and cites the persisted R1 artifact; Relevant Files evidence glob widened from *.md to * so the persisted verdict .json is scope-authorized (the R1 artifact at .harness/evidence/dmc-v0.5-direction-critic-verdict-r1.json is byte-identical to my emitted original - verified with cmp - and passes dmc verdict validate, exit 0); Rev 2 passes dmc validate plan (exit 0); no gate-integrity regressions introduced (Status still DRAFT, human approver pending); no other section weakened."}
+  ],
+  "blockers": [],
+  "advisory": true,
+  "context_provenance": "fresh"
+}

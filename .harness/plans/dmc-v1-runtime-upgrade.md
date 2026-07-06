@@ -10,6 +10,17 @@ now precedes skill wiring (M5). Non-blocking items 6–11 also addressed inline.
 Format note (critic item 11): Execution Tasks extend the schema's `Notes:` field into a
 per-milestone block {Acceptance, Verification, Rollback, Evidence, Not-edit, Risk}; the M3 plan
 validator MUST accept this extension.
+**Rev 3** — direction re-alignment per .harness/plans/dmc-v0.5-codex-adapter-direction.md
+(critic R2 PASS): (a) new milestone **M6.5 — Codex Adapter (P21)** inserted between M6 and M7
+(spike-first; adapter content only; installer `--host` stays M8-owned); (b) M6 DMC-T011 extended
+with the post-Bash diff guard (narrow DMC-internal exemption; run-state files DENIED) + semantic
+verification-report cross-checks; (c) execution order re-sequenced M6 → M6.5 → M8 → M7 → M9 → M10,
+M7 authorization extended (INSTALL_MANIFEST regen + post-M7 drift re-run) with a recorded interim
+risk; (d) the stale P20 "no Stop hook" Codex assumption corrected in §Assumptions (architecture-doc
+cleanup assigned to M10; that doc untouched here); (e) a Deferred (Rev 3 register) section added
+(Worker-Bridge expansion, P5 benchmark postponed post-M9); (f) authorization bookkeeping — Relevant
+Files rows for adapters/.agents/.codex, P-coverage map P21→M6.5, M8 DMC-T013 spike line superseded.
+Additive only: the M2–M5 approval records are byte-preserved.
 
 ## Goal
 
@@ -51,7 +62,9 @@ docs — v1.0 architecture and release docs).
 | Path | Reason | Allowed to Edit |
 |---|---|---|
 | bin/** (new) | Ring-0 CLI façade + relocated-tool routing | yes (new; M2–M9) |
-| adapters/** (new) | Ring-1 harness adapters (claude-code, codex, opencode) | yes (new; M6, M8) |
+| adapters/** (new) | Ring-1 harness adapters (claude-code, codex, opencode) | yes (new; M6, M6.5, M8) |
+| .agents/** (new) | Codex skill bindings (M6.5) | yes (new; M6.5) |
+| .codex/** (new) | Codex config/hooks templates (M6.5) | yes (new; M6.5) |
 | orchestration/** (new) | roles.json, models.json | yes (new; M5, M8) |
 | tests/fixtures/** (new) | fixture repos (M2 intelligence, M8 install hosts, M9 E2E) | yes (new; M2/M8/M9) |
 | .harness/plans/dmc-v1-runtime-upgrade*.md | this plan + audit (M1 deliverables) | yes (M1) |
@@ -63,7 +76,7 @@ docs — v1.0 architecture and release docs).
 | .claude/agents/*.md (+ release-auditor.md new) | contract-ized prompts | yes (M5) |
 | docs/DMC_AGENT_HANDOFF.md, docs/DYNAMIC_DELEGATION.md, docs/DMC_DELEGATION_HARNESS.md | become pointers to orchestration/roles.json | yes (M5) |
 | .claude/install/dmc-install.sh, dmc-uninstall.sh | P19 fixes + Ring-0 shipping | yes (M8) |
-| INSTALL_MANIFEST.md | regenerated-from-installer section | yes (M8) |
+| INSTALL_MANIFEST.md | regenerated-from-installer section; M7 worker-validator entries + post-M7 drift re-run | yes (M7, M8) |
 | .harness/schemas/*.schema.md (new: orientation, landmarks, depsurface, radius, acceptance, scope-lock, fixloop, delegation, critic-verdict, worker-review; existing: evidence-receipt check_id extension) | primitive schemas | yes (M3; evidence-receipt extension M4) |
 | PLAN_SCHEMA.md / RUN_SCHEMA.md / VERIFICATION_SCHEMA.md (+ .harness/schemas mirrors) | validator refs; canonical-home declaration + mirror check | yes (M3) |
 | .github/workflows/dmc-ci.yml (new) | CI running selftest + suites | yes (M9) |
@@ -83,6 +96,12 @@ docs — v1.0 architecture and release docs).
 - Rewriting shipped v0.2.6–v0.6.5 validator logic (copy + route + named hardening only).
 - Deleting `.before-dmc`/zip strays (separate hygiene proposal, own human approval).
 - Any push to main/master, any closure entry before human gates.
+
+## Deferred (Rev 3 register)
+
+- Worker-Bridge expansion (new providers, live paths, async workers) — explicitly postponed.
+- The P5 real-repo A/B benchmark harness — explicitly postponed.
+- Re-entry condition (both): a separate plan + human gate after M9.
 
 ## Proposed Changes
 
@@ -143,6 +162,7 @@ docs — v1.0 architecture and release docs).
 | M4 is the largest milestone (8 primitives) | medium | all additive bin/ work, uniform validator pattern, two independently-verifiable tasks; no protected surface touched |
 | Another harness (OMC) coexistence regression | low | passive-mode auto-detect preserved; doctor non-interference check |
 | Worker hardening rejects previously-accepted legitimate results | low | fixtures re-run; empty-allowed DENY announced as breaking in release notes |
+| M8 install fixtures ship pre-M7 worker validators (audited JWT/rename-diff/empty-allowed bypasses) during the M6.5-first window | medium | accepted interim risk; M7 regen + drift re-run; M9 release gate re-composes worker checks before any release |
 
 ## Assumptions
 
@@ -150,7 +170,7 @@ docs — v1.0 architecture and release docs).
 |---|---|---|
 | Claude Code hook API (events/JSON) stable for the adapter | high | doctor probes at install |
 | Glob tool param is `pattern`, Grep dir param is `path` | high | verify against harness docs before M6; guard reads a **superset** of keys either way |
-| Codex minimal binding feasible via pre-commit/CI | medium | M8 spike, timeboxed; downgrade to documented-manual if not |
+| Codex CLI ships near-parity lifecycle hooks + .agents/skills + per-project .codex (web-verified official docs 2026-07-06; supersedes the 'no Stop hook' claim in docs/DMC_V1_RUNTIME_ARCHITECTURE.md §P20 — in-doc cleanup assigned to M10) | high | M6.5 local-CLI spike re-proves before build; fallback documented-manual + pre-commit/CI |
 | python3 available on target hosts | medium | doctor check; POSIX-sh deny floor as fallback |
 | No concurrent DMC runs per repo | high | P7 refuses a second concurrent lock |
 
@@ -158,10 +178,16 @@ docs — v1.0 architecture and release docs).
 
 REQUIRED-primitive coverage map (critic blocker 1):
 P1,P2,P4,P5→M2 · P3(schema only),relocation→M3 · P7c,P8,P9,P10,P11,P12,P13,P17→M4 ·
-P14(registry),P16→M5 · P6,P7e,P10(feeder),P18(quick)→M6 · P14(records),P15→M7 · P19,P20→M8 ·
-P18(full),CI→M9 · docs/identity→M10. Deferred (consistent with architecture §4): P3 tool,
-AST/LSP tier, approval auth, patch-content fidelity beyond names+hunk-count, async workers,
-OpenCode full adapter.
+P14(registry),P16→M5 · P6,P7e,P10(feeder),P18(quick)→M6 · P21→M6.5 · P14(records),P15→M7 ·
+P19,P20→M8 · P18(full),CI→M9 · docs/identity→M10. Deferred (consistent with architecture §4):
+P3 tool, AST/LSP tier, approval auth, patch-content fidelity beyond names+hunk-count, async
+workers, OpenCode full adapter.
+
+### Execution order (Rev 3)
+Re-sequenced per .harness/plans/dmc-v0.5-codex-adapter-direction.md: M6 → M6.5 → M8 → M7 → M9 →
+M10. Worker/delegation hardening (M7) is deprioritized behind the Codex adapter (M6.5) and the
+host install (M8) but stays ahead of M9's delegation-chain checks. Milestone numbering is
+unchanged; only the build order moves.
 
 Global not-edit for every milestone unless its own list authorizes it:
 `.claude/workers/providers/**`, live-path code, `docs/MILESTONES.md` (M10 only, append-only),
@@ -241,7 +267,16 @@ Global not-edit for every milestone unless its own list authorizes it:
   superset keys (`file_path`,`glob`,`pattern`,`path`) + case-insensitive matching;
   fail-closed-in-active on missing interpreter; stop gate → quick coverage check (receipts ⊇
   required checks; keyword regex removed; suspended runs don't block); P6 bounds enforcement
-  (v0.4.3 logic via bin/lib).
+  (v0.4.3 logic via bin/lib); **post-Bash diff guard** (P7 enforcement, POST half) — after every
+  Bash tool use, changed files (`git diff --name-only` + `git status --porcelain`) are compared
+  against the compiled scope.lock; any out-of-scope change ⇒ run BLOCKED + evidence entry +
+  stop-gate hold until resolved. The DMC-internal exemption is NARROW: only `.harness/evidence/`,
+  `.harness/verification/`, and append-only run logs; Bash-mediated writes to run-state files
+  (`scope.lock.json`, `approvals.jsonl`, `run.json`) are explicitly DENIED (state mutations only
+  via the `dmc` CLI), preserving canonical bypass fixture (2). **Semantic verification-report
+  cross-checks** as a Ring-0 `dmc` check consumed by the stop/release gate path: report run-id ==
+  active run; changed-files ⊆ approved scope and consistent with `git diff --name-only`; PASS
+  refused when a required verification command failed or was skipped without a recorded reason.
 - Acceptance: canonical-five fixtures (1)(2)(3) denied + `git apply` denied + interpreter-absent
   ⇒ deny-in-active; all legitimate-operation fixtures still allowed (compatibility matrix);
   stop-block E2E on ultrawork path. Verification: adversarial hook suite + `bash -n` + matrix.
@@ -249,15 +284,40 @@ Global not-edit for every milestone unless its own list authorizes it:
   fixtures for the test). Evidence: dmc-v1-m6-*.md.
 - Not-edit: worker-result-check.py, worker-context-guard.sh (M7's surface).
 
+### M6.5 — Codex Adapter (P21)  [risk: medium — additive; no protected surface]
+- [ ] DMC-T011b: FIRST a timeboxed local-CLI verification spike re-proving the web-verified
+  (2026-07-06, developers.openai.com/codex) Codex surface — lifecycle hooks
+  (PreToolUse/PostToolUse/Stop/UserPromptSubmit etc.; JSON stdin; deny/allow/block contract), the
+  `.agents/skills/` SKILL.md standard, per-project `.codex/config.toml` + `.codex/hooks.json`
+  (trusted-project flow) — BEFORE any build. Then, on confirmation: adapters/codex/ hook shims
+  translating Codex hook events onto the SAME Ring-0 verdict CLIs the Claude shims call; `.codex/`
+  config+hooks templates; `.agents/skills/dmc-*` skill bindings mirroring the .claude/skills `dmc`
+  verbs (with a mirror/drift check, M3 pattern, so the two skill surfaces cannot silently diverge);
+  host-AGENTS.md content contract + generator binding (per docs/CODEX_ADAPTER.md). Installer
+  `--host codex|claude|both` work is EXCLUDED (M8-owned). Fallback: if the spike cannot confirm the
+  surface, downgrade to documented-manual + pre-commit/CI gate.
+- Acceptance: spike records the probed Codex surface (or the fallback trigger) in evidence; on
+  confirmation, adapters/codex/ shims resolve to the same Ring-0 verdicts as the Claude shims on
+  the canonical-five fixtures; `.agents/skills/dmc-*` ↔ `.claude/skills` mirror/drift check green;
+  host-AGENTS.md generator emits the CODEX_ADAPTER.md content contract with every unknown fact
+  written as `Unknown`. Verification: `bin/dmc selftest` (Codex adapter sections) + mirror/drift
+  check + `bash -n` over adapters/codex/*.sh. Rollback: additive — delete the adapters/, .agents/,
+  .codex/ additions. Evidence: dmc-v1-m6.5-*.md.
+- Not-edit: hooks, settings.json, bin core logic, installer.
+
 ### M7 — Worker/delegation hardening  [risk: medium — **protected surface (worker validators), explicitly authorized for this milestone**]
 - [ ] DMC-T012: worker-result-check hardening (token classes imported from oauth-cli detectors;
   rename/copy/binary diff parsing; empty-allowed ⇒ DENY; task_id/provider cross-check;
   required-field presence); worker-context-guard fail-closed on parse error; NEW review
   validator (`dmc worker review-check`); hash-chained apply-authorization consumed by P7 at
   apply; post-apply fidelity (names+hunk-count); delegation records + subagent artifact
-  validation (P14 records).
+  validation (P14 records); because M7 edits worker validators that the M8 installer ships, M7
+  also regenerates the INSTALL_MANIFEST.md worker-validator entries and runs a post-M7 manifest
+  drift re-run (the manifest must be re-proven after the validators change; Rev 3 re-sequencing
+  lands M8 before M7).
 - Acceptance: canonical-five fixtures (4)(5) + empty-allowed REJECT; v0.3.3 contract suite green
-  unchanged; apply without chain refused. Verification: extended contract suite. Rollback:
+  unchanged; apply without chain refused; INSTALL_MANIFEST drift re-run clean post-M7.
+  Verification: extended contract suite + manifest drift re-run. Rollback:
   revert commit; pre-M7 validator retained as fixture. Evidence: dmc-v1-m7-*.md.
   Not-edit: provider adapters/router (never), M6 hook surface.
 
@@ -267,7 +327,7 @@ Global not-edit for every milestone unless its own list authorizes it:
   strip fixes (gitignore skip bug, CLAUDE.md marker section removal); idempotent marker-based
   CLAUDE.md append; `${DRY:+}`/eval-quoting fixes; `dmc doctor` (interpreters, hook firing,
   foreign-harness detection, enforcement matrix print); P20 models.json + harness feature
-  matrix; Codex minimal binding spike (pre-commit/CI; timeboxed).
+  matrix; ship/install the M6.5 Codex adapter (--host codex|claude|both).
 - Acceptance: 4-fixture round-trip byte-clean (empty, node, existing-claude-settings,
   existing-OMC); double-install idempotent; doctor catches seeded defects. Verification: M8
   install suite. Rollback: installer self-contained; revert commit. Evidence: dmc-v1-m8-*.md.
