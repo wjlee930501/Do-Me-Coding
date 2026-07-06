@@ -1,8 +1,8 @@
 # HANDOFF — dmc-v1-runtime-upgrade (session → session)
 
-Date: 2026-07-06 (rev 2 — local session shipped M3–M5) · Branch: `claude/dmc-v1-runtime-upgrade-c5uch1`
-Session end state: worktree clean except two local-only run archives (`.harness/runs/dmc-v1-m{3,4}-20260706.md`,
-untracked by policy); local == origin on this branch @ `9ec5055`; `main` untouched (`main` == `origin/main` == `d0edc48`).
+Date: 2026-07-06 (rev 3 — direction re-alignment shipped after M3–M5) · Branch: `claude/dmc-v1-runtime-upgrade-c5uch1`
+Session end state: worktree clean except local-only run archives/auto-logs (`.harness/runs/**`,
+`.harness/evidence/dmc-run-*.md`, untracked by policy); `main` untouched (`main` == `origin/main` == `d0edc48`).
 
 ## Resume quickstart (local)
 
@@ -26,7 +26,8 @@ bin/dmc help            # M2–M5 command surface (orient/landmarks/depsurface/r
 | M3 schemas + validators + copy-routing | DONE, pushed | `1b9a4c3` + fix `3b2d1c4` | 6 schemas, dmc-instance-validate.py, 55 bin/lib copies, selftest --all, pinned baseline 802/3/3 |
 | M4 run-lifecycle core (8 primitives) | DONE, pushed | `8903a67` | 10 modules (run/scope-lock/approvals+R12/evidence+check_id/checkpoints/acceptance/verify-plan/fixloop/recovery), run-core 153/0 + loop-core 78/0 |
 | M5 orchestration registry | DONE, pushed | `9ec5055` | orchestration/roles.json, 6 contract-ized agents (+release-auditor), verdict/delegation validators + verdict-gate, 3 skills bound to `dmc run start`, linkcheck, 3 docs additively pointer-ized (17 gated substrings preserved) |
-| M6–M10 | **NOT STARTED, NOT APPROVED** | — | master plan §Execution Tasks M6–M10 |
+| v0.5 direction re-alignment (run dmc-run-0e29d09bf3b5) | DONE (critic R2 PASS · verifier ACCEPT · verification PASS) | `1b276f3` | direction plan APPROVED+executed: master plan **Rev 3** (M6.5 Codex Adapter inserted; order M6→M6.5→M8→M7→M9→M10; M6 gains post-Bash diff guard + semantic verify cross-checks; Deferred register: worker-bridge expansion, P5 benchmark), docs/CODEX_ADAPTER.md, DRAFT plans dmc-v1-m6-hook-hardening + dmc-v1-m6.5-codex-adapter |
+| M6–M10 | **NOT STARTED, NOT APPROVED** (M6 + M6.5 have authored DRAFT plans awaiting critic + gate) | — | master plan §Execution Tasks M6–M10 (Rev 3) |
 
 Approval state (master plan `## Approval Status`): **APPROVED M2+M3+M4+M5 (M1 retroactively ratified)** —
 approver wjlee. **M6+ remain UNAPPROVED**; each needs its own milestone plan → critic → human gate
@@ -41,15 +42,23 @@ closure condition. Single-owner rule for `bin/dmc` (one sub-task registers all v
 time for: milestone approval, staging, commit, push. Evidence/verification per milestone; verification reports must
 pass `dmc validate verification`.
 
-## Next step (requires its own plan + critic + human gate first)
+## Next step (critic pass + human gate first)
 
 **M6 — Hook/guard hardening (DMC-T011): THE PROTECTED-SURFACE MILESTONE** (.claude/hooks/*, settings.json —
-first edit of the enforcement floor). Master plan requires: hooks become shims over Ring-0 verdict CLIs; Bash
-write-radius classifier (deny `git apply`/`patch`); secret-guard superset keys + case-insensitivity;
-fail-closed-in-active; stop gate → receipt-coverage check; canonical-five fixtures (1)(2)(3); pre-M6 hooks
-preserved as fixtures for the rollback test; compatibility matrix so legitimate ops still pass.
-Plan extra safeguards beyond M4/M5: byte-preserve the current hooks as committed fixtures BEFORE editing;
-a single revert commit must restore v0.6.5 hooks+settings byte-identically.
+first edit of the enforcement floor). Its milestone plan is ALREADY AUTHORED as DRAFT:
+`.harness/plans/dmc-v1-m6-hook-hardening.md` (schema-VALID) — next action is its critic pass, then the human
+gate. Scope per master plan Rev 3: hooks become shims over Ring-0 verdict CLIs; Bash write-radius classifier
+(deny `git apply`/`patch`); **post-Bash diff guard** (changed files vs scope.lock; NARROW exemption — Bash
+writes to scope.lock.json/approvals.jsonl/run.json DENIED); **semantic verification cross-checks** (run-id
+match, files⊆scope+git-consistent, PASS-refusal on failed/unexcused-skipped required checks); secret-guard
+superset keys + case-insensitivity; fail-closed-in-active; stop gate → receipt-coverage; canonical-five
+fixtures (1)(2)(3); pre-M6 hooks byte-preserved as committed fixtures BEFORE editing; single revert commit
+restores v0.6.5 hooks+settings byte-identically; compatibility matrix so legitimate ops still pass.
+
+After M6: **M6.5 — Codex Adapter** (DRAFT plan `.harness/plans/dmc-v1-m6.5-codex-adapter.md`; its critic pass
+is deliberately deferred until M6 ships because the shim interfaces freeze at M6 closure; spike-first —
+re-prove the web-verified 2026-07-06 Codex surface on a local CLI before any build; installer `--host` stays
+M8). Design authority: `docs/CODEX_ADAPTER.md`. Execution order (Rev 3): M6 → M6.5 → M8 → M7 → M9 → M10.
 
 ## Carry-forwards (do not lose)
 
@@ -67,6 +76,13 @@ a single revert commit must restore v0.6.5 hooks+settings byte-identically.
    run archives under `.harness/runs/` stay local.
 7. The two working-tree-drift legacy checks (v0.5.9 AC13 / v0.6.0 V15) FAIL `--all` whenever tracked files are
    modified uncommitted — expected artifact class; the committed-replica proof + post-commit re-run is the pattern.
+8. Task-ID namespaces collide across plans (master §M6.5 `DMC-T011b` vs M6-plan `DMC-T011b`; M6.5-plan
+   `DMC-T012a–e` vs master §M7 `DMC-T012`) — validators accept per-plan namespaces; renumber at the M6/M6.5
+   critic passes (verifier advisory finding 6).
+9. Critic R2 verdict for the direction plan binds the PRE-approval Rev 2 bytes (plan_hash `277ee35d…`); the
+   current file hashes `a85c12db…` because the approval record was appended after — a naive re-hash "fails" by
+   design; the chain (R2 → approval citing 277ee35d → run.json binding a85c12db) is documented in
+   `.harness/verification/dmc-run-0e29d09bf3b5.md`.
 
 ## Branch commit log (oldest → newest, all beyond `main` @ `d0edc48`)
 
@@ -75,3 +91,6 @@ a single revert commit must restore v0.6.5 hooks+settings byte-identically.
 3. `3b2d1c4` — M3 follow-up fix: hermetic self-tests + evidence transcript refresh
 4. `8903a67` — M4: run-lifecycle core, 8 primitives (25 files)
 5. `9ec5055` — M5: orchestration registry, agents, validators, skill bindings, linkcheck (35 files)
+6. `1c672a0` — handoff rev 2 (M3–M5 shipped, next M6)
+7. `1b276f3` — v0.5 direction re-alignment: master plan Rev 3 (M6.5 Codex Adapter), CODEX_ADAPTER design,
+   M6/M6.5 DRAFT plans, direction evidence/verification (10 files, +1273/−11)
