@@ -8,6 +8,8 @@ HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 CORE="$HERE/lib/dmc-repo-intel.py"
 ICORE="$HERE/lib/dmc-instance-validate.py"
 LCORE="$HERE/lib/dmc-legacy-selftest.py"
+RCORE="$HERE/lib/dmc-run-lifecycle.py"
+RUNCORE="$HERE/lib/dmc-run-core-selftest.py"
 
 usage() {
   cat <<'EOF'
@@ -19,6 +21,13 @@ commands (M2):
   depsurface  [--root DIR] [--out FILE] | --validate FILE | --self-test
   radius      --depsurface F --landmarks F --checks F --scope P [P...]
               [--out FILE] | --validate FILE | --self-test
+
+commands (M4):
+  run         start --plan FILE [--root DIR] [--work-id ID]   mint + arm a run (refuses unless
+                                              the plan is APPROVED; refuses a second start while a
+                                              run is active) -> .harness/runs/<run-id>/run.json
+  run         suspend|resume|status [--root DIR] [--run-id ID]   drive/report the run state machine
+                                              (INIT->RUNNING->SUSPENDED->RESUMING->RUNNING->DONE)
 
 commands (M3):
   validate    plan|run|verification <path>   instance validator (ACCEPT => 0, REFUSED => 3)
@@ -33,8 +42,12 @@ commands (M3):
 
   selftest    [orient|landmarks|depsurface|radius|validate-plan|validate-run|
                validate-verification|schemas-mirror|legacy-mirror ...]   (default: all sections)
+  selftest    run-core|loop-core             M4 run-core/loop-core module self-tests + the
+                                              hermetic run round-trip (named-only; also under
+                                              --all; NOT in the no-arg default)
   selftest    --all                          above + all 49 legacy tools (bin/lib) vs the
-                                              pinned baseline + rollback-test (slow: ~2-3 min)
+                                              pinned baseline + rollback-test + run-core/loop-core
+                                              (slow: ~10+ min)
   help
 
 Artifacts conform to .harness/schemas/{orientation,landmarks,depsurface,radius}.schema.md.
@@ -90,6 +103,19 @@ case "$cmd" in
         ;;
     esac
     ;;
+  run)
+    sub=${1:-}
+    [ $# -gt 0 ] && shift
+    case "$sub" in
+      start|suspend|resume|status)
+        exec python3 "$RCORE" "$sub" "$@"
+        ;;
+      *)
+        echo "dmc run: unknown verb: ${sub:-<none>} (start|suspend|resume|status)" >&2
+        exit 2
+        ;;
+    esac
+    ;;
   mirror-check)
     exec python3 "$LCORE" mirror --check
     ;;
@@ -112,6 +138,8 @@ case "$cmd" in
         esac
       done
       python3 "$LCORE" selftest-all || rc=1
+      python3 "$RUNCORE" run-core || rc=1
+      python3 "$RUNCORE" loop-core || rc=1
       exit "$rc"
     fi
     [ $# -eq 0 ] && set -- orient landmarks depsurface radius \
@@ -126,6 +154,8 @@ case "$cmd" in
         validate-verification)  python3 "$ICORE" verification --self-test || rc=1 ;;
         schemas-mirror)         python3 "$ICORE" mirror --self-test || rc=1 ;;
         legacy-mirror)          python3 "$LCORE" mirror --self-test || rc=1 ;;
+        run-core)               python3 "$RUNCORE" run-core || rc=1 ;;
+        loop-core)              python3 "$RUNCORE" loop-core || rc=1 ;;
         *) echo "dmc selftest: unknown target: $t" >&2; exit 2 ;;
       esac
     done

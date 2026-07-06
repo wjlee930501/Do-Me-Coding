@@ -10,9 +10,16 @@ prose/summary/self-report is **never** evidence. A receipt is a trace-linkage `e
 { "kind":"evidence_receipt", "id":"<opaque>", "producer_milestone_id":"v0.6.2",
   "work_id":"…","plan_hash":"<hex≥16>","repo_hash":"<hex≥16>","verification_ref":"…",   # the 4 contract binding fields
   "evidence_type":"<one of the 5>", "artifact_ref":"<non-prose ref>",                    # v0.6.2-owned
-  "machine_verifiable": <bool>, "checker":"<id>"|null }                                  # v0.6.2-owned
+  "machine_verifiable": <bool>, "checker":"<id>"|null,                                   # v0.6.2-owned
+  "check_id":"<stable id>"|null }                                                        # M4 additive (P10)
 ```
 **Evidence types (5):** `verification-report` · `test-result` · `artifact-existence` · `review-packet` · `audit-report`.
+
+**`check_id` (M4/P10, additive).** Optional, backward-compatible reference to the acceptance-compiler
+`check_id` (`.harness/schemas/acceptance.schema.md`) this receipt answers for. The v0.6.2 contract
+above is unchanged and does not read this field (old-shape receipts minted before this extension
+remain valid with no `check_id`); the M4 evidence ledger (`dmc-evidence-ledger.py`) applies its own,
+stricter, ledger-local policy of requiring a non-empty `check_id` on every receipt it mints.
 
 **`artifact_ref` — decidable non-prose predicate.** VALID iff single-line, non-empty, no whitespace/control char, and either
 - **hash-shaped** `^[0-9a-f]{16,}$`, OR

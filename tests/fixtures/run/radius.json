@@ -1,0 +1,19 @@
+{
+  "schema": "dmc.radius.v1",
+  "head": "no-git",
+  "scope": [
+    "src/app.py"
+  ],
+  "entries": [
+    {
+      "path": "src/app.py",
+      "dependents": [],
+      "dependent_count": 0,
+      "landmark_class": "ordinary",
+      "unscanned": false,
+      "check_ids": [
+        "CHK-FIX-001"
+      ]
+    }
+  ]
+}

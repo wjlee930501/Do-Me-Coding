@@ -1,0 +1,22 @@
+{
+  "schema": "dmc.orientation.v1",
+  "root_kind": "plain",
+  "head": "no-git",
+  "head_time": "no-git",
+  "languages": {
+    "py": 1
+  },
+  "manifests": [],
+  "package_managers": [],
+  "verify_commands": [
+    {
+      "command": "true",
+      "source": "fixture:tests/fixtures/run/plan.md"
+    }
+  ],
+  "entrypoints": [],
+  "doc_roots": [],
+  "unknowns": [
+    "synthetic fixture; no package manifest present"
+  ]
+}
