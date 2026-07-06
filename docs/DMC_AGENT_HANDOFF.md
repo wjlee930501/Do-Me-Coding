@@ -2,6 +2,13 @@
 
 A one-page quick-card for resuming the DMC milestone loop safely. Read this with `DMC_OPERATOR_HANDBOOK.md`.
 
+> **Canonical role taxonomy: `orchestration/roles.json`** (the P14 `dmc.roles.v1` registry) is the
+> single machine-readable home for the DMC orchestration roles and capability classes. The role and
+> template descriptions in this quick-card are **derived / legacy reference** kept for narrative
+> context; if they ever disagree with the registry, the registry wins. Validate it with
+> `bin/dmc roles validate`. This banner is additive — the state machine, gate rules, and prompt
+> templates below are unchanged.
+
 ## Resume quick-card — the state machine
 
 ```

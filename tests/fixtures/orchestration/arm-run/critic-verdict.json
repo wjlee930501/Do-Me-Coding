@@ -1,0 +1,16 @@
+{
+  "schema": "dmc.critic-verdict.v1",
+  "work_id": "dmc-m5-armrun-fixture",
+  "target_ref": "tests/fixtures/orchestration/arm-run/plan.md",
+  "plan_hash": "ef343767b5ce363f107b8e53bf9e38920c8de80d6a1b26e525b306b86e65e038",
+  "repo_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "verdict": "APPROVE",
+  "lenses": ["correctness", "scope", "security"],
+  "criteria_checked": [
+    {"criterion_ref": "arm-run/plan.md#acceptance-1", "result": "met", "note": "gate passes the pair"},
+    {"criterion_ref": "arm-run/plan.md#acceptance-2", "result": "met", "note": "run start arms a run-id"}
+  ],
+  "blockers": [],
+  "advisory": true,
+  "context_provenance": "fresh"
+}

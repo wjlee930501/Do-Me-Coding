@@ -10,6 +10,11 @@ ICORE="$HERE/lib/dmc-instance-validate.py"
 LCORE="$HERE/lib/dmc-legacy-selftest.py"
 RCORE="$HERE/lib/dmc-run-lifecycle.py"
 RUNCORE="$HERE/lib/dmc-run-core-selftest.py"
+ROLESLIB="$HERE/lib/dmc-roles.py"
+VERDICTLIB="$HERE/lib/dmc-critic-verdict.py"
+GATELIB="$HERE/lib/dmc-verdict-gate.py"
+DELEGLIB="$HERE/lib/dmc-delegation.py"
+LINKLIB="$HERE/lib/dmc-orchestration-linkcheck.py"
 
 usage() {
   cat <<'EOF'
@@ -29,6 +34,18 @@ commands (M4):
   run         suspend|resume|status [--root DIR] [--run-id ID]   drive/report the run state machine
                                               (INIT->RUNNING->SUSPENDED->RESUMING->RUNNING->DONE)
 
+commands (M5 orchestration):
+  roles       validate <path> | lookup <role> [--registry PATH]   role-registry validator + lookup
+                                              (orchestration/roles.json, P14 registry)
+  verdict     validate <path>                critic-verdict.json validator (P16)
+  verdict     gate --verdict FILE --plan-hash HEX   Ring-0 start-work precondition (REFUSE when the
+                                              referenced critic-verdict is absent/invalid/plan_hash-
+                                              mismatched; opens nothing, C11)
+  delegation  validate <path> [--registry P] delegation-record schema validator (role resolves in
+                                              roles.json; runtime records pipeline is M7)
+  linkcheck   [--root DIR]                    no skill/agent/doc-banner references a nonexistent
+                                              dmc-verb / artifact-path / role (exit 0 clean / 3 dangling)
+
 commands (M3):
   validate    plan|run|verification <path>   instance validator (ACCEPT => 0, REFUSED => 3)
   validate    schemas-mirror                 mirrors == canonical roots modulo generated header
@@ -45,9 +62,14 @@ commands (M3):
   selftest    run-core|loop-core             M4 run-core/loop-core module self-tests + the
                                               hermetic run round-trip (named-only; also under
                                               --all; NOT in the no-arg default)
+  selftest    roles|verdict|delegation|linkcheck   M5 orchestration validator self-tests (roles
+                                              registry; critic-verdict validator + verdict-gate;
+                                              delegation validator; orchestration link-check +
+                                              arm-run-id pre-run). Named-only; also under --all;
+                                              NOT in the no-arg default.
   selftest    --all                          above + all 49 legacy tools (bin/lib) vs the
                                               pinned baseline + rollback-test + run-core/loop-core
-                                              (slow: ~10+ min)
+                                              + the four M5 orchestration sections (slow: ~10+ min)
   help
 
 Artifacts conform to .harness/schemas/{orientation,landmarks,depsurface,radius}.schema.md.
@@ -116,6 +138,32 @@ case "$cmd" in
         ;;
     esac
     ;;
+  roles)
+    exec python3 "$ROLESLIB" "$@"
+    ;;
+  verdict)
+    sub=${1:-}
+    [ $# -gt 0 ] && shift
+    case "$sub" in
+      validate)
+        [ $# -ge 1 ] || { echo "usage: dmc verdict validate <path>" >&2; exit 2; }
+        exec python3 "$VERDICTLIB" validate "$@"
+        ;;
+      gate)
+        exec python3 "$GATELIB" gate "$@"
+        ;;
+      *)
+        echo "dmc verdict: unknown verb: ${sub:-<none>} (validate|gate)" >&2
+        exit 2
+        ;;
+    esac
+    ;;
+  delegation)
+    exec python3 "$DELEGLIB" "$@"
+    ;;
+  linkcheck)
+    exec python3 "$LINKLIB" "$@"
+    ;;
   mirror-check)
     exec python3 "$LCORE" mirror --check
     ;;
@@ -140,6 +188,11 @@ case "$cmd" in
       python3 "$LCORE" selftest-all || rc=1
       python3 "$RUNCORE" run-core || rc=1
       python3 "$RUNCORE" loop-core || rc=1
+      python3 "$ROLESLIB" --self-test || rc=1
+      python3 "$VERDICTLIB" --self-test || rc=1
+      python3 "$GATELIB" --self-test || rc=1
+      python3 "$DELEGLIB" --self-test || rc=1
+      python3 "$LINKLIB" --self-test || rc=1
       exit "$rc"
     fi
     [ $# -eq 0 ] && set -- orient landmarks depsurface radius \
@@ -156,6 +209,11 @@ case "$cmd" in
         legacy-mirror)          python3 "$LCORE" mirror --self-test || rc=1 ;;
         run-core)               python3 "$RUNCORE" run-core || rc=1 ;;
         loop-core)              python3 "$RUNCORE" loop-core || rc=1 ;;
+        roles)                  python3 "$ROLESLIB" --self-test || rc=1 ;;
+        verdict)                python3 "$VERDICTLIB" --self-test || rc=1
+                                python3 "$GATELIB" --self-test || rc=1 ;;
+        delegation)             python3 "$DELEGLIB" --self-test || rc=1 ;;
+        linkcheck)              python3 "$LINKLIB" --self-test || rc=1 ;;
         *) echo "dmc selftest: unknown target: $t" >&2; exit 2 ;;
       esac
     done

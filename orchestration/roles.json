@@ -1,0 +1,86 @@
+{
+  "schema": "dmc.roles.v1",
+  "provenance": {
+    "canonical_source": "orchestration/roles.json",
+    "role": "The single machine-readable orchestration role taxonomy (P14 registry).",
+    "faithful_to": [
+      "docs/ORCHESTRATION_TAXONOMY.md (Output 1 roles, Output 2 capability classes)",
+      "docs/DMC_V1_ORCHESTRATION_MODEL.md section 3 (session bindings + may_mutate)"
+    ],
+    "milestone": "dmc-v1 M5",
+    "model_name_free": "Capability classes only. Model names live ONLY in the dated, replaceable orchestration/models.json (M8, P20); they must never appear here or in role/gate logic (v0.6.1 self-scan invariant).",
+    "invariant_C11": "An advisory verdict (critic/auditor) never opens a gate; only deterministic-tool + human-only-gate may open one.",
+    "mutation_rule": "may_mutate is true for exactly one role: the Implementer (executor session), and only under an active scope.lock. Worker providers under the Implementer binding are proposal-only and never mutate."
+  },
+  "capability_classes": [
+    "frontier-long-horizon",
+    "standard-implementation",
+    "cheap-fast",
+    "adversarial-review",
+    "deterministic-tool",
+    "human-only-gate"
+  ],
+  "mutation_capable_role": "implementer",
+  "roles": [
+    {
+      "id": "strategic-orchestrator",
+      "role": "Strategic Orchestrator",
+      "session_binding": "the main session (not a subagent)",
+      "capability_class": "frontier-long-horizon",
+      "may_mutate": false,
+      "mutation_constraint": "never mutates directly; effects edits only by delegating to the Implementer (executor) path, which mutates under a scope.lock",
+      "must_not": "edit product code; approve its own plan; open a release/closure gate; treat its own routing as authoritative for gates",
+      "outputs": "a plan, a lane assignment, and a delegation handoff (all inspectable artifacts)"
+    },
+    {
+      "id": "implementer",
+      "role": "Implementer",
+      "session_binding": "executor agent; worker providers (proposal-only)",
+      "capability_class": "standard-implementation",
+      "may_mutate": true,
+      "mutation_constraint": "executor only, and ONLY under an active scope.lock (applied paths within the approved file scope); worker providers never mutate (proposal-only, applied via the scope-locked executor path)",
+      "must_not": "plan, approve, verify-and-close its own work, push, or touch the protected surface; expand scope without a new approval",
+      "outputs": "scope-bounded edits plus an evidence receipt (what changed, what was run)"
+    },
+    {
+      "id": "critic-falsifier",
+      "role": "Critic / Falsifier",
+      "session_binding": "critic agent (with lenses), fresh context",
+      "capability_class": "adversarial-review",
+      "may_mutate": false,
+      "mutation_constraint": "read-only; a critic verdict is advisory input, never a release grant (C11)",
+      "must_not": "edit the artifact it reviews; grant approval",
+      "outputs": "a critic-verdict artifact (APPROVE / REJECT / NEEDS_CLARIFICATION) with specific, falsifiable findings"
+    },
+    {
+      "id": "release-auditor",
+      "role": "Release Auditor",
+      "session_binding": "release-auditor agent; external audit delegate, fresh context",
+      "capability_class": "adversarial-review",
+      "may_mutate": false,
+      "mutation_constraint": "read-only; an audit ACCEPT is advisory input to the Human Release Gate, never the gate itself (C11)",
+      "must_not": "edit the change; self-approve; substitute for the Human Release Gate",
+      "outputs": "an audit verdict plus a residual-risk list"
+    },
+    {
+      "id": "verifier",
+      "role": "Verifier",
+      "session_binding": "verifier agent; deterministic tools (bin/dmc)",
+      "capability_class": "deterministic-tool",
+      "may_mutate": false,
+      "mutation_constraint": "read-only; never edits code to make a check pass; reports the deterministic result",
+      "must_not": "edit code to make a check pass; declare DONE from a model self-assessment rather than the deterministic result",
+      "outputs": "a verification report bound to immutable run facts"
+    },
+    {
+      "id": "human-release-gate",
+      "role": "Human Release Gate",
+      "session_binding": "human only",
+      "capability_class": "human-only-gate",
+      "may_mutate": false,
+      "mutation_constraint": "not applicable; authorizes irreversible actions and is never inferred or automated",
+      "must_not": "be inferred or automated; be substituted by any critic/auditor PASS; derive approval from run state",
+      "outputs": "an explicit, recorded authorization (the only thing that may open a release/closure gate)"
+    }
+  ]
+}

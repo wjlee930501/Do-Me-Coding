@@ -6,7 +6,15 @@ matrix** (faithful to the handbook gate map), and the **run-transcript checklist
 observable push boundary. **The harness is a behavioral norm + a read-only check — not an enforcement mechanism; the
 human Release Gate remains authoritative.**
 
+> **Canonical role taxonomy: `orchestration/roles.json`** (the P14 `dmc.roles.v1` registry) is the
+> single machine-readable home for the DMC orchestration roles and capability classes. The role table
+> in section 1 below is **derived / legacy reference**; if it disagrees with the registry, the registry
+> wins. Validate it with `bin/dmc roles validate`. This banner is additive — every section below is
+> unchanged.
+
 ## 1. Roles (separation of duties)
+
+_Derived / legacy view — canonical source: `orchestration/roles.json` (`dmc.roles.v1`)._
 
 | role | does | never |
 |---|---|---|
