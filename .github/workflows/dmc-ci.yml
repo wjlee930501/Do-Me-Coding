@@ -41,6 +41,11 @@ jobs:
           # suite (run via `bin/dmc selftest --all`) would fail on a shallow checkout.
           fetch-depth: 0
 
+      - name: Pin python 3.9 (the interpreter the 802/3/3 legacy baseline was pinned on)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
       - name: Syntax floor (bash -n)
         run: |
           shopt -s nullglob
