@@ -19,3 +19,10 @@ Validate `.harness/workers/results/<task_id>.json` against `WORKER_RESULT_SCHEMA
 
 Any failure → REJECT (record the reason). Importing NEVER applies the patch. `git apply`/`patch` is
 forbidden for worker results — the diff is a review artifact only.
+
+6. On PASS: author a `dmc.worker-review.v1` record (per `.harness/schemas/worker-review.schema.md`)
+   recording each check's PASS/FAIL (mandatory kinds: `scope-compat`, `token-scan`, `fidelity`,
+   `disallowed-category`; reviewer_role must be non-mutating), then machine-verify it with
+   `dmc worker review-check <review.json> --task <task.json> --result <result.json>` before handing
+   off to `/dmc-worker-review`. A REFUSED review-check means the record itself is
+   malformed/unbound/rubber-stamped — fix the record, never bypass it.

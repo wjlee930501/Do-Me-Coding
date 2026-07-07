@@ -14,6 +14,7 @@ ROLESLIB="$HERE/lib/dmc-roles.py"
 VERDICTLIB="$HERE/lib/dmc-critic-verdict.py"
 GATELIB="$HERE/lib/dmc-verdict-gate.py"
 DELEGLIB="$HERE/lib/dmc-delegation.py"
+WORKERREVLIB="$HERE/lib/dmc-worker-review.py"
 LINKLIB="$HERE/lib/dmc-orchestration-linkcheck.py"
 BASHRADIUSLIB="$HERE/lib/dmc-bash-radius.py"
 POSTBASHLIB="$HERE/lib/dmc-postbash-diff.py"
@@ -25,6 +26,7 @@ DOCTORLIB="$HERE/lib/dmc-doctor.py"
 M6SUITEDIR="$HERE/../tests/fixtures/m6"
 M65SUITEDIR="$HERE/../tests/fixtures/m6.5"
 M8SUITEDIR="$HERE/../tests/fixtures/m8"
+M7SUITEDIR="$HERE/../tests/fixtures/m7"
 
 usage() {
   cat <<'EOF'
@@ -67,7 +69,12 @@ commands (M5 orchestration):
                                               referenced critic-verdict is absent/invalid/plan_hash-
                                               mismatched; opens nothing, C11)
   delegation  validate <path> [--registry P] delegation-record schema validator (role resolves in
-                                              roles.json; runtime records pipeline is M7)
+                                              roles.json)
+  delegation  append --run RUN_ID RECORD.json [--registry P] | check --run RUN_ID [--registry P]
+                                              P14 delegation runtime-records pipeline (M7):
+                                              hash-chain append / end-to-end chain re-verify onto
+                                              .harness/runs/RUN_ID/delegations.jsonl
+                                              (validate-before-consumption enforced across the file)
   linkcheck   [--root DIR]                    no skill/agent/doc-banner references a nonexistent
                                               dmc-verb / artifact-path / role (exit 0 clean / 3 dangling)
 
@@ -93,6 +100,27 @@ commands (M8 host install):
                                               harness non-interference; the harness-matrix.json
                                               enforcement matrix rendered PER-HOST + the DMC mode
                                               host-independently. 0 healthy / 1 real defect.
+
+commands (M7 worker/delegation hardening):
+  worker      review-check <review.json> [--task T --result R]   validate a dmc.worker-review.v1
+                                              record (schema/enums/mandatory-kinds/decision/role
+                                              rules); with --task/--result, also bind the review to
+                                              the exact task+result it reviewed (hash recompute +
+                                              result_id check)
+  worker      authorize --task T --result R --review REV --run RUN_ID [--out PATH]   emit a
+                                              dmc.apply-authorization.v1 record: REFUSES unless the
+                                              bound review passes with decision==apply AND the
+                                              hardened worker-result-check.py ACCEPTs (task, result);
+                                              append-only (refuses to overwrite)
+  worker      apply-check --auth A --task T --result R --review REV [--scope-lock LOCK]   the P7
+                                              apply-consumption gate: hash-chain recompute, path-
+                                              subset check, optional scope.lock adjudication; a
+                                              missing authorization IS "apply without a chain
+                                              refused"
+  worker      fidelity --result R --applied-diff D   post-apply fidelity at the names+hunk-count
+                                              tier (v1.0; content equality NOT claimed)
+                                              P15 CLIs implementing .harness/schemas/worker-
+                                              review.schema.md + apply-authorization.schema.md.
 
 commands (M3):
   validate    plan|run|verification <path>   instance validator (ACCEPT => 0, REFUSED => 3)
@@ -138,11 +166,20 @@ commands (M3):
                                               round-trip, idempotency, doctor negative controls,
                                               manifest drift. Named-only; also under --all; NOT in
                                               the no-arg default.
+  selftest    worker-check                    M7 dmc-worker-review.py module self-test
+                                              (review-check/authorize/apply-check/fidelity positive
+                                              + negative controls). Named-only; also under --all;
+                                              NOT in the no-arg default.
+  selftest    m7-suite                        M7 worker/delegation-hardening suites
+                                              (tests/fixtures/m7): worker adversarial (class 4/5 +
+                                              empty-allowed), worker review->authorize->apply-check
+                                              ->fidelity chain, delegation runtime records. Named-
+                                              only; also under --all; NOT in the no-arg default.
   selftest    --all                          above + all 49 legacy tools (bin/lib) vs the
                                               pinned baseline + rollback-test + run-core/loop-core
                                               + the four M5 orchestration sections + m6-core + m6-suite
                                               + skills-mirror + agents-md + m65-suite + doctor
-                                              + m8-suite (slow: ~10+ min)
+                                              + m8-suite + worker-check + m7-suite (slow: ~10+ min)
   help
 
 Artifacts conform to .harness/schemas/{orientation,landmarks,depsurface,radius}.schema.md.
@@ -195,6 +232,22 @@ run_m8_suite() {
       bash "$M8SUITEDIR/$s" || rc=1
     else
       echo "dmc selftest m8-suite: missing suite script: $s" >&2; rc=1
+    fi
+  done
+  return "$rc"
+}
+
+# M7 worker/delegation-hardening suites (tests/fixtures/m7). Each is a self-contained bash script
+# (mktemp sandboxes; the live repo is left byte-identical). GUARDED: a missing script is rc=1 (M8
+# precedent — this section can be registered before T012.5 lands the scripts). Returns 0 iff every
+# suite passes.
+run_m7_suite() {
+  local rc=0 s
+  for s in test-worker-adversarial.sh test-worker-chain.sh test-delegation-records.sh; do
+    if [ -f "$M7SUITEDIR/$s" ]; then
+      bash "$M7SUITEDIR/$s" || rc=1
+    else
+      echo "dmc selftest m7-suite: missing suite script: $s" >&2; rc=1
     fi
   done
   return "$rc"
@@ -300,6 +353,20 @@ case "$cmd" in
         ;;
     esac
     ;;
+  worker)
+    sub=${1:-}
+    [ $# -gt 0 ] && shift
+    case "$sub" in
+      review-check|authorize|apply-check|fidelity)
+        exec python3 "$WORKERREVLIB" "$sub" "$@"
+        ;;
+      *)
+        echo "dmc worker: unknown verb: ${sub:-<none>} \
+(review-check|authorize|apply-check|fidelity)" >&2
+        exit 2
+        ;;
+    esac
+    ;;
   delegation)
     exec python3 "$DELEGLIB" "$@"
     ;;
@@ -345,6 +412,8 @@ case "$cmd" in
       run_m65_suite || rc=1
       python3 "$DOCTORLIB" --self-test || rc=1
       run_m8_suite || rc=1
+      python3 "$WORKERREVLIB" --self-test || rc=1
+      run_m7_suite || rc=1
       exit "$rc"
     fi
     [ $# -eq 0 ] && set -- orient landmarks depsurface radius \
@@ -376,6 +445,8 @@ case "$cmd" in
         m65-suite)              run_m65_suite || rc=1 ;;
         doctor)                 python3 "$DOCTORLIB" --self-test || rc=1 ;;
         m8-suite)               run_m8_suite || rc=1 ;;
+        worker-check)           python3 "$WORKERREVLIB" --self-test || rc=1 ;;
+        m7-suite)               run_m7_suite || rc=1 ;;
         *) echo "dmc selftest: unknown target: $t" >&2; exit 2 ;;
       esac
     done

@@ -369,8 +369,8 @@ Global not-edit for every milestone unless its own list authorizes it:
 
 ## Approval Status
 
-Status: APPROVED (M2 + M3 + M4 + M5 · M6, M6.5, and M8 each via their own milestone-scoped plans) —
-M7/M9/M10 remain UNAPPROVED (DRAFT)
+Status: APPROVED (M2 + M3 + M4 + M5 · M6, M6.5, M8, and M7 each via their own milestone-scoped plans) —
+M9/M10 remain UNAPPROVED (DRAFT)
 Approver: wjlee (wjlee@motionlabs.kr) — human release gate
 Approved At: 2026-07-05 (M1/M2) · 2026-07-06 (M3) · 2026-07-06 (M4 — via the milestone-scoped
 plan `.harness/plans/dmc-v1-m4-run-lifecycle.md`, critic-APPROVED Rev 3; scope recorded there) ·
@@ -383,7 +383,11 @@ critic r1 REJECT → Rev 2 → r2 APPROVE (plan_hash `b02b1554…`); scope + A5 
 recorded there) · 2026-07-07 (M8 — via `.harness/plans/dmc-v1-m8-host-install.md`, critic
 r1 REJECT (5) → Rev 2 → r2 REJECT (B6) → Rev 3 → r3 APPROVE (plan_hash `dd8e23d7…`); scope +
 the three-advisory disposition (incl. the MANDATORY sentinel-not-gitignored directive) recorded
-there; executed BEFORE M7 per the Rev 3 order M6.5→M8→M7→M9→M10)
+there; executed BEFORE M7 per the Rev 3 order M6.5→M8→M7→M9→M10) · 2026-07-07 (M7 — via
+`.harness/plans/dmc-v1-m7-worker-hardening.md`, critic r1 REJECT (B1 legacy-baseline
+compatibility · B2 diff_paths import surface) → Rev 2 → r2 APPROVE (plan_hash `dd3a1993…`);
+scope + the four-advisory disposition (A1 task_id path-safety + A2 exception-wrapped
+detector load both MANDATORY) recorded there)
 
 Approval record (verbatim scope of the human gate, 2026-07-05):
 - **M1 retroactive ratification** covers: Phase 0–4 document deliverables, M1

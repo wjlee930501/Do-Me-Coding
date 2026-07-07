@@ -90,6 +90,7 @@ Dangling-reference rule); DMC-internal provenance references are deliberately no
 - `bin/lib/dmc-verdict-gate.py`
 - `bin/lib/dmc-verify-crosscheck.py`
 - `bin/lib/dmc-verify-plan.py`
+- `bin/lib/dmc-worker-review.py`
 
 ### `orchestration/` → `<host>/orchestration/`  (roles.json committed; models.json + harness-matrix.json land via M8 T013.3)
 - `orchestration/roles.json`
@@ -180,6 +181,7 @@ Dangling-reference rule); DMC-internal provenance references are deliberately no
 ### Schemas → `.harness/schemas/`  (all `*.schema.md`)
 - `acceptance.schema.md`
 - `agents-md.schema.md`
+- `apply-authorization.schema.md`
 - `autonomy.schema.md`
 - `blocked-marker.schema.md`
 - `capability-routing.schema.md`

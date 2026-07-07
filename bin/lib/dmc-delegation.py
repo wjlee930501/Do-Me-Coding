@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
-"""dmc-delegation.py — DMC v1.0 M5 delegation-record validator (P14 records schema-check).
+"""dmc-delegation.py — DMC v1.0 delegation-record validator + runtime records pipeline
+(P14 records: M5 schema-check, DMC-T010c; M7 append/check runtime chain, DMC-T012.3).
 
 Validates a single `dmc.delegation.v1` delegation record (see `.harness/schemas/delegation.schema.md`)
 — subject-binding fields, `capability_class` enum, `role` resolution against
 `orchestration/roles.json`, the `depth <= max_depth` recursion bound, the `may_mutate` / scope-lock
-rule, and the `validation_verdict` consumption gate.
+rule, and the `validation_verdict` consumption gate — and, as of M7, chain-appends and
+chain-verifies the per-run `delegations.jsonl` runtime record log.
 
-SCOPE: this module ships the SCHEMA validator ONLY (P14 records schema-check, DMC-T010c). The
-delegation *runtime records pipeline* — appending `delegations.jsonl` at dispatch time, enforcing
-validate-before-consumption live during a run — is out of scope and lands in M7 (P14 runtime
-records; `.harness/plans/dmc-v1-m5-orchestration.md` Out of Scope). This module is a standalone,
-read-only check callable against any single delegation-record JSON document; it does not append,
-mutate, or write anything.
+SCOPE: this module ships BOTH halves of P14 now. `validate` is the read-only SCHEMA check
+(unchanged since M5): callable against any single delegation-record JSON document, it never
+appends, mutates, or writes anything. `append` and `check` (M7) are the delegation *runtime
+records pipeline* the M5 docstring deferred: `append` is the ONLY subcommand that writes, and it
+writes exactly one JSONL line to an already-existing run's `.harness/runs/<RUN_ID>/delegations.jsonl`
+(append-only, hash-chained); `check` re-validates and re-verifies that file end-to-end and is
+itself read-only.
 
 Subcommands:
   validate <path> [--registry PATH]   fail-closed record validator. ACCEPT => exit 0,
@@ -19,16 +22,35 @@ Subcommands:
                                        overrides the roles.json path used for role resolution
                                        (default: orchestration/roles.json under the repo root, via
                                        bin/lib/dmc-roles.py's own default).
+  append --run RUN_ID RECORD.json [--registry PATH]
+                                       fail-closed: full `validate_delegation()` first, then
+                                       chain-append RECORD.json as one line to
+                                       `.harness/runs/RUN_ID/delegations.jsonl` (RUN_ID's run
+                                       directory must already exist). The record's `prev_hash`
+                                       must equal the sha256 of the previous line's exact bytes
+                                       (terminating LF excluded) or the literal `genesis` when the
+                                       file is absent/empty. For `may_mutate: true` records,
+                                       `scope_lock_ref` must additionally resolve to an existing,
+                                       parseable `scope.lock.json` whose `run_id` matches RUN_ID
+                                       (closes the scope-lock judgment call below). ACCEPT => exit
+                                       0, REFUSE => exit 3 (nothing is written on refusal).
+  check --run RUN_ID [--registry PATH]
+                                       read-only: re-validates every line of
+                                       `.harness/runs/RUN_ID/delegations.jsonl` (schema +
+                                       validate-before-consumption) and re-verifies the prev_hash
+                                       chain end-to-end. PASS => exit 0, REFUSE => exit 3 (a
+                                       missing chain file is a REFUSE, not a vacuous pass).
   --self-test                         embedded section self-test (prints
                                        "[delegation] N PASS / M FAIL"); exit 0 all-pass / 1 any-fail.
 
 House rules (v0.6.x / M3-M5 lineage, mirrors bin/lib/dmc-instance-validate.py and
 bin/lib/dmc-roles.py): stdlib-only, env-independent (no env reads), offline (no network; git is
 invoked only best-effort, read-only, for the self-test's own hermeticity check, with a no-git
-fallback), input-only (reads only the named file), value-blind (refusals name schema
-constants/reason codes, never the document's content values), duplicate-JSON-key rejecting,
-secret-path refused by path, secret-shaped field *content* also refused, fail-closed with named
-reason codes and negative controls. Advisory tier: the runtime enforcement floor stays the hooks.
+fallback), input-only (`validate`/`check` only read named files; `append` writes exactly the one
+named JSONL append, nothing else), value-blind (refusals name schema constants/reason codes, never
+the document's content values), duplicate-JSON-key rejecting, secret-path refused by path,
+secret-shaped field *content* also refused, fail-closed with named reason codes and negative
+controls. Advisory tier: the runtime enforcement floor stays the hooks.
 
 Role resolution (composition with T010a): `role` resolution is delegated entirely to
 `python3 bin/lib/dmc-roles.py lookup <role>` as a read-only subprocess, per that module's
@@ -41,19 +63,28 @@ with a well-formed JSON object" — a non-zero exit, a missing/unreadable regist
 a timeout, or malformed stdout — is treated identically to "does not resolve" (REFUSE), never
 silently ignored or treated as a pass.
 
-Judgment call — the scope-lock reference field: `delegation.schema.md`'s illustrative JSON block
-does not name a distinct field for "an active scope.lock reference" (the prose rule only says a
-mutation-capable dispatch requires one; the schema and its M3 authors are out of this task's edit
-scope). This validator names that field `scope_lock_ref` — a non-null, non-empty string identifying
-the run's `scope.lock.json` (schema `dmc.scope-lock.v1`; see `bin/lib/dmc-scope-lock.py`, whose
-`REQUIRED_FIELDS` include `run_id` and `state_hash` as the natural handles such a reference would
-name) — and requires it whenever `may_mutate: true`. This validator checks only that the reference
-is present and non-empty (a schema-shape check); it does not itself open or cross-validate the
-referenced scope.lock.json's content, which is a runtime (M7) concern. Flagged for verification
-(T010f) attention.
+Judgment call — the scope-lock reference field (M5, closed at M7): `delegation.schema.md`'s
+illustrative JSON block does not name a distinct field for "an active scope.lock reference" (the
+prose rule only says a mutation-capable dispatch requires one; the schema and its M3 authors are
+out of this task's edit scope). This validator names that field `scope_lock_ref` — a non-null,
+non-empty string identifying the run's `scope.lock.json` (schema `dmc.scope-lock.v1`; see
+`bin/lib/dmc-scope-lock.py`, whose `REQUIRED_FIELDS` include `run_id` and `state_hash` as the
+natural handles such a reference would name) — and requires it whenever `may_mutate: true`.
+`validate_delegation()` (used by `validate`, and by `append`/`check` as their first gate) still
+checks only that the reference is present and non-empty (a schema-shape check) — it never opens a
+file, so it stays usable against a bare record with no run context. `append` closes the deeper
+content tier `validate_delegation()` cannot reach: for a `may_mutate: true` record it additionally
+resolves `scope_lock_ref` to a real file (path-like ref => that path, resolved relative to the
+repo root; anything else => the run's own default `.harness/runs/<RUN_ID>/scope.lock.json`) and
+requires that file to exist, parse as JSON, and carry a `run_id` equal to `--run`. This is
+existence + parse + run_id binding ONLY — it does not cross-validate the referenced lock's own
+schema (`bin/lib/dmc-scope-lock.py --validate`'s tamper/hash checks) or confirm the delegated
+record's own paths sit inside that lock's `files[]`; that deeper semantic equivalence stays a
+disclosed non-goal (M9+).
 """
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -318,14 +349,171 @@ def validate_delegation(obj, registry_path=None):
     return errs
 
 
+def load_delegation_record(path):
+    """Read + parse a delegation-record file (secret-path guard inside `read_text`; die(3) on
+    secret shape — identical to the pre-M7 `validate_file` behavior). Returns (obj, errs): errs
+    is `["DELEG-UNREADABLE: ..."]` and obj is None on a parse failure (malformed JSON or a
+    duplicate key); otherwise errs is `[]` and obj is the parsed document."""
+    text = read_text(path)
+    try:
+        return load_json_text(text), []
+    except ValueError as e:
+        return None, ["DELEG-UNREADABLE: %s" % e]
+
+
 def validate_file(path, registry_path=None):
     """Load + validate a delegation-record file. Returns a list of reason codes (empty == ACCEPT)."""
-    text = read_text(path)  # is_secret_path guard inside; die(3) on secret shape.
-    try:
-        obj = load_json_text(text)
-    except ValueError as e:
-        return ["DELEG-UNREADABLE: %s" % e]
+    obj, errs = load_delegation_record(path)
+    if errs:
+        return errs
     return validate_delegation(obj, registry_path)
+
+
+# --------------------------------------------------------------- append / check (M7, DMC-T012.3)
+
+def _harness_runs_dir(root):
+    return os.path.join(root, ".harness", "runs")
+
+
+def _delegations_path(root, run_id):
+    return os.path.join(_harness_runs_dir(root), run_id, "delegations.jsonl")
+
+
+def _default_scope_lock_path(root, run_id):
+    return os.path.join(_harness_runs_dir(root), run_id, "scope.lock.json")
+
+
+def resolve_scope_lock_ref(root, run_id, ref):
+    """Resolve a (schema-validated, non-empty-string) `scope_lock_ref` to a filesystem path.
+
+    Explicit resolution rule (closes the docstring's M5 judgment call at the content tier): a
+    path-like ref (contains a `/` or ends in `.json`) IS the path, resolved relative to `root`
+    unless already absolute; anything else (a bare token) resolves to the run's own default
+    `.harness/runs/<run_id>/scope.lock.json`. Path-only — never opens the file.
+    """
+    if not isinstance(ref, str) or not ref:
+        return None
+    looks_like_path = ("/" in ref) or ref.endswith(".json")
+    if looks_like_path:
+        return ref if os.path.isabs(ref) else os.path.join(root, ref)
+    return _default_scope_lock_path(root, run_id)
+
+
+def _load_json_path_safe(path):
+    """Read + parse a JSON document at `path` WITHOUT ever exiting the process (unlike
+    `read_text`/`die`) — needed so `append`'s core logic stays a pure, self-test-callable
+    function. Returns (obj, reason): reason is None on success; obj is None and reason is a
+    single value-blind `DELEG-*` string on any failure (secret-shaped path, missing/unreadable
+    file, malformed/duplicate-key JSON)."""
+    if is_secret_path(path):
+        return None, "DELEG-SCOPE-LOCK-SECRET-PATH: refused: scope_lock_ref target is secret-shaped"
+    try:
+        with open(path, "r", encoding="utf-8", errors="strict") as f:
+            text = f.read()
+    except (OSError, UnicodeError):
+        return None, "DELEG-SCOPE-LOCK-UNREADABLE: scope_lock_ref target could not be opened"
+    try:
+        return load_json_text(text), None
+    except ValueError:
+        return None, "DELEG-SCOPE-LOCK-UNREADABLE: scope_lock_ref target is not parseable JSON"
+
+
+def _chain_tip_hash(deleg_path):
+    """The expected `prev_hash` for the NEXT appended record.
+
+    = sha256(hex) of the delegations.jsonl file's LAST line's exact bytes, with the terminating
+    LF EXCLUDED (the newline is the JSONL record separator, not part of the hashed record, so an
+    externally-authored record can compute this value without reading this file's own trailing-
+    newline convention — Rev 2/A4a) — or the literal 'genesis' when the file is absent or empty.
+    """
+    if not os.path.isfile(deleg_path):
+        return GENESIS
+    with open(deleg_path, "rb") as f:
+        content = f.read()
+    lines = content.split(b"\n")
+    if lines and lines[-1] == b"":
+        lines = lines[:-1]              # trailing LF produces one empty trailing element; drop it
+    if not lines:
+        return GENESIS
+    return hashlib.sha256(lines[-1]).hexdigest()   # LF EXCLUDED from the hashed bytes
+
+
+def append_delegation_record(root, run_id, record_path, registry_path=None):
+    """Core, non-exiting `append` logic. Returns (ok, reasons): ok=True (reasons==[]) iff the
+    record schema-validates AND chains cleanly onto the run's `delegations.jsonl`, in which case
+    exactly one line has been appended. On ok=False, reasons is a non-empty list of value-blind
+    `DELEG-*` codes and NOTHING has been written (fail-closed, side-effect-free refusal)."""
+    obj, errs = load_delegation_record(record_path)
+    if errs:
+        return False, errs
+    errs = validate_delegation(obj, registry_path)
+    if errs:
+        return False, errs
+
+    run_dir = os.path.join(_harness_runs_dir(root), run_id)
+    if not os.path.isdir(run_dir):
+        return False, ["DELEG-NO-RUN: run directory does not exist: .harness/runs/%s" % run_id]
+
+    # scope_lock_ref content tier (may_mutate:true only) — validate_delegation() already required
+    # a non-empty string; here we additionally require it to resolve to a real, parseable
+    # scope.lock.json whose run_id binds to THIS --run.
+    if obj.get("may_mutate") is True:
+        lock_path = resolve_scope_lock_ref(root, run_id, obj.get("scope_lock_ref"))
+        if not lock_path or not os.path.isfile(lock_path):
+            return False, ["DELEG-SCOPE-LOCK-UNRESOLVED: may_mutate:true scope_lock_ref does not "
+                           "resolve to an existing file"]
+        lock_obj, reason = _load_json_path_safe(lock_path)
+        if reason:
+            return False, [reason]
+        if not isinstance(lock_obj, dict) or lock_obj.get("run_id") != run_id:
+            return False, ["DELEG-SCOPE-LOCK-RUN-MISMATCH: scope_lock_ref's run_id does not match "
+                           "--run"]
+
+    deleg_path = _delegations_path(root, run_id)
+    expected_prev = _chain_tip_hash(deleg_path)
+    if obj.get("prev_hash") != expected_prev:
+        return False, ["DELEG-CHAIN-BREAK: prev_hash does not match sha256 of the previous "
+                       "record's line bytes (LF excluded), or 'genesis' when the chain file is "
+                       "absent/empty"]
+
+    line = json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    with open(deleg_path, "a", encoding="utf-8") as f:
+        f.write(line + "\n")
+    return True, []
+
+
+def check_delegation_chain(root, run_id, registry_path=None):
+    """Core, non-exiting `check` logic. Returns (ok, reasons, count): ok=True (reasons==[]) iff
+    the chain file exists, every line parses (duplicate-key rejecting) and independently
+    schema-validates (`validate_delegation`, which already enforces validate-before-consumption
+    via DELEG-UNVALIDATED-CONSUMPTION), and the prev_hash chain is unbroken end-to-end (each
+    line's prev_hash == sha256 of the PRIOR line's exact bytes, LF excluded; the first line's
+    prev_hash == 'genesis'). `count` is the number of records checked (0 on early failure)."""
+    deleg_path = _delegations_path(root, run_id)
+    if not os.path.isfile(deleg_path):
+        return False, ["DELEG-NO-CHAIN: .harness/runs/%s/delegations.jsonl does not exist"
+                       % run_id], 0
+    with open(deleg_path, "rb") as f:
+        content = f.read()
+    lines = content.split(b"\n")
+    if lines and lines[-1] == b"":
+        lines = lines[:-1]
+    expected_prev = GENESIS
+    for i, line_bytes in enumerate(lines):
+        try:
+            text = line_bytes.decode("utf-8", errors="strict")
+            obj = load_json_text(text)
+        except (ValueError, UnicodeError):
+            return False, ["DELEG-UNREADABLE: line %d is not parseable JSON (or has a duplicate "
+                           "key)" % i], i
+        errs = validate_delegation(obj, registry_path)
+        if errs:
+            return False, errs, i
+        if obj.get("prev_hash") != expected_prev:
+            return False, ["DELEG-CHAIN-BREAK: line %d prev_hash does not match the running hash "
+                           "chain" % i], i
+        expected_prev = hashlib.sha256(line_bytes).hexdigest()
+    return True, [], len(lines)
 
 
 # ------------------------------------------------------------------- self-test
@@ -573,6 +761,147 @@ def selftest():
          is_secret_path("orchestration/.env") and is_secret_path("x/id_rsa")
          and not is_secret_path("orchestration/roles.json"))
 
+    # ---- M7 runtime-records pipeline: append / check (DMC-T012.3) ----
+    # Hermetic: an entirely synthetic repo root under TemporaryDirectory() with its own
+    # .harness/runs/<run_id>/ subdirectories — never the live .harness/runs/dmc-run-92b7f126f79d/.
+    with tempfile.TemporaryDirectory() as ar:
+        RUN = "self-test-run"
+        run_dir = os.path.join(ar, ".harness", "runs", RUN)
+        os.makedirs(run_dir)
+        deleg_path = os.path.join(run_dir, "delegations.jsonl")
+
+        def _nlines():
+            return len(open(deleg_path, "rb").read().splitlines())
+
+        # A1 (positive): genesis append onto an absent chain file succeeds; exactly 1 line written.
+        rec1 = _write(ar, _base_record(delegation_id="deleg-a1"), name="rec1.json")
+        ok1, reasons1 = append_delegation_record(ar, RUN, rec1)
+        t.ok("A1 append: genesis record onto an absent chain file ACCEPTED (file created, 1 line)",
+             ok1 and reasons1 == [] and os.path.isfile(deleg_path) and _nlines() == 1)
+
+        # A2 (positive): a correctly chained 2nd record (prev_hash = sha256 of line 1, LF excluded).
+        tip1 = _chain_tip_hash(deleg_path)
+        rec2 = _write(ar, _base_record(delegation_id="deleg-a2", prev_hash=tip1), name="rec2.json")
+        ok2, reasons2 = append_delegation_record(ar, RUN, rec2)
+        t.ok("A2 append: chained 2nd record (prev_hash = sha256(line1, LF-excluded)) ACCEPTED",
+             ok2 and reasons2 == [] and _nlines() == 2)
+
+        # A3 (positive): may_mutate:true record whose scope_lock_ref resolves + run_id matches —
+        # closes the docstring's :44-53 judgment call at the content tier.
+        lock_ok_path = os.path.join(ar, "scope-ok.lock.json")
+        with open(lock_ok_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"schema": "dmc.scope-lock.v1", "run_id": RUN}))
+        tip2 = _chain_tip_hash(deleg_path)
+        rec3 = _write(ar, _base_record(
+            delegation_id="deleg-a3", role="implementer",
+            capability_class="standard-implementation", may_mutate=True,
+            scope_lock_ref=lock_ok_path, prev_hash=tip2), name="rec3.json")
+        ok3, reasons3 = append_delegation_record(ar, RUN, rec3)
+        t.ok("A3 append: may_mutate:true + resolvable scope_lock_ref (matching run_id) ACCEPTED",
+             ok3 and reasons3 == [] and _nlines() == 3)
+
+        # A4 (positive): check() PASSes over the clean 3-record chain built above.
+        okc, reasonsc, countc = check_delegation_chain(ar, RUN)
+        t.ok("A4 check: clean 3-record chain PASSES end-to-end",
+             okc and reasonsc == [] and countc == 3)
+
+        # ---- negative controls (append/check never writes on refusal) ----
+
+        # A5: wrong prev_hash (not the actual chain tip) REFUSED; chain file untouched (3 lines).
+        rec_bad_prev = _write(ar, _base_record(delegation_id="deleg-bad-prev",
+                                                prev_hash="f" * 16), name="rec-bad-prev.json")
+        ok5, reasons5 = append_delegation_record(ar, RUN, rec_bad_prev)
+        t.ok("A5 append NEG: wrong prev_hash REFUSED (DELEG-CHAIN-BREAK), chain untouched",
+             not ok5 and any(e.startswith("DELEG-CHAIN-BREAK") for e in reasons5) and _nlines() == 3)
+
+        # A6: nonexistent run directory REFUSED.
+        rec_no_run = _write(ar, _base_record(delegation_id="deleg-no-run"), name="rec-no-run.json")
+        ok6, reasons6 = append_delegation_record(ar, "no-such-run", rec_no_run)
+        t.ok("A6 append NEG: nonexistent run directory REFUSED (DELEG-NO-RUN)",
+             not ok6 and any(e.startswith("DELEG-NO-RUN") for e in reasons6))
+
+        # A7/A8 share a valid chain-tip prev_hash so the ONLY reason for refusal is the
+        # scope-lock content-tier check under test (isolated negative controls).
+        tip3 = _chain_tip_hash(deleg_path)
+
+        # A7: may_mutate:true with an unresolvable scope_lock_ref REFUSED.
+        rec_unresolved = _write(ar, _base_record(
+            delegation_id="deleg-unresolved", role="implementer",
+            capability_class="standard-implementation", may_mutate=True,
+            scope_lock_ref=os.path.join(ar, "does-not-exist.lock.json"),
+            prev_hash=tip3), name="rec-unresolved.json")
+        ok7, reasons7 = append_delegation_record(ar, RUN, rec_unresolved)
+        t.ok("A7 append NEG: may_mutate:true + unresolvable scope_lock_ref REFUSED "
+             "(DELEG-SCOPE-LOCK-UNRESOLVED)",
+             not ok7 and any(e.startswith("DELEG-SCOPE-LOCK-UNRESOLVED") for e in reasons7)
+             and _nlines() == 3)
+
+        # A8: may_mutate:true with a resolvable scope_lock_ref whose run_id does NOT match --run.
+        lock_mismatch_path = os.path.join(ar, "scope-mismatch.lock.json")
+        with open(lock_mismatch_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"schema": "dmc.scope-lock.v1", "run_id": "some-other-run"}))
+        rec_mismatch = _write(ar, _base_record(
+            delegation_id="deleg-mismatch", role="implementer",
+            capability_class="standard-implementation", may_mutate=True,
+            scope_lock_ref=lock_mismatch_path, prev_hash=tip3), name="rec-mismatch.json")
+        ok8, reasons8 = append_delegation_record(ar, RUN, rec_mismatch)
+        t.ok("A8 append NEG: scope_lock_ref resolves but run_id mismatches REFUSED "
+             "(DELEG-SCOPE-LOCK-RUN-MISMATCH)",
+             not ok8 and any(e.startswith("DELEG-SCOPE-LOCK-RUN-MISMATCH") for e in reasons8)
+             and _nlines() == 3)
+
+        # A9: a schema-invalid record REFUSED before the chain file is even touched (proves
+        # validate_delegation() runs FIRST, per the append contract).
+        rec_invalid = _write(ar, _base_record(delegation_id="deleg-invalid",
+                                               role="frobnicator-nonexistent"),
+                              name="rec-invalid.json")
+        ok9, reasons9 = append_delegation_record(ar, RUN, rec_invalid)
+        t.ok("A9 append NEG: schema-invalid record REFUSED pre-chain (validate_delegation first), "
+             "chain untouched",
+             not ok9 and any(e.startswith("DELEG-ROLE-UNRESOLVED") for e in reasons9)
+             and _nlines() == 3)
+
+        # A10: check() over a run with no delegations.jsonl at all REFUSED (not a vacuous pass).
+        empty_run = "self-test-empty-run"
+        os.makedirs(os.path.join(ar, ".harness", "runs", empty_run))
+        ok10, reasons10, count10 = check_delegation_chain(ar, empty_run)
+        t.ok("A10 check NEG: missing delegations.jsonl REFUSED (DELEG-NO-CHAIN)",
+             not ok10 and any(e.startswith("DELEG-NO-CHAIN") for e in reasons10) and count10 == 0)
+
+        # A11: a tampered middle line breaks the hash chain for check().
+        tamper_run = "self-test-tamper-run"
+        tamper_dir = os.path.join(ar, ".harness", "runs", tamper_run)
+        os.makedirs(tamper_dir)
+        tamper_path = os.path.join(tamper_dir, "delegations.jsonl")
+        t_rec1 = _base_record(delegation_id="deleg-t1")
+        t_line1 = json.dumps(t_rec1, sort_keys=True, separators=(",", ":"))
+        t_tip1 = hashlib.sha256(t_line1.encode("utf-8")).hexdigest()
+        t_rec2 = _base_record(delegation_id="deleg-t2", prev_hash=t_tip1)
+        t_line2 = json.dumps(t_rec2, sort_keys=True, separators=(",", ":"))
+        tampered_line1 = json.dumps(dict(t_rec1, delegation_id="deleg-t1-TAMPERED"),
+                                    sort_keys=True, separators=(",", ":"))
+        with open(tamper_path, "w", encoding="utf-8") as f:
+            f.write(tampered_line1 + "\n" + t_line2 + "\n")
+        ok11, reasons11, count11 = check_delegation_chain(ar, tamper_run)
+        t.ok("A11 check NEG: tampered middle line breaks the hash chain REFUSED "
+             "(DELEG-CHAIN-BREAK)",
+             not ok11 and any(e.startswith("DELEG-CHAIN-BREAK") for e in reasons11))
+
+        # A12: a chain line carrying an unvalidated consumption (artifact_ref set, verdict !=
+        # PASS) smuggled directly into the file (bypassing append) is caught by check().
+        uc_run = "self-test-unvalidated-consumption-run"
+        uc_dir = os.path.join(ar, ".harness", "runs", uc_run)
+        os.makedirs(uc_dir)
+        uc_path = os.path.join(uc_dir, "delegations.jsonl")
+        uc_rec = _base_record(delegation_id="deleg-uc", artifact_ref=".harness/artifacts/x.json",
+                              artifact_schema="dmc.x.v1", validation_verdict="PENDING")
+        with open(uc_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps(uc_rec, sort_keys=True, separators=(",", ":")) + "\n")
+        ok12, reasons12, count12 = check_delegation_chain(ar, uc_run)
+        t.ok("A12 check NEG: unvalidated-consumption record in the chain REFUSED "
+             "(DELEG-UNVALIDATED-CONSUMPTION)",
+             not ok12 and any(e.startswith("DELEG-UNVALIDATED-CONSUMPTION") for e in reasons12))
+
     # N24 (hermeticity): the real repo's tracked tree is untouched by this self-test — every fixture
     # above was written under a TemporaryDirectory(); nothing in this run touches the real tree.
     git_after = _git_status_snapshot(root)
@@ -587,12 +916,20 @@ def selftest():
 
 def main():
     ap = argparse.ArgumentParser(prog="dmc-delegation")
-    ap.add_argument("command", nargs="?", choices=["validate"])
-    ap.add_argument("arg", nargs="?", help="path to a delegation-record JSON document (validate)")
+    ap.add_argument("command", nargs="?", choices=["validate", "append", "check"])
+    ap.add_argument("arg", nargs="?",
+                    help="path to a delegation-record JSON document (validate, append)")
     ap.add_argument("--registry", metavar="PATH", help="override the roles.json registry path used "
                     "for role resolution (default: orchestration/roles.json, via dmc-roles.py)")
+    ap.add_argument("--run", metavar="RUN_ID", help="the run id whose "
+                    ".harness/runs/RUN_ID/delegations.jsonl is appended to or checked "
+                    "(append, check)")
     ap.add_argument("--self-test", action="store_true")
-    a = ap.parse_args()
+    # parse_intermixed_args (not parse_args): the ADVERTISED `append --run RUN_ID RECORD.json`
+    # order interleaves a positional after an optional after a positional — plain parse_args()
+    # cannot place the trailing positional there ("unrecognized arguments"); intermixed parsing
+    # accepts BOTH orders (`append --run RID REC.json` and `append REC.json --run RID`).
+    a = ap.parse_intermixed_args()
 
     if a.self_test:
         selftest()
@@ -612,7 +949,32 @@ def main():
         print("VALID: %s conforms to %s" % (a.arg, SCHEMA_ID))
         return
 
-    die("usage: validate <path> [--registry PATH] | --self-test", 2)
+    if a.command == "append":
+        if not a.run or not a.arg:
+            die("append requires --run RUN_ID RECORD.json", 2)
+        try:
+            ok, reasons = append_delegation_record(repo_root(), a.run, a.arg, a.registry)
+        except FileNotFoundError:
+            refuse(["DELEG-UNREADABLE: file not found"])
+        except (OSError, UnicodeError) as e:
+            refuse(["DELEG-UNREADABLE: %s" % e.__class__.__name__])
+        if not ok:
+            refuse(reasons)
+        print("APPENDED: 1 record to .harness/runs/%s/delegations.jsonl" % a.run)
+        return
+
+    if a.command == "check":
+        if not a.run:
+            die("check requires --run RUN_ID", 2)
+        ok, reasons, count = check_delegation_chain(repo_root(), a.run, a.registry)
+        if not ok:
+            refuse(reasons)
+        print("VALID: chain for run %s (%d record(s)) conforms to %s" % (a.run, count, SCHEMA_ID))
+        return
+
+    die("usage: validate <path> [--registry PATH] | "
+        "append --run RUN_ID RECORD.json [--registry PATH] | "
+        "check --run RUN_ID [--registry PATH] | --self-test", 2)
 
 
 if __name__ == "__main__":
