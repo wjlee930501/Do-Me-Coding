@@ -1,19 +1,23 @@
 # HANDOFF — dmc-v1-runtime-upgrade (session → session)
 
-Date: 2026-07-07 (rev 5 — M6.5 Codex adapter shipped + CLOSED under the Option A reduced scope) ·
-Branch: `claude/dmc-v1-runtime-upgrade-c5uch1`
-Session end state: milestone `HEAD` == `origin` == `8a97e43` (pushed, fast-forward, no force; this
-handoff lands as the following docs commit). M6.5 CLOSED: live post-commit `bin/dmc selftest --all`
-on the real committed tree `8a97e43` exits 0 at legacy `tools=49 / PASS=802 / FAIL=3 / N/A=3` ==
-pinned baseline EXACTLY, all new sections 0 FAIL (skills-mirror 7 · agents-md 24 · m65-suite 119 =
-65+19+35), `SELFTEST-ALL RESULT: PASS`. Verification chain: critic r1 REJECT (4 blockers) → Rev 2 →
-r2 APPROVE → human gate → spike B4 STOP → human gate Option A → build → critic r3 build sign-off
-APPROVE → independent verifier ACCEPT (own committed-replica `--all` 802/3/3 EXACT). No M6-style
-revert proof was run: M6.5 is additive (the only pre-existing file edited is `bin/dmc`, +50/−1) and
-is NOT a protected surface. No active run (pointer cleared; all four run dirs archived SUSPENDED).
-Worktree clean except local-only run archives/auto-logs (untracked by policy); `main` untouched
-(`main` == `origin/main` == `d0edc48`). Prior state (rev 4): M6 CLOSED at `d721487` with both M6
-closure proofs (live `--all` 802/3/3; single-revert restore to pre-M6 `2999870`).
+Date: 2026-07-07 (rev 6 — M8 host install/adaptation shipped + CLOSED; M6.5 closed earlier the
+same session-day at rev 5) · Branch: `claude/dmc-v1-runtime-upgrade-c5uch1`
+Session end state: milestone `HEAD` == `origin` == `39c420e` (pushed, fast-forward, no force; this
+handoff lands as the following docs commit). M8 CLOSED: live post-commit `bin/dmc selftest --all`
+on the real committed tree `39c420e` exits 0 at legacy `tools=49 / PASS=802 / FAIL=3 / N/A=3` ==
+pinned baseline EXACTLY (originals-alone reproduce it), all sections 0 FAIL incl. the NEW
+`doctor` 24/0 + `m8-suite` 126/0 (roundtrip 83 · idempotency 17 · doctor-negcontrols 16 ·
+manifest-drift 10) and the M6.5 sections, `SELFTEST-ALL RESULT: PASS`. Verification chain: critic
+r1 REJECT (5 blockers) → Rev 2 → r2 REJECT (B1–B5 closed; new B6 `.codex` provenance) → Rev 3 →
+r3 APPROVE → human gate (A1/A2/A3 advisory dispositions recorded; A3 sentinel-not-gitignored
+MANDATORY) → parallel build T013.1–.4 → T013.5 evidence/verification (replica `--all` 802/3/3) →
+critic r4 build sign-off APPROVE (0 blockers) → independent verifier ACCEPT (own replica `--all`
+802/3/3 EXACT; 0 blocking / 5 advisory). Post-commit `verify-crosscheck` ACCEPT + `stop-gate quick`
+STOP-PASS (the pre-commit REFUSE hold cleared at the commit exactly as designed). No active run
+(pointer cleared; all five run dirs archived SUSPENDED). Worktree clean except local-only run
+archives/auto-logs (untracked by policy); `main` untouched (`main` == `origin/main` == `d0edc48`).
+Prior states: rev 5 — M6.5 CLOSED at `8a97e43` (Option A advisory shims); rev 4 — M6 CLOSED at
+`d721487` (both closure proofs).
 
 ## Resume quickstart (local)
 
@@ -24,8 +28,11 @@ bin/dmc selftest        # expect 9 sections, 75 PASS / 0 FAIL, exit 0 (fast defa
 bin/dmc selftest --all  # ~10 min; expect legacy 802/3/3 EXACT + run-core 168/0 + loop-core 78/0
                         # + roles 19/0 + verdict-validate 16/0 + verdict-gate 9/0 + delegation 29/0
                         # + linkcheck 17/0 + m6-core 99/0 + m6-suite 104/0 + skills-mirror 7/0
-                        # + agents-md 24/0 + m65-suite 119/0 (65+19+35) + mirror (55-file)
+                        # + agents-md 24/0 + m65-suite 119/0 (65+19+35) + doctor 24/0
+                        # + m8-suite 126/0 (83+17+16+10) + mirror (55-file)
                         # + rollback PASS + SELFTEST-ALL PASS + exit 0
+bin/dmc doctor          # M8: host self-check (Claude firing PROVEN via synthetic probe;
+                        # Codex ADVISORY; per-host enforcement matrix from harness-matrix.json)
 bin/dmc help            # M2–M6 command surface (orient/landmarks/depsurface/radius · validate ·
                         # legacy/mirror-check/rollback-test · run · roles/verdict/delegation/linkcheck ·
                         # bash-radius/postbash-diff/verify-crosscheck/stop-gate · run block|blocked-status|unblock)
@@ -43,16 +50,18 @@ bin/dmc help            # M2–M6 command surface (orient/landmarks/depsurface/r
 | v0.5 direction re-alignment (run dmc-run-0e29d09bf3b5) | DONE, pushed | `1b276f3` | direction plan APPROVED+executed: master plan **Rev 3** (M6.5 Codex Adapter inserted; order M6→M6.5→M8→M7→M9→M10; M6 gains post-Bash diff guard + semantic verify cross-checks; Deferred register: worker-bridge expansion, P5 benchmark), docs/CODEX_ADAPTER.md, DRAFT plans dmc-v1-m6-hook-hardening + dmc-v1-m6.5-codex-adapter |
 | **M6 hook/guard hardening (PROTECTED SURFACE)** | **DONE, pushed** (critic r1 REJECT→r5 APPROVE · independent verifier ACCEPT · committed-replica --all 802/3/3) | `192dce6` (T011.1 fixtures) + `d721487` (T011.2–.4) | hooks→shims over Ring-0; 4 new bin/lib verdict CLIs (bash-radius L0+L1/postbash-diff/verify-crosscheck/stop-gate); Rev 3 Option A run.json-anchored tamper detection; verdict-gate REJECT arming floor; blocked.json sidecar; 5 M6 suites (m6-core 99/0 · m6-suite 104/0); adapters/claude-code/README |
 | **M6.5 Codex adapter (Option A advisory)** | **DONE + CLOSED, pushed** (critic r1 REJECT→r2 APPROVE · spike B4 STOP→Option A human gate · r3 build sign-off APPROVE · independent verifier ACCEPT · live `--all` 802/3/3 + all sections 0 FAIL) | `40ad75a` (spike phase) + `8a97e43` (build, 25 files +3783/−5) | spike findings + STOP/Option A record; adapters/codex ADVISORY shims (4 events + common lib); .codex templates; .agents/skills 5 workflow-skill mirrors + dmc-skills-mirror.py; dmc-agents-md.py + agents-md.schema.md (= /dmc-init-deep generator); bin/dmc verbs agents-md/skills-mirror + selftest sections agents-md/skills-mirror/m65-suite |
-| M8, M7, M9, M10 | **NOT STARTED, NOT APPROVED** | — | master plan §Execution Tasks (Rev 3) remaining order: M8→M7→M9→M10 |
+| **M8 host install/adaptation (P19+P20)** | **DONE + CLOSED, pushed** (critic r1 REJECT(5)→r2 REJECT(B6)→Rev 3→r3 APPROVE · human gate w/ A1/A2/A3 dispositions · r4 build sign-off APPROVE · verifier ACCEPT · live `--all` 802/3/3 + all sections 0 FAIL) | `39c420e` (20 files +3613/−131) | installer ships Ring 0+1 `--host claude\|codex\|both` + provenance receipt/sentinel + P19 fixes + `--emit-manifest`; receipt-scoped uninstaller; `dmc doctor` (Claude PROVEN / Codex ADVISORY); models.json + harness-matrix.json; 5-fixture install suite; selftest sections doctor/m8-suite |
+| M7, M9, M10 | **NOT STARTED, NOT APPROVED** | — | master plan §Execution Tasks (Rev 3) remaining order: M7→M9→M10 |
 
-Approval state (master plan `## Approval Status`, updated at `40ad75a`): **APPROVED
-M2+M3+M4+M5 (M1 retroactively ratified) · M6 and M6.5 each via their own milestone-scoped plans** —
-approver wjlee. M6.5 carried TWO recorded human gates: the Rev 2 milestone approval (critic
-r1 REJECT→r2 APPROVE chain) and the spike-STOP **Option A** reduced-scope decision (recorded in
-`.harness/evidence/dmc-v1-m6.5-spike-stop.md` §Human gate decision). **M8/M7/M9/M10 remain
-UNAPPROVED**; each needs its own milestone plan → critic → human gate
+Approval state (master plan `## Approval Status`, updated at `39c420e`): **APPROVED
+M2+M3+M4+M5 (M1 retroactively ratified) · M6, M6.5, and M8 each via their own milestone-scoped
+plans** — approver wjlee. M6.5 carried the Rev 2 approval + the spike-STOP **Option A** decision;
+M8 carried the Rev 3 approval with the **A1/A2/A3 advisory dispositions** (A3 — the
+`.codex/.dmc-created` sentinel is committed, NEVER gitignored — was a MANDATORY implementation
+directive, verified as-built by critic r4 + the verifier). **M7/M9/M10 remain UNAPPROVED**; each
+needs its own milestone plan → critic → human gate
 (pattern: milestone-scoped plan file, `dmc validate plan` VALID, critic APPROVE, approval record in both plans).
-No active run: `.harness/runs/current-*` cleared after M6.5 closure; per-milestone run archives are local-only.
+No active run: `.harness/runs/current-*` cleared after M8 closure; per-milestone run archives are local-only.
 **M6 wired Ring-0 into the live enforcement floor** — the six hooks are now shims over `bin/dmc`
 verdict CLIs; scope/stop/secret enforcement is no longer advisory. `.claude/settings.json` was NOT
 changed (all five hooks were already registered); new hook registrations would need a session reload.
@@ -121,17 +130,48 @@ ACCEPT) + `.harness/verification/dmc-run-8fef31d58eee.md` (spike-phase run, ACCE
   a session stop pre-verification (suspend = the designed wait-state); verify-crosscheck REFUSED a
   prose-formatted Run ID + undeclared dirty paths until the report/commit were made honest.
 
-## Next step (M8 — installer `--host`, per Rev 3 order M8→M7→M9→M10)
+## M8 closure evidence (compact)
 
-**M8 needs its own milestone plan → critic → human gate** (M4/M5/M6.5 pattern). It ships what M6.5
-built: installer `--host codex|claude|both` generation of the `.codex`/`.agents` wiring + the
-host-AGENTS.md generator integration. Pointers: surface the Codex `/hooks` content-hash trust step,
-NEVER `--dangerously-bypass-hook-trust`; the `.codex/hooks.json` template shape is UNPROVEN at
-0.132.0 (spike could not fire hooks turn-free) — the installer must present it as advisory wiring;
-Option B (a one-time, human-run, consented live-turn verification under a NEW gate + own scope)
-remains available to upgrade the shims from advisory to verified-enforcing. M9's release/CI gate is
-now doubly load-bearing: under Option A it IS the Codex enforcement boundary (currently
-documented-only) — build it real there.
+Full reports: `.harness/verification/dmc-v1-m8-host-install.md` (VALID; post-commit crosscheck
+ACCEPT + stop-gate STOP-PASS) + `.harness/evidence/dmc-v1-m8-build-20260707.md`.
+
+- **One run**: `dmc-run-03cba8c2797c` (14-entry scope.lock; installer/uninstaller/bin/dmc/doctor
+  all landmark-authorized enforcement-class edits); archived SUSPENDED; pointer cleared at closure.
+- **Critic chain** — `.harness/evidence/dmc-v1-m8-critic-verdict-r{1,2,3,4-buildsignoff}.json`:
+  r1 REJECT (B1 detector-regex unpinned · B2 invalid `.gitignore` HTML markers · B3 self-contradictory
+  doctor honesty grep · B4 `.codex` collision undefined · B5 manifest deletion loophole) → Rev 2 →
+  r2 REJECT (B1–B5 closed; NEW B6 `.codex` provenance unimplementable under install→install→uninstall)
+  → Rev 3 (receipt `.harness/install-receipt.json` + sentinel `# DMC-CREATED` provenance) →
+  r3 APPROVE → human gate → build → r4 build sign-off APPROVE (fixtures independently re-run 126/0;
+  A1/A2/A3 dispositions verified as-built).
+- **Independent verifier ACCEPT** — own probes + own committed-replica `--all` at 802/3/3 EXACT;
+  0 blocking / 5 advisory (crosscheck pre-commit hold; crosscheck basename self-exclusion sharp
+  edge; runtime-materialized fixtures; 0644 script mode; A1 fallback residual).
+- **Closure proof** — live post-commit `--all` on `39c420e`: legacy 802/3/3 EXACT,
+  originals-alone reproduce, all sections 0 FAIL (doctor 24 · m8-suite 126 · m65-suite 119 ·
+  m6-core 99 · m6-suite 104 · run-core 168 · loop-core 78 · …), SELFTEST-ALL PASS, exit 0.
+- **Key shipped invariants**: hosts now receive Ring-0 (`bin/`) + `orchestration/` on every
+  install; byte-clean install→uninstall round-trip proven on 5 fixture host shapes; `.codex`
+  provenance (foreign skip-with-warn / DMC-owned re-affirm / signal-gated removal); `dmc doctor`
+  reports Claude firing PROVEN (synthetic-event probe) vs Codex ADVISORY (never enforced-class —
+  grep-enforced honesty); model names live ONLY in `orchestration/models.json` (display-only).
+
+## Next step (M7 — worker/delegation hardening, per Rev 3 order M7→M9→M10)
+
+**M7 needs its own milestone plan → critic → human gate.** It is a **PROTECTED SURFACE** milestone
+(worker validators under `.claude/hooks/`: `worker-result-check.py`, `worker-context-guard.sh`) —
+expect the HEAVY critic rotation (M6-grade), not the light M6.5/M8 rotation. Master plan §M7
+(DMC-T012): token classes imported from oauth-cli detectors; rename/copy/binary diff parsing;
+empty-allowed ⇒ DENY; task_id/provider cross-check; worker-context-guard fail-closed on parse
+error; NEW `dmc worker review-check` validator; hash-chained apply-authorization consumed by P7;
+post-apply fidelity; delegation records + subagent artifact validation. Because M7 edits worker
+validators that the M8 installer now SHIPS, M7 must regenerate the INSTALL_MANIFEST worker-validator
+entries (`dmc-install.sh --emit-manifest` re-run) and run a post-M7 manifest drift re-run. Note:
+the M8 uninstaller strip-list bonus fix (worker-context-guard added to the settings.json `is_dmc()`
+list) already landed in M8 — M7 must not double-touch the installer surface beyond the manifest
+re-run. Task numbering: sub-number under DMC-T012 (grep first). M9 afterward is doubly load-bearing:
+under Option A the pre-commit/CI gate IS the Codex enforcement boundary (documented-only today) —
+M9 builds it real.
 
 ## Carry-forwards (do not lose)
 
@@ -174,7 +214,19 @@ documented-only) — build it real there.
     live-turn verification, NEW gate + own scope) remains available to upgrade the shims to
     verified-enforcing; (e) `.codex/hooks.json` wiring shape + per-tool `tool_input` field names
     remain UNPROVEN at codex-cli 0.132.0 — re-probe at the Option B turn or a newer CLI.
-11. **M6 residuals (disclosed, verifier-confirmed real, NONE blocking; verifier ACCEPT flagged 4 as advisory):**
+11. **M8 residuals/advisories (disclosed, NONE blocking):** (a) the `verify-crosscheck`
+    basename self-exclusion is a latent sharp edge — a dirty file sharing the report's basename
+    evades the undeclared-file flag (benign here, disclosed; harden in a later hygiene pass);
+    (b) the A1 receipt-absent fallback removes fixed-name `dmc-*` bin/lib files — a host's own
+    file named `dmc-something` would be misidentified (documented, gate-accepted trade-off);
+    (c) merge-target byte restoration is proven for CANONICAL-form host files only — non-canonical
+    hosts get SEMANTIC restoration (honestly hedged, never over-claimed); (d) M8 fixture host
+    trees are materialized at runtime in mktemp (committed files = the 5 suite scripts only);
+    suite scripts are mode 0644, invoked via `bash <script>`; (e) HOST-side directive shipped in
+    the manifest: the `.codex/.dmc-created` sentinel must stay committed (never gitignored) for
+    cross-clone provenance; (f) `dmc doctor` "hook firing PROVEN" applies to Claude only — the
+    Codex column stays ADVISORY until Option B.
+12. **M6 residuals (disclosed, verifier-confirmed real, NONE blocking; verifier ACCEPT flagged 4 as advisory):**
     (a) a broad `Grep` with no path can still read secret-file CONTENTS in a non-secret dir (pre-M6 residual,
     unchanged by M6); (b) run-id-armed-without-lock window — the stop gate arms on current-run-id but the write
     guards need the compiled `scope.lock`, so edits between `run start` and scope-compile fall to the legacy path;
@@ -202,3 +254,8 @@ documented-only) — build it real there.
     Option A decision, run-8fef31d58eee verification (9 files, +853/−72)
 13. `8a97e43` — M6.5 build: advisory Codex shims, skills mirrors, AGENTS.md generator, bin/dmc
     verbs/sections, evidence + verification + r3 sign-off (25 files, +3783/−5)
+14. `82300bd` — handoff rev 5 + session log 20260707 (M6.5 closed; next M8)
+15. `39c420e` — M8: installer ships Ring 0+1 (--host claude|codex|both) + provenance
+    receipt/sentinel + P19 fixes + --emit-manifest; receipt-scoped uninstaller; dmc doctor;
+    models.json + harness-matrix.json; 5-fixture install suite; plan Rev 3 + approvals +
+    evidence/verification + verdicts r1–r4 (20 files, +3613/−131)
