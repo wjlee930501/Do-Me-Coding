@@ -1,5 +1,39 @@
 # HANDOFF — dmc-v1-runtime-upgrade (session → session)
 
+Date: 2026-07-08 (rev 8 — M9 release-gate composition + CI + E2E dry run shipped + CLOSED at
+`a7ef8d6`, CI green at `4114a6b`; supersedes rev 7) · Branch: `claude/dmc-v1-runtime-upgrade-c5uch1`
+
+**Rev 8 session end state:** milestone `HEAD` == `origin` == `4114a6b` (pushed, fast-forward, no
+force; this handoff lands as the following docs commit). M9 CLOSED: the `dmc gate release --full`
+composer (`bin/lib/dmc-release-gate.py`, 9 sub-gates, 39/0 self-test) + `.github/workflows/dmc-ci.yml`
+(the Option A Codex enforcement boundary, made REAL) + `tests/fixtures/{host-node,m9}` (release-gate
+56/0 + e2e-loop 35/0, <2s quick tier) shipped at `a7ef8d6`. Verification chain: 6-scout Workflow →
+decision-complete plan → `dmc validate plan` VALID → critic r1 NEEDS_CLARIFICATION (B1 CI lexeme-grep
+scope) → Rev 2 → r2 APPROVE (plan_hash `b90722a6…`) → human gate (AA1 byte-exact M8:507 CI grep + AA3
+G2 cached-diff fixture rule both MANDATORY) → armed run `dmc-run-25ecbe729a18` (17-entry scope.lock) →
+5 synchronous executors (+2 CI amendments) → r3 build sign-off APPROVE (0 blockers, 3 advisories) +
+independent verifier PASS → committed-replica `--all` 802/3/3 EXACT → human commit gate → `a7ef8d6`
+pushed → live post-commit `--all` 802/3/3 EXACT exit 0.
+
+**CI-green acceptance MET at `4114a6b`** (Actions run `28899008386` = success) after six
+workflow-file-only fix-forwards. Root cause of the first-run reds: the legacy verify tools call
+`python3 -m py_compile`, which IGNORES `PYTHONDONTWRITEBYTECODE` but HONORS `PYTHONPYCACHEPREFIX`;
+in-tree `__pycache__/*.pyc` litter tripped the tools' own `git status --porcelain` cleanliness
+assertions (v0.2.1:47 / v0.2.3:89 / v0.6.0:148 / v0.3.9:194 + providers/manifest checks). Fix arc:
+`PYTHONDONTWRITEBYTECODE` (insufficient — py_compile ignores it) → `PYTHONPYCACHEPREFIX=/tmp/dmc-pycache`
+(redirects ALL bytecode out of the tree; PROVEN locally on a python-3.12 committed replica: 799/6 →
+**802/3/3 EXACT, 0 in-tree pyc**) → python-3.9 pin → macos-latest trial (800/5) → **human-gated
+decision: make the full legacy `selftest --all` replay ADVISORY (continue-on-error; output still
+visible), keep every M9-built check BLOCKING**, revert to ubuntu-latest. The 13 blocking checks
+(mirror-check, doctor, `selftest release-gate` 39/0, `selftest m9-suite` 56/0+35/0, linkcheck, CF3 +
+AA1 greps, Codex-wiring presence, porcelain PRE/MID) are all green. **FINDING (load-bearing):** the
+pinned 802/3/3 baseline is a macOS-dev-environment artifact NO GitHub runner reproduces EXACTLY
+(ubuntu 799/6, macos-latest 800/5) — the divergence is confined to 2–3 frozen mirror-pinned legacy
+tools (v0.2.6/v0.3.9/v0.3.1) that M9 cannot edit; CI-reproducibility of the full replay is an M10
+carry-forward (Carry-forwards 14). Closure: stop-gate PASS + `verify-crosscheck` honest REFUSE
+(CROSSCHECK-CHANGED-FILE-OUT-OF-SCOPE on the §Approval-Status orchestrator lane, as at M7/M8) —
+recorded verbatim, NOT gamed; run `dmc-run-25ecbe729a18` SUSPENDED, pointer cleared.
+
 Date: 2026-07-07 (rev 7 — M7 worker/delegation hardening shipped + CLOSED at `3d91180`;
 rev 6 closed M8 earlier the same session-day) · Branch: `claude/dmc-v1-runtime-upgrade-c5uch1`
 
@@ -54,14 +88,24 @@ bin/dmc selftest --all  # ~5-10 min; expect legacy 802/3/3 EXACT + run-core 168/
                         # + linkcheck 17/0 + m6-core 99/0 + m6-suite 104/0 + skills-mirror 7/0
                         # + agents-md 24/0 + m65-suite 119/0 (65+19+35) + doctor 24/0
                         # + m8-suite 126/0 (83+17+16+10) + worker-check 34/0 (M7)
-                        # + m7-suite 85/0 (36+26+23, M7) + mirror (55-file)
+                        # + m7-suite 85/0 (36+26+23, M7) + release-gate 39/0 (M9)
+                        # + m9-suite 91/0 (release-gate 56 + e2e-loop 35, M9) + mirror (55-file)
                         # + rollback PASS + SELFTEST-ALL PASS + exit 0
+bin/dmc gate release --full   # M9: composed release-readiness (9 sub-gates); --quick = flags-only stop-gate
+bin/dmc selftest release-gate # M9: composer self-test 39/0 (also a BLOCKING CI step)
+bin/dmc selftest m9-suite     # M9: release-gate 56/0 + e2e-loop 35/0 (also a BLOCKING CI step)
 bin/dmc doctor          # M8: host self-check (Claude firing PROVEN via synthetic probe;
                         # Codex ADVISORY; per-host enforcement matrix from harness-matrix.json)
-bin/dmc help            # M2–M6 command surface (orient/landmarks/depsurface/radius · validate ·
+bin/dmc help            # M2–M9 command surface (orient/landmarks/depsurface/radius · validate ·
                         # legacy/mirror-check/rollback-test · run · roles/verdict/delegation/linkcheck ·
-                        # bash-radius/postbash-diff/verify-crosscheck/stop-gate · run block|blocked-status|unblock)
+                        # bash-radius/postbash-diff/verify-crosscheck/stop-gate · worker · gate release)
 ```
+
+**CI (`.github/workflows/dmc-ci.yml`, ubuntu-latest):** green at `4114a6b` (Actions 28899008386).
+13 BLOCKING checks (bash -n, porcelain PRE/MID, mirror-check, doctor, `selftest release-gate`,
+`selftest m9-suite`, linkcheck, CF3 model-name grep, AA1 lexeme/network grep, Codex-wiring presence);
+the full legacy `selftest --all` replay is ADVISORY (continue-on-error) because the 802/3/3 baseline is
+macOS-dev-pinned and no GitHub runner reproduces it exactly — see Carry-forward 14 (M10 owns it).
 
 ## Where things stand
 
@@ -77,19 +121,24 @@ bin/dmc help            # M2–M6 command surface (orient/landmarks/depsurface/r
 | **M6.5 Codex adapter (Option A advisory)** | **DONE + CLOSED, pushed** (critic r1 REJECT→r2 APPROVE · spike B4 STOP→Option A human gate · r3 build sign-off APPROVE · independent verifier ACCEPT · live `--all` 802/3/3 + all sections 0 FAIL) | `40ad75a` (spike phase) + `8a97e43` (build, 25 files +3783/−5) | spike findings + STOP/Option A record; adapters/codex ADVISORY shims (4 events + common lib); .codex templates; .agents/skills 5 workflow-skill mirrors + dmc-skills-mirror.py; dmc-agents-md.py + agents-md.schema.md (= /dmc-init-deep generator); bin/dmc verbs agents-md/skills-mirror + selftest sections agents-md/skills-mirror/m65-suite |
 | **M8 host install/adaptation (P19+P20)** | **DONE + CLOSED, pushed** (critic r1 REJECT(5)→r2 REJECT(B6)→Rev 3→r3 APPROVE · human gate w/ A1/A2/A3 dispositions · r4 build sign-off APPROVE · verifier ACCEPT · live `--all` 802/3/3 + all sections 0 FAIL) | `39c420e` (20 files +3613/−131) | installer ships Ring 0+1 `--host claude\|codex\|both` + provenance receipt/sentinel + P19 fixes + `--emit-manifest`; receipt-scoped uninstaller; `dmc doctor` (Claude PROVEN / Codex ADVISORY); models.json + harness-matrix.json; 5-fixture install suite; selftest sections doctor/m8-suite |
 | **M7 worker/delegation hardening (P15 + P14 records, PROTECTED SURFACE)** | **DONE + CLOSED, pushed** (critic r1 REJECT(B1/B2)→Rev 2→r2 APPROVE · human gate w/ A1/A2 MANDATORY dispositions · r3 build sign-off APPROVE · verifier ACCEPT · live `--all` 802/3/3 EXACT, ZERO fail lines) | `3d91180` (21 files +4019/−81) | hardened worker-result-check.py (imported token classes, diff_entries, empty-allowed DENY, task/provider cross-checks w/ mock + empty-provider carve-outs, required-field floor; DISALLOWED/diff_paths byte-preserved) + fail-closed worker-context-guard.sh; NEW bin/lib/dmc-worker-review.py (review-check/authorize/apply-check/fidelity) + apply-authorization.schema.md; delegation append/check runtime records; bin/dmc worker verb + worker-check/m7-suite sections; skills wired to the machine-checked apply chain; tests/fixtures/m7 (85 rows); INSTALL_MANIFEST +2 regen |
-| M9, M10 | **NOT STARTED, NOT APPROVED** | — | master plan §Execution Tasks (Rev 3) remaining order: M9→M10 |
+| **M9 release-gate + CI + E2E (P18 full + Option A boundary)** | **DONE + CLOSED, pushed** (critic r1 NEEDS_CLARIFICATION→r2 APPROVE · human gate AA1/AA3 MANDATORY · r3 build sign-off APPROVE · verifier PASS · committed-replica + live `--all` 802/3/3 EXACT · **CI GREEN** at `4114a6b`) | `a7ef8d6` (17-file scope) + `395da6c`..`4114a6b` (6 CI fix-forwards) | `dmc gate release --full` composer `dmc-release-gate.py` (9 sub-gates, 39/0); `.github/workflows/dmc-ci.yml` (13 blocking + advisory legacy replay); release-readiness.schema.md; delegation.schema additions; host-node + tests/fixtures/m9 (release-gate 56/0 + e2e-loop 35/0, <2s quick); bin/dmc gate verb + m9-suite/release-gate selftest sections |
+| M10 (final docs, identity, release checklist) | **NOT STARTED, NOT APPROVED** | — | master plan §Execution Tasks (Rev 3) LAST milestone; owns Carry-forward 14 (CI-baseline-portability) |
 
-Approval state (master plan `## Approval Status`, updated at `3d91180`): **APPROVED
-M2+M3+M4+M5 (M1 retroactively ratified) · M6, M6.5, M8, and M7 each via their own
+Approval state (master plan `## Approval Status`, updated at this docs commit): **APPROVED
+M2+M3+M4+M5 (M1 retroactively ratified) · M6, M6.5, M8, M7, and M9 each via their own
 milestone-scoped plans** — approver wjlee. M6.5 carried the Rev 2 approval + the spike-STOP
 **Option A** decision; M8 carried the Rev 3 approval with the **A1/A2/A3 advisory dispositions**
 (A3 — the `.codex/.dmc-created` sentinel is committed, NEVER gitignored — was a MANDATORY
 implementation directive, verified as-built); M7 carried the Rev 2 approval with the **r2
 A1/A2/A3/A4 dispositions** (A1 task_id path-safety at `authorize` + A2 exception-wrapped
 detector load were MANDATORY implementation directives, verified as-built by critic r3 + the
-verifier). **M9/M10 remain UNAPPROVED**; each needs its own milestone plan → critic → human gate
-(pattern: milestone-scoped plan file, `dmc validate plan` VALID, critic APPROVE, approval record in both plans).
-No active run: `.harness/runs/current-*` cleared after M7 closure; per-milestone run archives are local-only.
+verifier); M9 carried the Rev 2 approval with the **AA1/AA3 MANDATORY dispositions** (AA1
+byte-exact M8:507 CI lexeme-grep scope + AA3 G2 cached-diff fixture rule) plus the human-gated
+**CI advisory-legacy decision** (full 802/3/3 replay ADVISORY, M9-built checks BLOCKING; the
+macOS-dev-pinned-baseline gap deferred to M10 — Carry-forward 14). **Only M10 remains UNAPPROVED**;
+it needs its own milestone plan → critic → human gate (pattern: milestone-scoped plan file,
+`dmc validate plan` VALID, critic APPROVE, approval record in both plans).
+No active run: `.harness/runs/current-*` cleared after M9 closure; per-milestone run archives are local-only.
 **M6 wired Ring-0 into the live enforcement floor** — the six hooks are now shims over `bin/dmc`
 verdict CLIs; scope/stop/secret enforcement is no longer advisory. `.claude/settings.json` was NOT
 changed (all five hooks were already registered); new hook registrations would need a session reload.
@@ -222,28 +271,58 @@ evidence incl. the committed-replica `--all` proof + two post-build amendment re
   pointer was armed (cleared at closure per M8 precedent); the stop gate held completion
   through the whole build (suspend = the designed wait-state).
 
-## Next step (M9 — release gate composition + CI + E2E dry run, per Rev 3 order M9→M10)
+## M9 closure evidence (compact)
 
-**M9 needs its own milestone plan → critic → human gate** (light rotation precedent OK — not a
-protected surface; risk: low per master §M9). Master §M9 (DMC-T014/T015): `dmc gate release
---full` composing v0.2.6/v0.6.2-5 + diff⊆scope (git ground truth) + landmark-diff flag +
-delegation/import-chain checks; `.github/workflows/dmc-ci.yml` (selftest --all vs baseline,
-mirror-check, adversarial suites, install suite); E2E dry run on tests/fixtures/host-node with
-latency budget (<2s quick tier). M9 is doubly load-bearing: (a) under Option A the pre-commit/CI
-gate IS the Codex enforcement boundary (documented-only today) — M9 builds it real; (b) the M7
-apply-authorization chain is skill-mandated at apply time — M9 makes chain-absence BLOCKING at
-release ("a run whose applied changes lack an import/delegation chain is refused"). Carry-forwards
-2 and 3 (verification_ref resolution; model-name grep scoping) are M9 obligations. Task numbering:
-sub-number under DMC-T014/T015 (grep first).
+Full reports: `.harness/verification/dmc-v1-m9-release-gate.md` (VALID, Final Status PASS; the
+CI-green resolution appended to §Unresolved Risks) + `.harness/evidence/dmc-v1-m9-build-20260708.md`
+(build evidence incl. committed-replica `--all` proof) + `.harness/evidence/dmc-v1-m9-critic-verdict-r{1,2,3-buildsignoff}.json`.
+
+- **One run**: `dmc-run-25ecbe729a18` (17-entry scope.lock; 6 landmark-authorized enforcement/contract
+  edits incl. `bin/lib/dmc-release-gate.py` create + `bin/dmc` edit + `.github/workflows/dmc-ci.yml`
+  create); SUSPENDED at closure, pointer cleared.
+- **Composer** `bin/lib/dmc-release-gate.py` — 9 sub-gates (diff-scope sealed-trust+--base, gate-checks
+  v0.2.6 temp-allowlist+staged precondition, receipts v0.6.2 coverage/validate, findings/goal/decision
+  present⇒gate/trace/answer else MISSING, approvals+CF2 verification_ref→artifact resolution, chain
+  activity-predicate no-activity⇒PASS-with-note, landmark-flag FLAG-never-FAIL); overall FAIL>PARTIAL>PASS,
+  PARTIAL never presented as PASS; exit 0/1/2/3; output `dmc.release-readiness.v1`; `--quick` = flags-only
+  delegation to dmc-stop-gate.py. The 5 composed legacy tools are mirror-pinned (55-file byte-equality),
+  composed via subprocess, never edited.
+- **Critic chain**: r1 NEEDS_CLARIFICATION (B1 CI lexeme-grep would be permanently red repo-wide) → Rev 2
+  (byte-exact M8:507 scope on `.claude/install` + `bin/lib/dmc-doctor.py`) → r2 APPROVE → r3 build sign-off
+  APPROVE (0 blockers, 3 advisories: A1 delegation.schema three-loci framing, A2 chain repo_root() hygiene,
+  A3 chain is provenance-tier not tamper-detection). Independent verifier PASS (report VALID).
+- **CI resolution (post-commit)**: green at `4114a6b` (Actions `28899008386` = success); the full legacy
+  `selftest --all` replay is ADVISORY, every M9-built check BLOCKING (13 green). See Rev 8 end-state above
+  for the six-fix-forward arc and the macOS-dev-pinned-baseline finding → **M10 carry-forward (14)**.
+- **Live-fire enforcement THIS session**: bash-radius L1 denied redirect-bearing orchestrator commands
+  repeatedly (python-heredoc grandchild-write workaround); scope-guard blocked a status probe carrying a
+  `2>/dev/null` redirect while armed; six CI fix-forwards each went through the human commit+push gate; the
+  full CI-baseline-portability decision (advisory tier + M10 defer) was surfaced to the human gate, not
+  silently applied.
+
+## Next step (M10 — final docs, identity, release checklist; per Rev 3 order M9→M10 — LAST milestone)
+
+**M10 needs its own milestone plan → critic → human gate** (docs/identity surface; risk: low per master
+§M10). Master §M10: final v1.0 docs (DMC.md identity, README, the enforcement matrix that inherits the M7
+honest tier), release checklist, and the deferred hardening items. **M10 also owns the CI-baseline-portability
+carry-forward (14)**: decide whether to (a) make the full 802/3/3 `selftest --all` replay CI-reproducible by
+addressing the 2–3 frozen legacy tools' runner OS/py-patch bytecode sensitivity (a scoped hygiene plan that
+touches the frozen surface — big deal, separate approval), or (b) formalize the advisory-tier + a documented
+CI-tier baseline as the accepted v1.0 posture. Do NOT mask the pinned FAILs (Carry-forward 1). Task numbering:
+sub-number under master §M10 (grep first).
 
 ## Carry-forwards (do not lose)
 
 1. 3 pinned upstream FAILs (v0.1.3 "GLM/worker code found" · v0.2.3 "V5 mock" · v0.3.2 "AC5") are HUMAN-ACCEPTED
    baseline (802/3/3); never "fix" or mask them inside another milestone — separate hygiene plan if ever.
 2. M9 release gate MUST resolve approval `verification_ref` → artifact (M4's gate is presence-only by design;
-   the honest-scope note is recorded in dmc-v1-m4 evidence + verification).
+   the honest-scope note is recorded in dmc-v1-m4 evidence + verification). **RESOLVED at M9** — the composer's
+   approvals sub-gate resolves `verification_ref` → instance and instance-validates it (RGATE-VERIFICATION-REF-
+   UNRESOLVED on a ghost ref; green-path resolves); proven by test-release-gate g7 + E-series.
 3. M9 CI model-name grep must scope to `orchestration/ .claude/agents/` or exempt `bin/lib/dmc-roles.py`
-   (it legitimately carries detector patterns).
+   (it legitimately carries detector patterns). **RESOLVED at M9** — the CF3 CI step greps `bin adapters
+   .claude/install orchestration .claude/agents` with `--exclude=models.json --exclude=dmc-roles.py`; empty
+   on HEAD, green in CI run 28899008386.
 4. linkcheck covers machine-consumable refs only (code-span verbs / path literals / `Role:` bindings) —
    documented judgment call; prose-embedded dangling refs are unchecked.
 5. verdict-gate is value-blind (C11): a plan-bound REJECT passes the *gate*; content judgment is the human's.
@@ -315,6 +394,31 @@ sub-number under DMC-T014/T015 (grep first).
     (adapter-defaulted invocation ids are shared) — disclosed in apply-authorization.schema.md;
     uniqueness rests on task_result_hash.
 
+14. **CI-baseline-portability (M10 carry-forward, load-bearing):** the pinned legacy 802/3/3 `selftest --all`
+    baseline is a **macOS-dev-environment artifact** — it reproduces EXACTLY on the maintainer's local box +
+    committed replica (802/3/3) but NO GitHub runner reproduces it exactly (ubuntu 799/6, macos-latest 800/5).
+    Root cause: the legacy verify tools call `python3 -m py_compile` (IGNORES `PYTHONDONTWRITEBYTECODE`, HONORS
+    `PYTHONPYCACHEPREFIX`); the resulting in-tree `__pycache__/*.pyc` litter trips those tools' own `git status
+    --porcelain` cleanliness assertions. Setting `PYTHONPYCACHEPREFIX=/tmp/dmc-pycache` + pinning python-3.9
+    lifted CI from 796/9 to within the pinned 3, but 2–3 frozen mirror-pinned tools (v0.2.6/v0.3.9/v0.3.1) still
+    diverge on runner OS/py-patch bytecode behavior. M9's CI keeps those M9-built checks BLOCKING and makes the
+    full legacy replay ADVISORY (continue-on-error; output visible). M10 decides: (a) address the frozen tools'
+    portability via a scoped hygiene plan that touches the frozen surface (separate approval — do NOT do it
+    inside a feature milestone, per Carry-forward 1 discipline), or (b) formalize the advisory tier + a
+    documented CI-tier baseline as the accepted v1.0 posture. The maintainer's local/committed-replica run stays
+    the definitive 802/3/3 proof. **Do NOT** mask the divergence by weakening the M9-built blocking checks.
+
+15. **M9 residuals/advisories (disclosed, NONE blocking; r3 + verifier):** (a) `delegation.schema.md` carries
+    THREE additive text loci (scope_lock_ref field + extended may_mutate sentence + serialization-disclosure
+    line) vs the "two additions" framing — all on-topic + validator-neutral (delegation 41/0), only the count
+    undersells the third; (b) the chain sub-gate invokes `dmc delegation check --run RID` WITHOUT `--root`,
+    resolving via the tool's `repo_root()` — correct for real closure + copy-surface E2E, fails closed on
+    mismatched root; passing `--root` is a hygiene candidate; (c) the chain sub-gate is honestly a
+    provenance/accountability tier, NOT tamper-detection (deleted delegations.jsonl + deleted authorization ⇒
+    PASS-with-note via the run-dir append-log exemption; the WAUTH-MISSING-AUTH floor is proven at apply-time,
+    g8c, not at the release-time sub-gate) — the mutation floor remains diff-scope + Ring-1 postbash; disclosed
+    in the readiness schema, dispositioned at r2.
+
 ## Branch commit log (oldest → newest, all beyond `main` @ `d0edc48`)
 
 1. `1c139fb`..`cf30720` — M1/M2 + cloud handoff (see git log)
@@ -345,3 +449,13 @@ sub-number under DMC-T014/T015 (grep first).
     apply-authorization schema + delegation runtime records + bin/dmc worker verb/sections +
     skills wiring + tests/fixtures/m7 (85 rows) + INSTALL_MANIFEST regen; plan Rev 2 +
     approvals + evidence/verification + verdicts r1/r2/r3-buildsignoff (21 files, +4019/−81)
+18. `a318468`..`0ac72b8` — M7 closure docs: handoff rev 7 + session log 20260707-m7 + model-split polish (2 commits)
+19. `a7ef8d6` — M9: `dmc gate release --full` composer (`dmc-release-gate.py`, 9 sub-gates) +
+    `.github/workflows/dmc-ci.yml` (Option A boundary made real) + release-readiness schema +
+    delegation.schema additions + host-node + tests/fixtures/m9 (release-gate 56 + e2e-loop 35) +
+    bin/dmc gate verb/M9SUITE sections + INSTALL_MANIFEST regen; plan Rev 2 + approvals +
+    evidence/verification + verdicts r1/r2/r3-buildsignoff (17-file scope.lock)
+20. `395da6c`..`4114a6b` — M9 CI fix-forwards (workflow-file-only, 6 commits): PYTHONDONTWRITEBYTECODE →
+    py_compile-proof `PYTHONPYCACHEPREFIX=/tmp/dmc-pycache` → python-3.9 pin → macos-latest trial →
+    literal-/tmp fix → advisory-legacy restructure; **CI GREEN at `4114a6b`** (Actions 28899008386 = success)
+21. (this docs commit) — handoff rev 8 + M9 session log + master-plan §Approval-Status M9 closure record

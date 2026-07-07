@@ -391,7 +391,23 @@ detector load both MANDATORY) recorded there) · 2026-07-08 (M9 — via
 `.harness/plans/dmc-v1-m9-release-gate.md`, critic r1 NEEDS_CLARIFICATION (B1 CI
 lexeme-grep scope) → Rev 2 → r2 APPROVE (plan_hash `b90722a6…`); scope + the
 three-advisory disposition (AA1 byte-exact M8 :507 CI grep + AA3 G2 cached-diff fixture
-rule both MANDATORY) recorded there)
+rule both MANDATORY) recorded there; shipped at `a7ef8d6` (r3 build sign-off APPROVE +
+independent verifier PASS; committed-replica + live `selftest --all` 802/3/3 EXACT). The
+"CI green on branch" acceptance criterion is MET at `4114a6b` (GitHub Actions run
+`28899008386` = success): all 13 blocking checks green — mirror-check, doctor, `selftest
+release-gate` 39/0, `selftest m9-suite` 56/0+35/0, linkcheck, the CF3 model-name grep, the
+AA1 lexeme/network grep, Codex-wiring presence, and the porcelain PRE/MID sandwiches — with
+the full legacy `selftest --all` replay made ADVISORY (continue-on-error; output still
+visible). Six workflow-file-only fix-forwards (PYTHONDONTWRITEBYTECODE → py_compile-proof
+PYTHONPYCACHEPREFIX → python-3.9 pin → macos-latest trial → advisory restructure) proved the
+pinned 802/3/3 baseline is a macOS-dev-environment artifact no GitHub runner reproduces
+EXACTLY (ubuntu 799/6, macos-latest 800/5) — the divergence is confined to 2–3 frozen
+mirror-pinned legacy verify tools (v0.2.6, v0.3.9, v0.3.1) whose `git status --porcelain`
+cleanliness assertions are sensitive to runner OS/py-patch bytecode behavior and which M9
+cannot edit; making that full replay CI-reproducible is an explicit **M10 carry-forward**.
+Closure: stop-gate PASS + `verify-crosscheck` honest REFUSE (CROSSCHECK-CHANGED-FILE-OUT-OF-
+SCOPE on this §Approval-Status orchestrator lane, as at M7/M8), run SUSPENDED, pointer
+cleared. M9 CLOSED.)
 
 Approval record (verbatim scope of the human gate, 2026-07-05):
 - **M1 retroactive ratification** covers: Phase 0–4 document deliverables, M1
