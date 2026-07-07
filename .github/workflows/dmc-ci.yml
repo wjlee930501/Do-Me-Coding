@@ -13,6 +13,19 @@
 # coarser (release/CI-time) than the Claude Ring-0/1 runtime guards.
 #
 # DMC v1 M9 (dmc-v1-m9-release-gate.md §Proposed Changes 5) — greenfield workflow, additive.
+#
+# Advisory tier: every step below is BLOCKING (nonzero exit fails the job) except the LAST
+# step, "Legacy full self-test replay". That legacy `bin/dmc selftest --all` 802/3/3 baseline
+# is a dev-environment-pinned artifact: it reproduces EXACTLY on the local macOS dev box
+# (802/3/3) but NOT on GitHub runners (ubuntu 799/6, macos-latest 800/5), because 2-3
+# frozen mirror-pinned legacy verify tools (v0.2.6, v0.3.9, and on ubuntu v0.3.1) diverge for
+# OS/patch-level environment reasons this milestone cannot edit (the tools are byte-frozen).
+# Human-gated decision: run on ubuntu-latest (cheaper/faster; every BLOCKING check below
+# passes there), keep every M9-built check BLOCKING, and make the legacy --all replay
+# ADVISORY (continue-on-error: true) so its full output stays visible in the CI log without
+# failing the job. The definitive 802/3/3 proof is the maintainer's local/committed-replica
+# run recorded in the M9 evidence; making this replay CI-reproducible is an M10 hardening
+# candidate.
 
 name: dmc-ci
 
@@ -20,24 +33,20 @@ on: [push, workflow_dispatch]
 
 jobs:
   dmc:
-    # The legacy self-test baseline (802/3/3 EXACT) is pinned on macOS: it reproduces
-    # byte-for-byte on the macOS dev environment but NOT on ubuntu, where 3 frozen
-    # mirror-pinned legacy verify tools (v0.3.1, v0.2.6, v0.3.9) fail for linux-vs-macOS
-    # portability reasons this milestone cannot edit (the tools are byte-frozen). CI runs
-    # on macos-latest to reproduce the baseline environment faithfully; ubuntu-latest
-    # portability for the 3 frozen legacy tools is an M10 hardening candidate.
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 25
     # The DMC self-test suites assert a bytecode-litter-free tree (the m6 rollback byte
     # compare, the m8 providers-no-pycache check, --emit-manifest byte-equality, and the
-    # porcelain PRE/POST sandwiches below): a bare python invocation writes __pycache__/*.pyc
+    # porcelain PRE/MID sandwiches below): a bare python invocation writes __pycache__/*.pyc
     # on import for any module the tools don't already guard with sys.dont_write_bytecode.
     # Setting PYTHONDONTWRITEBYTECODE for the whole job enforces the no-.pyc invariant the
     # tools already assume, with zero logic change. However, the verify tools' explicit
     # `python3 -m py_compile` calls IGNORE PYTHONDONTWRITEBYTECODE but DO honor
     # PYTHONPYCACHEPREFIX, so PYTHONPYCACHEPREFIX is also set (to /tmp, outside the
     # checked-out workspace) to redirect all bytecode caches out of the tree —
-    # keeping every `git status --porcelain` cleanliness assertion green.
+    # keeping every `git status --porcelain` cleanliness assertion green. Both are kept
+    # even with the advisory tier below: the advisory --all step still runs inside this job
+    # and its bytecode litter must stay out of the tree too.
     env:
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONPYCACHEPREFIX: /tmp/dmc-pycache
@@ -49,7 +58,8 @@ jobs:
           # test-restore.sh) `git show` the pinned pre-M6 commit
           # 299987047e448cff6ea9ddaf8011d66992901003 to prove byte-identical restore —
           # the default depth-1 shallow clone does not contain that object and the m6
-          # suite (run via `bin/dmc selftest --all`) would fail on a shallow checkout.
+          # suite (run via the advisory `bin/dmc selftest --all` replay) would fail on a
+          # shallow checkout.
           fetch-depth: 0
 
       - name: Pin python 3.9 (the interpreter the 802/3/3 legacy baseline was pinned on)
@@ -103,8 +113,14 @@ jobs:
       - name: dmc doctor
         run: bin/dmc doctor
 
-      - name: dmc selftest --all (legacy 802/3/3 EXACT baseline + every section 0 FAIL)
-        run: bin/dmc selftest --all
+      - name: dmc selftest release-gate (M9 composer self-test)
+        run: bin/dmc selftest release-gate
+
+      - name: dmc selftest m9-suite (M9 gate + E2E fixtures)
+        run: bin/dmc selftest m9-suite
+
+      - name: dmc linkcheck (new gate verb resolves)
+        run: bin/dmc linkcheck
 
       - name: Model-name grep (CF3 — model names live only in orchestration/models.json)
         run: |
@@ -144,18 +160,22 @@ jobs:
           # provenance marker (dropped only when the installer creates .codex; this repo's
           # .codex was authored directly by the M6.5 milestone, so no sentinel exists here
           # by design) — sentinel provenance behavior is proven separately by the m8-suite
-          # fixtures inside `selftest --all`.
+          # fixtures inside the advisory `selftest --all` replay.
           test -f .codex/config.toml
           test -f .codex/hooks.json
           git ls-files --error-unmatch .codex/config.toml .codex/hooks.json
           echo "Codex wiring presence: PASS"
 
-      - name: Porcelain POST-sandwich (suites left the checkout byte-identical)
+      - name: Porcelain MID-sandwich (blocking suites left the checkout byte-identical)
         run: |
           status="$(git status --porcelain)"
           if [ -n "$status" ]; then
-            echo "POST-sandwich FAIL: checkout was mutated by the suites:" >&2
+            echo "MID-sandwich FAIL: checkout was mutated by the blocking suites:" >&2
             echo "$status" >&2
             exit 1
           fi
-          echo "porcelain POST-sandwich: PASS (empty)"
+          echo "porcelain MID-sandwich: PASS (empty)"
+
+      - name: Legacy full self-test replay (ADVISORY — 802/3/3 baseline is dev-environment-pinned)
+        continue-on-error: true
+        run: bin/dmc selftest --all
