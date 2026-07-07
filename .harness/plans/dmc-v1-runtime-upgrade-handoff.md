@@ -91,7 +91,10 @@ Full reports: `.harness/verification/dmc-v1-m6-hook-hardening.md` + `.harness/ve
 
 ## Working pattern that shipped M3–M5 (keep it)
 
-Orchestrator (human-gated) + worker agents (Opus 4.8 complex / Sonnet 5 mechanical) + independent non-authoring
+Orchestrator (**Fable 5** — direction, planning, orchestration, gate requests, and artifact
+persistence ONLY; the orchestrator lane never implements) + worker agents (**Opus 4.8** complex/
+security-critical / **Sonnet 5** mechanical; ALL subagents spawned with permission mode `auto` —
+DMC Ring-0 guards enforce independently of harness permission mode) + independent non-authoring
 critic (plan stage) and verifier (build stage) + committed-replica `--all` proof + post-commit live re-run as the
 closure condition. Single-owner rule for `bin/dmc` (one sub-task registers all verbs/sections). Human gates every
 time for: milestone approval, staging, commit, push. Evidence/verification per milestone; verification reports must
