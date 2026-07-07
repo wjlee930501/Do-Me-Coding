@@ -107,9 +107,13 @@ M6 → M6.5 → M8 → M7 → M9 → M10.
    run archives under `.harness/runs/` stay local.
 7. The two working-tree-drift legacy checks (v0.5.9 AC13 / v0.6.0 V15) FAIL `--all` whenever tracked files are
    modified uncommitted — expected artifact class; the committed-replica proof + post-commit re-run is the pattern.
-8. Task-ID namespaces collide across plans (master §M6.5 `DMC-T011b` vs M6-plan `DMC-T011b`; M6.5-plan
-   `DMC-T012a–e` vs master §M7 `DMC-T012`) — validators accept per-plan namespaces; renumber at the M6/M6.5
-   critic passes (verifier advisory finding 6).
+8. Task-ID namespace collisions RESOLVED at the M6/M6.5 critic passes (verifier advisory finding 6): the M6
+   plan renumbered its tasks to `DMC-T011.1–.4` (collision-free vs master §M6.5's `DMC-T011b`), and the M6.5
+   plan Rev 2 renumbered `DMC-T012a–e` → `DMC-T011b.1 .. DMC-T011b.5` (sub-numbered under master §M6.5's own
+   task `DMC-T011b`), removing the prefix collision with master §M7's `DMC-T012` and aligning the sub-plan to
+   its own master task ID. `DMC-T011b.N` was grep-verified unused across `.harness/` and `docs/` before the
+   rename. Validators still accept per-plan namespaces; these renames are for cross-plan legibility, applied
+   per this carry-forward.
 9. Critic R2 verdict for the direction plan binds the PRE-approval Rev 2 bytes (plan_hash `277ee35d…`); the
    current file hashes `a85c12db…` because the approval record was appended after — a naive re-hash "fails" by
    design; the chain (R2 → approval citing 277ee35d → run.json binding a85c12db) is documented in

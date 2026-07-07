@@ -24,13 +24,13 @@ Confidence legend: **VERIFIED-OFFICIAL** (in the 2026-07-06 official docs) · **
 | Fact | Source | Confidence |
 |---|---|---|
 | **AGENTS.md** is read at session start. Discovery: global `~/.codex/AGENTS.md` (plus `AGENTS.override.md`), then a Git-root→cwd walk taking one file per directory, concatenated root-down (closer-to-cwd files appended later, so they win on conflict). Size cap `project_doc_max_bytes`, default 32 KiB. Aligns with the community `agents.md` standard. | developers.openai.com/codex/guides/agents-md | VERIFIED-OFFICIAL |
-| **config.toml** (`~/.codex/config.toml`, TOML): `model`, `approval_policy` (`untrusted`\|`on-request`\|`never`\|`granular`), `sandbox_mode` (`read-only`\|`workspace-write`\|`danger-full-access`), `[features]` flags (incl. hooks, `multi_agent`), `[agents.<name>]` subagent defs, `[[skills.config]]`. Per-project `<repo>/.codex/config.toml` is loaded **only for TRUSTED projects**. A managed `requirements.toml` can pin values org-wide. | developers.openai.com/codex/config-reference | VERIFIED-OFFICIAL |
-| **Lifecycle hooks** — events: `SessionStart`, `SubagentStart`, `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PreCompact`, `PostCompact`, `UserPromptSubmit`, `SubagentStop`, `Stop`. Configurable via `~/.codex/hooks.json`, `~/.codex/config.toml [hooks]`, `<repo>/.codex/hooks.json`, `<repo>/.codex/config.toml` — the layers **merge** (they do not override). Payload is JSON on stdin: `session_id`, `transcript_path`, `cwd`, `hook_event_name`, `model`, `turn_id`, `permission_mode`. | developers.openai.com/codex/hooks | VERIFIED-OFFICIAL |
-| **Hook decision contracts** — `PreToolUse` denies via `hookSpecificOutput.permissionDecision=deny`, or exit 2 + stderr, or `allow` with an `updatedInput` rewrite of the tool arguments. `PermissionRequest` can allow/deny **before** the approval prompt is shown (deny wins). `PostToolUse` can block or replace the tool result but **cannot undo** an effect already applied. `Stop` / `SubagentStop` can force continuation (`decision:"block"` + `reason` injects a synthetic user turn). | developers.openai.com/codex/hooks | VERIFIED-OFFICIAL |
+| **config.toml** (`~/.codex/config.toml`, TOML): `model`, `approval_policy` (`untrusted`\|`on-request`\|`never`\|`granular`), `sandbox_mode` (`read-only`\|`workspace-write`\|`danger-full-access`), `[features]` flags (incl. hooks, `multi_agent`) `[SPIKE-CORRECTED 2026-07-06: at codex-cli 0.132.0 both `hooks` and `multi_agent` are `stable` and enabled by DEFAULT (features list) — not experimental/gated]`, `[agents.<name>]` subagent defs, `[[skills.config]]`. Per-project `<repo>/.codex/config.toml` is loaded **only for TRUSTED projects** `[SPIKE-CONFIRMED 2026-07-06 turn-free: untrusted ⇒ project config not merged; trust record `[projects."<path>"] trust_level="trusted"` in `$CODEX_HOME/config.toml` ⇒ merged]`. A managed `requirements.toml` can pin values org-wide. | developers.openai.com/codex/config-reference | VERIFIED-OFFICIAL |
+| **Lifecycle hooks** — events: `SessionStart`, `SubagentStart`, `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PreCompact`, `PostCompact`, `UserPromptSubmit`, `SubagentStop`, `Stop`. Configurable via `~/.codex/hooks.json`, `~/.codex/config.toml [hooks]`, `<repo>/.codex/hooks.json`, `<repo>/.codex/config.toml` — the layers **merge** (they do not override). Payload is JSON on stdin: `session_id`, `transcript_path`, `cwd`, `hook_event_name`, `model`, `turn_id`, `permission_mode`. `[SPIKE-2026-07-06: config surface present and the `hooks` feature is `stable`+on, BUT hook FIRING was UNPROVABLE-TURN-FREE — offline `codex exec` reaches the model websocket before any enforcement-hook side-effect and no headless emit/replay surface exists; see §Spike addendum + spike-stop.md]` | developers.openai.com/codex/hooks | VERIFIED-OFFICIAL (firing UNPROVABLE-TURN-FREE) |
+| **Hook decision contracts** — `PreToolUse` denies via `hookSpecificOutput.permissionDecision=deny`, or exit 2 + stderr, or `allow` with an `updatedInput` rewrite of the tool arguments. `PermissionRequest` can allow/deny **before** the approval prompt is shown (deny wins). `PostToolUse` can block or replace the tool result but **cannot undo** an effect already applied. `Stop` / `SubagentStop` can force continuation (`decision:"block"` + `reason` injects a synthetic user turn). `[SPIKE-2026-07-06: decision-envelope honoring is UNPROVABLE-TURN-FREE (requires a live model tool-call/turn-end); see §Spike addendum + spike-stop.md]` | developers.openai.com/codex/hooks | VERIFIED-OFFICIAL (honoring UNPROVABLE-TURN-FREE) |
 | **Hook enforcement honesty** — OpenAI's own docs describe `PreToolUse` as "a guardrail rather than a complete enforcement boundary": `unified_exec` streaming shells and non-shell / non-MCP tool paths can evade interception. Hooks are a guardrail, not an airtight boundary. | developers.openai.com/codex/hooks | VERIFIED-OFFICIAL |
 | **Hook trust** — non-managed hooks require explicit `/hooks` content-hash trust; a hook whose content changes is skipped until re-trusted. Managed (org) hooks are exempt. | developers.openai.com/codex/hooks | VERIFIED-OFFICIAL |
 | **Skills** — `.agents/skills/<name>/SKILL.md` (YAML `name`/`description`). Scan order: `$CWD/.agents/skills` → parent dirs → repo root → `~/.agents/skills` → `/etc/codex/skills` → built-in. Progressive disclosure; explicit (`$skill`, `/skills`) or implicit invocation; `[[skills.config]]` enables/disables. Custom prompts `~/.codex/prompts/*.md` are **DEPRECATED** (do not target). Plugins (`.codex-plugin/plugin.json`) can bundle skills + hooks; plugin hooks receive `PLUGIN_ROOT` and (compat) `CLAUDE_PLUGIN_ROOT` env vars; an `/import` command migrates Claude Code configs. | developers.openai.com/codex/skills | VERIFIED-OFFICIAL |
-| **Subagents** — real but **explicit-only**: per OpenAI, "Codex doesn't spawn subagents automatically." Defined by `[agents.<name>]` with `config_file`/`description`; `max_threads` default 6, `max_depth` default 1; gated behind the `multi_agent` feature flag. | developers.openai.com/codex/concepts/subagents | VERIFIED-OFFICIAL |
+| **Subagents** — real but **explicit-only**: per OpenAI, "Codex doesn't spawn subagents automatically." Defined by `[agents.<name>]` with `config_file`/`description`; `max_threads` default 6, `max_depth` default 1; gated behind the `multi_agent` feature flag `[SPIKE-CORRECTED 2026-07-06: `multi_agent` is `stable` and enabled by DEFAULT at 0.132.0 (features list) — no opt-in flag needed]`. | developers.openai.com/codex/concepts/subagents | VERIFIED-OFFICIAL |
 | **Sandbox** — `read-only` \| `workspace-write` \| `danger-full-access`, enforced OS-natively (Seatbelt / bubblewrap / Windows). Even in `workspace-write`, `<root>/.git`, `<root>/.agents`, and `<root>/.codex` stay read-only. Approval policies as above; `requirements.toml` can forbid `never` / `danger-full-access`. | developers.openai.com/codex/concepts/sandboxing | VERIFIED-OFFICIAL |
 | **Rules (experimental)** — `.codex/rules/*.rules` Starlark `prefix_rule` with `allow`\|`prompt`\|`forbidden`, most-restrictive-wins, tree-sitter linear-chain splitting only. Marked **EXPERIMENTAL** by OpenAI. | developers.openai.com/codex/rules | VERIFIED-OFFICIAL (feature EXPERIMENTAL) |
 | **codex exec** (non-interactive) — `--json` JSONL event stream, `--output-schema` (JSON-Schema-validated final message), `-o` last-message file, `exec resume`, `--ephemeral`, `--ignore-user-config`, `--ignore-rules`; `CODEX_API_KEY` supplied per-invocation. | developers.openai.com/codex/noninteractive | VERIFIED-OFFICIAL |
@@ -167,3 +167,60 @@ must degrade to `Unknown` — never to a guess — where they are not.
 - **AGENTS.md size budget** — how generated DMC operating rules interact with
   `project_doc_max_bytes` (default 32 KiB) once host facts are added, and whether the DMC section
   must be trimmed or externalized.
+
+---
+
+## Spike addendum — local CLI re-proof (codex-cli 0.132.0, 2026-07-06)
+
+Recorded from DMC-T011b.1 (run dmc-run-8fef31d58eee); full evidence + verbatim command outputs in
+`.harness/evidence/dmc-v1-m6.5-spike-findings.md`, and the STOP decision in
+`.harness/evidence/dmc-v1-m6.5-spike-stop.md`. **No live model turn was taken; no API key was read
+or required.** Every verdict below is backed by an observed local behavior on an isolated scratch
+`CODEX_HOME` + scratch project (never the user's `~/.codex`).
+
+**Headline (B, load-bearing):** hook FIRING and deny/allow/block ENVELOPE HONORING are
+**UNPROVABLE-TURN-FREE** — a live authenticated model turn is the only path to prove either. Offline
+`codex exec` goes `thread.started` → `turn.started` → immediate websocket to `api.openai.com` (401,
+no auth) → `turn.failed`, with **no hook markers fired**; the enforcement-critical events
+(PreToolUse/PostToolUse/Stop) fire around a model tool-call/turn-end; and the CLI exposes **no headless
+hook emit/replay/dry-run surface** (only `--dangerously-bypass-hook-trust`, which DMC must not use).
+This triggered the plan's B4 STOP → human gate.
+
+**CONFIRMED turn-free:**
+- **AGENTS.md discovery + 32 KiB cap** — `debug prompt-input` injects the project `AGENTS.md` under a
+  `# AGENTS.md instructions for <path>` / `<INSTRUCTIONS>` wrapper; a 40431-byte file truncates to a
+  32936-char block (`END_MARKER` dropped), and `-c project_doc_max_bytes=2000` shrinks it to 2168
+  chars. ⇒ the generator MUST keep the DMC section within `project_doc_max_bytes` (default 32 KiB) —
+  answers the size-budget open question.
+- **Skills `.agents/skills/<name>/SKILL.md` discovery** — the scratch `test-skill` appears in the
+  rendered `<skills_instructions>` block with its `.agents/skills/...` path (progressive disclosure:
+  name + description + path). Not trust-gated.
+- **Trusted-project `.codex/config.toml` merge** — untrusted ⇒ project config not loaded; trust record
+  `[projects."<abs-path>"] trust_level="trusted"` in `$CODEX_HOME/config.toml` ⇒ loaded.
+- **Sandbox modes** (`read-only|workspace-write|danger-full-access`) and **`codex exec` flags**
+  (`--json`, `--output-schema`, `-o`, `--ephemeral`, `--ignore-user-config`, `--ignore-rules`,
+  `--skip-git-repo-check`, `exec resume`).
+- **Feature stages** (`features list`): `hooks stable true`, `plugin_hooks stable true`,
+  `plugins stable true`, `multi_agent stable true`, `unified_exec stable true`,
+  `external_migration experimental false`.
+
+**Corrections (tagged inline in §1):** `hooks` and `multi_agent` are `stable` + enabled by default at
+0.132.0 (not experimental/gated); a `permissions.profiles`/`default_permissions` sandbox model exists
+(`codex sandbox` requires a named `--permissions-profile`), a refinement beyond the `.codex/rules`
+framing.
+
+**Open-question dispositions:**
+- **Tool-input field names** — TBD-STILL (no turn-free tool-schema dump) ⇒ PreToolUse edit-scope field
+  shim degrades to backstop-only (post-Bash diff guard); path-only secret + instruction rules remain.
+- **`/import` scope** — interactive TUI-only slash command (no CLI subcommand), tied to
+  `external_migration` (experimental, off) ⇒ MUST NOT be a DMC installer dependency.
+- **Hook trust UX in fresh clones** — mechanism confirmed (content-hash; `--dangerously-bypass-hook-trust`
+  exists) but the interactive `/hooks` UX is TUI-only, not observed headless ⇒ document the manual
+  trust step; never bypass.
+- **PostToolUse over `unified_exec`** — UNPROVABLE-TURN-FREE; `unified_exec` is `stable`+on, so the
+  evasion path is live ⇒ the post-Bash diff guard is the PRIMARY Codex safety net (carry into the
+  T011b.5 machine-checkable "Degraded Invariants (Codex)" assertions).
+
+**Not re-proven (non-load-bearing):** the `<root>/.codex`,`.agents` read-only asymmetry — `codex
+sandbox macos` requires a `--permissions-profile` whose 0.132 schema was not mapped in-timebox; scoped
+degradation stands (rely on the scope guard over those paths), no stop.

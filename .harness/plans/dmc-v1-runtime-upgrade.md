@@ -369,12 +369,18 @@ Global not-edit for every milestone unless its own list authorizes it:
 
 ## Approval Status
 
-Status: APPROVED (M2 + M3 + M4 + M5; M1 retroactively ratified) — M6+ remain UNAPPROVED (DRAFT)
+Status: APPROVED (M2 + M3 + M4 + M5 · M6 and M6.5 each via their own milestone-scoped plans) —
+M7/M8/M9/M10 remain UNAPPROVED (DRAFT)
 Approver: wjlee (wjlee@motionlabs.kr) — human release gate
 Approved At: 2026-07-05 (M1/M2) · 2026-07-06 (M3) · 2026-07-06 (M4 — via the milestone-scoped
 plan `.harness/plans/dmc-v1-m4-run-lifecycle.md`, critic-APPROVED Rev 3; scope recorded there) ·
 2026-07-06 (M5 — via the milestone-scoped plan `.harness/plans/dmc-v1-m5-orchestration.md`,
-critic-APPROVED Rev 2; scope incl. the first-`.claude/**`-edit confirmation recorded there)
+critic-APPROVED Rev 2; scope incl. the first-`.claude/**`-edit confirmation recorded there) ·
+2026-07-06 (M6 — via `.harness/plans/dmc-v1-m6-hook-hardening.md`, critic-APPROVED through r4 +
+r5 build sign-off; initial gate + mid-run Rev 3 amendment gate; scope recorded there; shipped +
+CLOSED at `d721487`) · 2026-07-06 (M6.5 — via `.harness/plans/dmc-v1-m6.5-codex-adapter.md`,
+critic r1 REJECT → Rev 2 → r2 APPROVE (plan_hash `b02b1554…`); scope + A5 advisory disposition
+recorded there)
 
 Approval record (verbatim scope of the human gate, 2026-07-05):
 - **M1 retroactive ratification** covers: Phase 0–4 document deliverables, M1

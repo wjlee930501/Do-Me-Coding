@@ -1,0 +1,74 @@
+{
+  "schema": "dmc.critic-verdict.v1",
+  "work_id": "dmc-v1-m6.5-codex-adapter",
+  "plan_hash": "b02b155487cab1c185153016f78f15f0e14bf9f50be6208e7cf3112cd84fa111",
+  "repo_hash": "517bac04f4857a80ec5bf057bcd642f8380cc025",
+  "target_ref": ".harness/plans/dmc-v1-m6.5-codex-adapter.md",
+  "verdict": "APPROVE",
+  "lenses": [
+    "security",
+    "scope",
+    "correctness",
+    "migration"
+  ],
+  "criteria_checked": [
+    {
+      "criterion_ref": "plan-hash-binding + fresh provenance (Rev 2)",
+      "result": "met",
+      "note": "Re-hashed Rev 2: shasum -a 256 = b02b1554..fa111, matches assigned plan_hash; HEAD still 517bac0; dmc validate plan => VALID. Reviewer did not author the plan (fresh)."
+    },
+    {
+      "criterion_ref": "B1 task-ID renumber closed (not cosmetic)",
+      "result": "met",
+      "note": "All five execution tasks + every internal cross-ref use DMC-T011b.1-.5 (grep counts: .1x5 .2x3 .3x10 .4x12 .5x2). The only DMC-T012 strings are the two past-tense provenance mentions in the preamble (lines 14-15) describing the rename FROM - acceptable, they are audit trail, not task-IDs, and reintroduce no collision. Remaining DMC-T012a-e elsewhere are immutable records (r1 verdict, auto-logs, prior verification files) correctly left unrewritten. Handoff carry-forward #8 replaced accurately (now 'RESOLVED ... M6.5 plan Rev 2 renumbered ...')."
+    },
+    {
+      "criterion_ref": "B2 per-event fail-closed negative controls closed",
+      "result": "met",
+      "note": "Cases (a) unparseable/empty JSON, (b) missing/renamed tool_input field, (c) Ring-0 CLI absent/non-zero, (d) absent .harness/mode land in Proposed Changes + Acceptance Criterion 2 + T011b.2 + Verification Commands + a new high-severity Risk row; each asserts deny/block in ACTIVE mode; cross-adapter parity extended over malformed inputs. Passive/off clause matches CLAUDE.md mode semantics (off => L0 floor only + dynamic verdicts stand down; passive => deny tier, gates stand down) and does NOT weaken active-mode fail-closed - parity-to-Claude binds it."
+    },
+    {
+      "criterion_ref": "B3 secret-redaction closed + code citations accurate",
+      "result": "met",
+      "note": "New secret-redaction acceptance criterion + negative control + explicit binding to the real contract. Verified the citations: evidence-log.sh:68-70 redact() does sed over sk-[A-Za-z0-9_-]{8,} + (password|secret|token|api[_-]?key)=... exactly as the plan states; pre-tool-guard.sh:77-80 is the secret-exposure deny 'enforced in ALL modes including off'. .claude/hooks/** stays no-edit (allowlist row 'read, never edit'; Out of Scope reiterates read-only)."
+    },
+    {
+      "criterion_ref": "B4 spike-constraint vs firing-proof closed + decision-complete",
+      "result": "met",
+      "note": "Turn-free-proof sub-question is explicit; candidate probes p1-p5 are each either grounded in CODEX_ADAPTER s1 (p1 codex exec --json --ignore-user-config; p4 /hooks trust; p5 sandbox read-only .codex/.agents) or explicitly hedged 'if one exists' (p2 replay/dry-run, p3 hook-runner) - none falsely asserts an unsupported surface. No-DMC-initiated-live-turn-ever rule + STOP artifact dmc-v1-m6.5-spike-stop.md + documented-manual default + a 10-row per-fact disposition table (full-stop vs scoped-degradation) consistent with the design authority (unified_exec => primary net not backstop; PostToolUse anchor => Assumption row 3). An implementer can run T011b.1 without asking anything."
+    },
+    {
+      "criterion_ref": "A1 single bin/dmc owner + coherent blockedBy DAG",
+      "result": "met",
+      "note": "T011b.4 is the SOLE bin/dmc editor (registers BOTH verbs + BOTH selftest sections); T011b.3 ships module + fixtures only and is a blocker of T011b.4. DAG: .1 gates all; .2 blockedBy .1; .3 blockedBy .1; .4 blockedBy .3; .5 blockedBy .2,.3,.4 - acyclic, module-before-verb ordering correct."
+    },
+    {
+      "criterion_ref": "A3 machine-checkable degraded invariants",
+      "result": "met",
+      "note": "New required acceptance criterion + Verification Command: a 'Degraded Invariants (Codex)' section whose substrings a grep asserts (unified_exec/non-shell residual; post-Bash diff guard = LOAD-BEARING primary Codex net), mapped to CODEX_ADAPTER s3; check FAILS if either substring absent."
+    },
+    {
+      "criterion_ref": "A4 same-generator note",
+      "result": "met",
+      "note": "Explicit note that the host-AGENTS.md generator verb IS the /dmc-init-deep generator (skill -> verb layering, prevents split-brain)."
+    },
+    {
+      "criterion_ref": "no-relaxation doctrine (Rev 2 vs Rev 1)",
+      "result": "met",
+      "note": "Out of Scope STRENGTHENED (adds 'any DMC-initiated model turn', 'No simulated proofs ever', and the handoff-edit-is-outside-this-plan note) - nothing removed. Allowlist not widened: same editable paths; .claude/hooks row now annotated 'read, never edit' but still Allowed=no; bin/dmc ownership NARROWED to T011b.4. All Rev 1 'met' criteria (Ring-0 verbs, allowlist, HOST/WORKER separation, no protected-surface/installer conflation) preserved."
+    },
+    {
+      "criterion_ref": "new-issue sweep (probes, disposition table, cross-refs)",
+      "result": "met",
+      "note": "p1-p5 introduce no unsupported-surface assertion; disposition-table rows do not contradict CODEX_ADAPTER; blockedBy chain acyclic; B3 code line-refs verified accurate. No new defect beyond the A5 precision advisory below."
+    },
+    {
+      "criterion_ref": "A5 (NEW, non-blocking) B3 criterion precision vs redact() for path-embedded secret",
+      "result": "unmet",
+      "note": "Advisory only. Acceptance Criterion 3 promises 'no raw secret content (key/token/.env content OR path)' AND 'matches the evidence-log.sh redact() contract'. But redact() only redacts the command payload; file_path is truncated to 500 chars (evidence-log.sh:73), not redacted - so for a short secret embedded in a file_path the two conjuncts can disagree (parity satisfied, yet raw path-secret within 500 chars survives). Not a fail-open hole: secret-guard.sh's path-only deny blocks secret-PATH reads upstream and CLAUDE.md's instruction rule covers the rest, and this mirrors a pre-existing Claude-side characteristic (parity-honest). SUGGESTED FIX: make the two conjuncts consistent - either scope criterion 3's absolute clause to command/content (and rely on secret-guard path-only deny for the path case), or extend the bound redaction to cover file_path if a path-embedded secret is in scope."
+    }
+  ],
+  "blockers": [],
+  "advisory": true,
+  "context_provenance": "fresh"
+}

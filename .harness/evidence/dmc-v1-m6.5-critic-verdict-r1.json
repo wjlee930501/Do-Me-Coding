@@ -1,0 +1,100 @@
+{
+  "schema": "dmc.critic-verdict.v1",
+  "work_id": "dmc-v1-m6.5-codex-adapter",
+  "plan_hash": "9d8562bd9f20489aaa2c50cb1fcdf86c08f9d51ab4681e876406a5e4ec5361d0",
+  "repo_hash": "517bac04f4857a80ec5bf057bcd642f8380cc025",
+  "target_ref": ".harness/plans/dmc-v1-m6.5-codex-adapter.md",
+  "verdict": "REJECT",
+  "lenses": [
+    "security",
+    "scope",
+    "correctness",
+    "migration"
+  ],
+  "criteria_checked": [
+    {
+      "criterion_ref": "plan-hash-binding + fresh provenance",
+      "result": "met",
+      "note": "Re-hashed target: shasum -a 256 = 9d8562bd..5361d0, matches assigned plan_hash; HEAD confirmed 517bac0. Reviewer did not author the plan (fresh)."
+    },
+    {
+      "criterion_ref": "Ring-0 verbs the shims bind to exist at HEAD with exact spelling",
+      "result": "met",
+      "note": "bin/dmc help at 517bac0 lists all seven: bash-radius, postbash-diff, verify-crosscheck, stop-gate quick, run block|blocked-status|unblock, verdict gate, run start (with --scope-lock adjudicate path). dmc validate plan => VALID."
+    },
+    {
+      "criterion_ref": "file-scope allowlist consistent with repo state",
+      "result": "met",
+      "note": "Absent (new): adapters/codex, .codex, .agents, bin/lib/dmc-agents-md.py, bin/lib/dmc-skills-mirror.py, .harness/schemas/agents-md.schema.md, tests/fixtures/m6.5. Present + declared no-edit: orchestration/roles.json, .claude/hooks/**, .claude/settings.json, .claude/install, .claude/workers/providers. adapters/ already exists (adapters/claude-code); new work is the codex/ subdir only."
+    },
+    {
+      "criterion_ref": "no protected-surface / worker-bridge / installer conflation",
+      "result": "met",
+      "note": "Out of Scope + allowlist exclude Claude hooks/settings, worker validators (M7), installer --host (M8); HOST vs WORKER kept separate per CODEX_ADAPTER s4. Acceptance checks git diff --name-only vs allowlist."
+    },
+    {
+      "criterion_ref": "security lens applied (enforcement-class adjacency)",
+      "result": "met",
+      "note": "Applied; surfaced B2 (fail-closed error paths) and B3 (secret redaction). The 'adapter grows enforcement logic' risk is well-guarded by verdict-parity, but see B2: parity does not currently cover error paths."
+    },
+    {
+      "criterion_ref": "cross-plan task-ID namespace is collision-free",
+      "result": "unmet",
+      "note": "See B1. DMC-T012a-e collide with master s7 DMC-T012 and do not match the sub-plan's own master task ID (master s6.5 = DMC-T011b). Renumber already recorded (handoff carry-forward #8); M6 plan set the precedent (DMC-T011.1-.4)."
+    },
+    {
+      "criterion_ref": "shim fail-closed contract specified + negative-controlled per bound event",
+      "result": "unmet",
+      "note": "See B2. Acceptance criterion 2 enumerates only well-formed happy-path fixtures; error/degenerate inputs unspecified, so verdict-parity does not bind fail-closed behavior."
+    },
+    {
+      "criterion_ref": "secret redaction of Codex event JSON (tool_input) enforced",
+      "result": "unmet",
+      "note": "See B3. tool_input can carry secret file content/paths; no criterion or negative control forbids persisting it. Claude hooks already redact; Codex side not bound to that standard."
+    },
+    {
+      "criterion_ref": "spike BLOCKED/fallback gate decision-complete under stated constraints",
+      "result": "unmet",
+      "note": "See B4. Proving 'hooks fire + envelope honored' plausibly needs a live model turn (API key + network), which the spike constraints forbid; unresolved. Per-fact refutation -> full-stop vs scoped-degradation only mapped for unified_exec (Assumption row 3)."
+    },
+    {
+      "criterion_ref": "single-owner rule for bin/dmc resolved (T012c + T012d)",
+      "result": "unmet",
+      "note": "Advisory A1 (non-blocking). Neither agents-md nor skills-mirror verb exists yet, so both tasks add bin/dmc verbs. Note 'single-owner rule ... (shared with T012d)' is self-contradictory. Fix: name one owner for bin/dmc or serialize T012c->T012d (blockedBy)."
+    },
+    {
+      "criterion_ref": "degraded-invariant matrix carried into verifiable acceptance, not narrative only",
+      "result": "unmet",
+      "note": "Advisory A3 (non-blocking). CODEX_ADAPTER s3 caveats carried honestly in risk row 2 + T012e narrative, but no acceptance criterion makes the residual (unified_exec evasion; post-Bash diff guard as load-bearing Codex backstop) a machine-checkable evidence assertion."
+    },
+    {
+      "criterion_ref": "generator surface naming consistent (dmc verb vs /dmc-init-deep)",
+      "result": "na",
+      "note": "Advisory A4 (non-blocking). Plan binds a bin/dmc verb + bin/lib/dmc-agents-md.py; HOST_REPO_ADAPTATION_POLICY.md references /dmc-init-deep. Layering (skill -> verb), not a contradiction; add a one-line note that they are the same generator."
+    }
+  ],
+  "blockers": [
+    {
+      "id": "B1-taskid-renumber",
+      "statement": "Execution tasks DMC-T012a-e collide in prefix with master plan s7's DMC-T012 (worker-result-check hardening, an unrelated task at dmc-v1-runtime-upgrade.md line 309) and do not match the sub-plan's own master task ID (master s6.5's task is DMC-T011b, line 288). Handoff rev 4 carry-forward #8 records this renumber is to be applied 'at the M6/M6.5 critic passes,' and the M6 plan already set the binding precedent by renumbering its tasks to DMC-T011.1-.4 (dmc-v1-m6-hook-hardening.md lines 16, 298) to avoid exactly this collision. The M6.5 plan has not applied the equivalent renumber, so it is inconsistent with the precedent this critic lane must enforce. FIX: renumber DMC-T012a-e -> DMC-T011b.1 .. DMC-T011b.5 (sub-numbering under master s6.5's task DMC-T011b), following the M6 precedent; verified clean (grep confirms DMC-T011b.N is currently unused anywhere in .harness/ or docs/). Update handoff carry-forward #8 to reflect the applied rename. This removes the T012 collision and aligns the sub-plan to its own master task ID.",
+      "evidence_ref": ".harness/plans/dmc-v1-m6.5-codex-adapter.md Execution Tasks; .harness/plans/dmc-v1-runtime-upgrade.md L288,L309; .harness/plans/dmc-v1-m6-hook-hardening.md L16,L298; handoff carry-forward #8"
+    },
+    {
+      "id": "B2-shim-failclosed-negcontrols",
+      "statement": "Acceptance criterion 2 enumerates only well-formed happy-path fixtures (in-scope->allow, out-of-scope edit->deny, secret-path read->deny, out-of-scope post-Bash diff->BLOCKED, stop-with-unresolved-BLOCKED->block, suspended-run->no block). It specifies no behavior or fixture for degenerate/error inputs: unparseable or empty Codex event JSON; a missing or renamed tool_input field (field names are explicitly TBD-at-spike per CODEX_ADAPTER s2/s3); a Ring-0 verdict CLI that exits non-zero/unexpectedly or is absent; an absent .harness/mode file (CLAUDE.md: absent => active). 'Fail-closed in active mode' is asserted in prose only. Because the cross-adapter verdict-parity guard binds only inputs present in both fixture suites, and every enumerated fixture is well-formed, parity does NOT cover fail-closed behavior - a Codex shim could fail-open on malformed input (or a wrong field name) and still satisfy every listed criterion. For an enforcement-class shim this is the load-bearing gap. FIX: add a per-bound-event negative-control fixture set proving fail-closed on each of (a) unparseable/empty event JSON, (b) missing/renamed expected field, (c) Ring-0 CLI non-zero/unexpected exit or absent binary, (d) absent .harness/mode; each asserting a deny/block envelope in active mode, and extend the cross-adapter parity check to include these malformed inputs.",
+      "evidence_ref": ".harness/plans/dmc-v1-m6.5-codex-adapter.md Acceptance Criteria (criterion 2) + Proposed Changes (shim change); docs/CODEX_ADAPTER.md s2 (tool-input key names TBD at spike), s3 (field-name shim pending)"
+    },
+    {
+      "id": "B3-secret-redaction-eventjson",
+      "statement": "Codex event JSON on stdin carries tool_input, which for edit tools can include file paths AND file content and for Bash the full command string - any of which may contain secret material (keys, tokens, .env content). The plan routes this JSON through the shims and (CODEX_ADAPTER s2) into the PostToolUse evidence/receipt ledger, but no acceptance criterion or negative control requires that raw secret-bearing tool_input is never persisted or logged. This violates CLAUDE.md's non-negotiable secret-protection rule as applied to the new enforcement-adjacent surface. The Claude hooks already implement redaction (confirmed: .claude/hooks/evidence-log.sh and pre-tool-guard.sh carry redaction/Authorization handling); the Codex side is not bound to that standard, and verdict-parity does not cover it because logging is not a verdict. FIX: add an acceptance criterion + negative control that feeds an edit/Bash event whose tool_input contains a secret-looking payload and asserts that no raw secret content appears in any evidence/receipt/log output from the Codex shim; bind the Codex shims explicitly to the existing redaction contract.",
+      "evidence_ref": ".harness/plans/dmc-v1-m6.5-codex-adapter.md Acceptance Criteria; docs/CODEX_ADAPTER.md s2; .claude/hooks/evidence-log.sh, .claude/hooks/pre-tool-guard.sh; CLAUDE.md Secret Protection"
+    },
+    {
+      "id": "B4-spike-constraint-vs-firing-proof",
+      "statement": "T012a's success requires empirically re-proving that 'hook events fire' and 'deny/allow/block envelopes [are] honored,' but the plan constrains the spike to run 'offline-where-possible ... must not require or read any API key ... no DMC-initiated network call' (Out of Scope). Proving a PreToolUse deny/allow/block envelope is honored at runtime requires the Codex agent to attempt a tool call - i.e., a live model turn requiring CODEX_API_KEY + network - which the constraint forbids. As written, the two most load-bearing airtightness facts may be unprovable under the spike's own rules, which would silently force the documented-manual fallback for exactly the facts the shims depend on, without the plan stating that outcome. An implementer cannot tell whether to (i) find a turn-free proof method, (ii) request a human-approved scoped live turn, or (iii) treat these facts as fallback-triggering by default; and the plan maps only one refutation case (PostToolUse/unified_exec, Assumption row 3) rather than tabulating, per load-bearing s1 fact, whether refutation-or-unprovable-offline triggers a FULL milestone stop vs a scoped degradation. FIX: resolve the contradiction explicitly - specify a turn-free method to prove hook firing/envelope honoring (making 'does such a method exist' an explicit spike sub-question), OR carve a narrowly-scoped, human-approved, secret-free local turn as a stated exception, OR declare that if firing/envelope cannot be proven without a live turn the milestone takes the documented-manual + pre-commit/CI fallback by default; and add a per-fact table mapping each load-bearing s1 fact to full-stop vs scoped-degradation on refutation/unprovability.",
+      "evidence_ref": ".harness/plans/dmc-v1-m6.5-codex-adapter.md Proposed Changes (SPIKE FIRST) + Out of Scope + Assumptions row 3 + T012a Notes; docs/CODEX_ADAPTER.md s1 (hook enforcement honesty) + Open questions"
+    }
+  ],
+  "advisory": true,
+  "context_provenance": "fresh"
+}
