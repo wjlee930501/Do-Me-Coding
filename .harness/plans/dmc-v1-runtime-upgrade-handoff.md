@@ -1,23 +1,30 @@
 # HANDOFF — dmc-v1-runtime-upgrade (session → session)
 
-Date: 2026-07-06 (rev 4 — M6 protected-surface hardening shipped + CLOSED) · Branch: `claude/dmc-v1-runtime-upgrade-c5uch1`
-Session end state: `HEAD` == `origin/claude/dmc-v1-runtime-upgrade-c5uch1` == `d721487` (pushed, fast-forward, no
-force). M6 CLOSED with **both** closure proofs — (1) live `bin/dmc selftest --all` exit 0 at 802/3/3 EXACT
-(originals alone still reproduce the pinned baseline), and (2) single-revert byte-identical restore (`git revert
-d721487` in a scratch worktree restores `.claude/hooks/**` + `.claude/settings.json` byte-for-byte to pre-M6
-`2999870` and removes the M6 additions). Worktree clean except local-only run archives/auto-logs
-(`.harness/runs/**`, `.harness/evidence/dmc-run-*.md`, untracked by policy); `main` untouched
-(`main` == `origin/main` == `d0edc48`).
+Date: 2026-07-07 (rev 5 — M6.5 Codex adapter shipped + CLOSED under the Option A reduced scope) ·
+Branch: `claude/dmc-v1-runtime-upgrade-c5uch1`
+Session end state: milestone `HEAD` == `origin` == `8a97e43` (pushed, fast-forward, no force; this
+handoff lands as the following docs commit). M6.5 CLOSED: live post-commit `bin/dmc selftest --all`
+on the real committed tree `8a97e43` exits 0 at legacy `tools=49 / PASS=802 / FAIL=3 / N/A=3` ==
+pinned baseline EXACTLY, all new sections 0 FAIL (skills-mirror 7 · agents-md 24 · m65-suite 119 =
+65+19+35), `SELFTEST-ALL RESULT: PASS`. Verification chain: critic r1 REJECT (4 blockers) → Rev 2 →
+r2 APPROVE → human gate → spike B4 STOP → human gate Option A → build → critic r3 build sign-off
+APPROVE → independent verifier ACCEPT (own committed-replica `--all` 802/3/3 EXACT). No M6-style
+revert proof was run: M6.5 is additive (the only pre-existing file edited is `bin/dmc`, +50/−1) and
+is NOT a protected surface. No active run (pointer cleared; all four run dirs archived SUSPENDED).
+Worktree clean except local-only run archives/auto-logs (untracked by policy); `main` untouched
+(`main` == `origin/main` == `d0edc48`). Prior state (rev 4): M6 CLOSED at `d721487` with both M6
+closure proofs (live `--all` 802/3/3; single-revert restore to pre-M6 `2999870`).
 
 ## Resume quickstart (local)
 
 ```bash
 git fetch origin claude/dmc-v1-runtime-upgrade-c5uch1
 git checkout claude/dmc-v1-runtime-upgrade-c5uch1
-bin/dmc selftest        # expect 9 sections, 75 PASS / 0 FAIL, exit 0 (fast default)
+bin/dmc selftest        # expect 9 sections, 75 PASS / 0 FAIL, exit 0 (fast default — unchanged by M6.5)
 bin/dmc selftest --all  # ~10 min; expect legacy 802/3/3 EXACT + run-core 168/0 + loop-core 78/0
                         # + roles 19/0 + verdict-validate 16/0 + verdict-gate 9/0 + delegation 29/0
-                        # + linkcheck 17/0 + m6-core 99/0 + m6-suite 104/0 + mirror (55-file)
+                        # + linkcheck 17/0 + m6-core 99/0 + m6-suite 104/0 + skills-mirror 7/0
+                        # + agents-md 24/0 + m65-suite 119/0 (65+19+35) + mirror (55-file)
                         # + rollback PASS + SELFTEST-ALL PASS + exit 0
 bin/dmc help            # M2–M6 command surface (orient/landmarks/depsurface/radius · validate ·
                         # legacy/mirror-check/rollback-test · run · roles/verdict/delegation/linkcheck ·
@@ -35,13 +42,17 @@ bin/dmc help            # M2–M6 command surface (orient/landmarks/depsurface/r
 | M5 orchestration registry | DONE, pushed | `9ec5055` | orchestration/roles.json, 6 contract-ized agents (+release-auditor), verdict/delegation validators + verdict-gate, 3 skills bound to `dmc run start`, linkcheck, 3 docs additively pointer-ized (17 gated substrings preserved) |
 | v0.5 direction re-alignment (run dmc-run-0e29d09bf3b5) | DONE, pushed | `1b276f3` | direction plan APPROVED+executed: master plan **Rev 3** (M6.5 Codex Adapter inserted; order M6→M6.5→M8→M7→M9→M10; M6 gains post-Bash diff guard + semantic verify cross-checks; Deferred register: worker-bridge expansion, P5 benchmark), docs/CODEX_ADAPTER.md, DRAFT plans dmc-v1-m6-hook-hardening + dmc-v1-m6.5-codex-adapter |
 | **M6 hook/guard hardening (PROTECTED SURFACE)** | **DONE, pushed** (critic r1 REJECT→r5 APPROVE · independent verifier ACCEPT · committed-replica --all 802/3/3) | `192dce6` (T011.1 fixtures) + `d721487` (T011.2–.4) | hooks→shims over Ring-0; 4 new bin/lib verdict CLIs (bash-radius L0+L1/postbash-diff/verify-crosscheck/stop-gate); Rev 3 Option A run.json-anchored tamper detection; verdict-gate REJECT arming floor; blocked.json sidecar; 5 M6 suites (m6-core 99/0 · m6-suite 104/0); adapters/claude-code/README |
-| M6.5–M10 | **NOT STARTED, NOT APPROVED** (M6.5 has an authored DRAFT plan; its critic pass was deferred until M6 shipped — now unblocked) | — | master plan §Execution Tasks (Rev 3): M6.5→M8→M7→M9→M10 |
+| **M6.5 Codex adapter (Option A advisory)** | **DONE + CLOSED, pushed** (critic r1 REJECT→r2 APPROVE · spike B4 STOP→Option A human gate · r3 build sign-off APPROVE · independent verifier ACCEPT · live `--all` 802/3/3 + all sections 0 FAIL) | `40ad75a` (spike phase) + `8a97e43` (build, 25 files +3783/−5) | spike findings + STOP/Option A record; adapters/codex ADVISORY shims (4 events + common lib); .codex templates; .agents/skills 5 workflow-skill mirrors + dmc-skills-mirror.py; dmc-agents-md.py + agents-md.schema.md (= /dmc-init-deep generator); bin/dmc verbs agents-md/skills-mirror + selftest sections agents-md/skills-mirror/m65-suite |
+| M8, M7, M9, M10 | **NOT STARTED, NOT APPROVED** | — | master plan §Execution Tasks (Rev 3) remaining order: M8→M7→M9→M10 |
 
-Approval state (master plan `## Approval Status`): **APPROVED M2+M3+M4+M5 (M1 retroactively ratified)** —
-approver wjlee; M6 approved via its own milestone plan (initial gate + mid-run Rev 3 amendment gate).
-**M6.5+ remain UNAPPROVED**; each needs its own milestone plan → critic → human gate
-(M4/M5 pattern: milestone-scoped plan file, `dmc validate plan` VALID, critic APPROVE, approval record in both plans).
-No active run: `.harness/runs/current-*` cleared after M6 closure; per-milestone run archives are local-only.
+Approval state (master plan `## Approval Status`, updated at `40ad75a`): **APPROVED
+M2+M3+M4+M5 (M1 retroactively ratified) · M6 and M6.5 each via their own milestone-scoped plans** —
+approver wjlee. M6.5 carried TWO recorded human gates: the Rev 2 milestone approval (critic
+r1 REJECT→r2 APPROVE chain) and the spike-STOP **Option A** reduced-scope decision (recorded in
+`.harness/evidence/dmc-v1-m6.5-spike-stop.md` §Human gate decision). **M8/M7/M9/M10 remain
+UNAPPROVED**; each needs its own milestone plan → critic → human gate
+(pattern: milestone-scoped plan file, `dmc validate plan` VALID, critic APPROVE, approval record in both plans).
+No active run: `.harness/runs/current-*` cleared after M6.5 closure; per-milestone run archives are local-only.
 **M6 wired Ring-0 into the live enforcement floor** — the six hooks are now shims over `bin/dmc`
 verdict CLIs; scope/stop/secret enforcement is no longer advisory. `.claude/settings.json` was NOT
 changed (all five hooks were already registered); new hook registrations would need a session reload.
@@ -77,18 +88,50 @@ closure condition. Single-owner rule for `bin/dmc` (one sub-task registers all v
 time for: milestone approval, staging, commit, push. Evidence/verification per milestone; verification reports must
 pass `dmc validate verification`.
 
-## Next step (critic pass + human gate first)
+## M6.5 closure evidence (compact)
 
-**M6.5 — Codex Adapter** (DRAFT plan `.harness/plans/dmc-v1-m6.5-codex-adapter.md`, schema-VALID; NOT a
-protected surface). M6 shipped, so the shim interfaces are now frozen — the deferred critic pass is UNBLOCKED.
-Next action: critic pass on the M6.5 plan → human gate → implement. Its Ring-0 verdict-CLI surface to bind
-onto (frozen at M6 closure `d721487`): `dmc bash-radius`, `dmc postbash-diff`, `dmc verify-crosscheck`,
-`dmc stop-gate quick`, `dmc run block|blocked-status|unblock`, plus the existing `dmc verdict gate`,
-`dmc run start` (arming floor), and the scope-lock/adjudicate path. Spike-first —
-re-prove the web-verified 2026-07-06 Codex surface on a local CLI before any build (Codex hooks are officially
-"a guardrail, not a complete enforcement boundary", so the post-Bash diff guard + release gate stay load-bearing);
-installer/`--host` generation stays in M8. Design authority: `docs/CODEX_ADAPTER.md`. Execution order (Rev 3):
-M6 → M6.5 → M8 → M7 → M9 → M10.
+Full reports: `.harness/verification/dmc-v1-m6.5-codex-adapter.md` (milestone, VALID + crosscheck
+ACCEPT) + `.harness/verification/dmc-run-8fef31d58eee.md` (spike-phase run, ACCEPT) +
+`.harness/evidence/dmc-v1-m6.5-build-20260707.md` (build evidence).
+
+- **Two runs**: `dmc-run-8fef31d58eee` (spike, T011b.1) + `dmc-run-fe05b840460e` (build, 23-entry
+  scope.lock, T011b.2–.5); both archived SUSPENDED; pointer cleared at closure.
+- **Spike outcome (T011b.1, codex-cli 0.132.0, NO live turn/API key)**: hook firing + decision-envelope
+  honoring UNPROVABLE-TURN-FREE (no headless hook surface) ⇒ B4 STOP artifact
+  `.harness/evidence/dmc-v1-m6.5-spike-stop.md` → human gate chose **Option A**: ship ADVISORY shims;
+  the Codex enforcement boundary is the pre-commit/CI gate; the M6 post-Bash diff guard is the
+  PRIMARY Codex safety net; NO enforcement-parity claim. CONFIRMED turn-free: skills discovery,
+  trusted-project `.codex` config merge, sandbox modes, AGENTS.md discovery + 32 KiB cap;
+  hooks/multi_agent/unified_exec stable+on ([SPIKE-CORRECTED] in CODEX_ADAPTER §1).
+- **Critic chain (advisory only, C11)** — `.harness/evidence/dmc-v1-m6.5-critic-verdict-r{1,2,3-buildsignoff}.json`:
+  r1 REJECT (B1 task-ID renumber → DMC-T011b.1–.5 · B2 fail-closed negative controls · B3 secret-redaction
+  binding · B4 turn-free-proof resolution; plan_hash `9d8562bd…`) → Rev 2 → r2 APPROVE (`b02b1554…`) →
+  approval record (run.json binds post-append `8a74a525…`, carry-forward-9 pattern) → r3 build
+  sign-off APPROVE (0 blockers).
+- **Independent verifier ACCEPT** — own probes + own committed-replica `--all` at 802/3/3 EXACT;
+  0 blocking / 2 advisory (static-floor maintenance coupling; model-name scan framing).
+- **Disclosed build deviations (all honest, none blocking)**: active-mode fail-closed divergence vs
+  Claude fail-open on malformed input (B2 mandate; proven by parity fixtures D11–D15); B2(c) N/A for
+  in-process Read/Grep/Glob secret guard; `.codex/hooks.json` wiring shape unproven at 0.132.0
+  (documented advisory); MIRRORED_SKILLS = the 5 plan-named workflow skills (worker-bridge skills
+  excluded by design); `tool_input` field names TBD (superset read, renamed field ⇒ fail-closed).
+- **Live-fire enforcement events THIS session**: scope-guard DENIED the orchestrator's own
+  out-of-project memory write mid-run; bash-radius L1 denied `>/dev/null`- and `tee`-to-scratch
+  write idioms and `cp`-to-scratch during replica builds (tar-pipe used instead); the stop gate HELD
+  a session stop pre-verification (suspend = the designed wait-state); verify-crosscheck REFUSED a
+  prose-formatted Run ID + undeclared dirty paths until the report/commit were made honest.
+
+## Next step (M8 — installer `--host`, per Rev 3 order M8→M7→M9→M10)
+
+**M8 needs its own milestone plan → critic → human gate** (M4/M5/M6.5 pattern). It ships what M6.5
+built: installer `--host codex|claude|both` generation of the `.codex`/`.agents` wiring + the
+host-AGENTS.md generator integration. Pointers: surface the Codex `/hooks` content-hash trust step,
+NEVER `--dangerously-bypass-hook-trust`; the `.codex/hooks.json` template shape is UNPROVEN at
+0.132.0 (spike could not fire hooks turn-free) — the installer must present it as advisory wiring;
+Option B (a one-time, human-run, consented live-turn verification under a NEW gate + own scope)
+remains available to upgrade the shims from advisory to verified-enforcing. M9's release/CI gate is
+now doubly load-bearing: under Option A it IS the Codex enforcement boundary (currently
+documented-only) — build it real there.
 
 ## Carry-forwards (do not lose)
 
@@ -118,7 +161,20 @@ M6 → M6.5 → M8 → M7 → M9 → M10.
    current file hashes `a85c12db…` because the approval record was appended after — a naive re-hash "fails" by
    design; the chain (R2 → approval citing 277ee35d → run.json binding a85c12db) is documented in
    `.harness/verification/dmc-run-0e29d09bf3b5.md`.
-10. **M6 residuals (disclosed, verifier-confirmed real, NONE blocking; verifier ACCEPT flagged 4 as advisory):**
+10. **M6.5 residuals/advisories (disclosed, NONE blocking):** (a) critic-r3 advisory — the Codex
+    PostToolUse evidence append truncates an Edit/Write `file_path` to 500 chars WITHOUT `redact()`
+    (exact parity with the accepted Claude baseline `evidence-log.sh:73`); the A5 wording in the
+    shim docstrings slightly over-claims the path-only deny's coverage — tighten wording and/or
+    redact `file_path` + add a token-in-Edit-path fixture in a later hygiene pass; (b) verifier
+    advisory — `_FLOORS` in `dmc_codex_common.py` is a faithful REPRODUCTION of the Claude shims'
+    static floors, guarded against drift only by the D-series parity fixtures (maintenance
+    coupling: a change to `pre-tool-guard.sh` floors must be mirrored or D-series fails); (c) the
+    Codex enforcement boundary under Option A is the pre-commit/CI gate, which is currently
+    DOCUMENTED-ONLY — M9 must make it real; (d) **Option B** (one-time, human-run, consented
+    live-turn verification, NEW gate + own scope) remains available to upgrade the shims to
+    verified-enforcing; (e) `.codex/hooks.json` wiring shape + per-tool `tool_input` field names
+    remain UNPROVEN at codex-cli 0.132.0 — re-probe at the Option B turn or a newer CLI.
+11. **M6 residuals (disclosed, verifier-confirmed real, NONE blocking; verifier ACCEPT flagged 4 as advisory):**
     (a) a broad `Grep` with no path can still read secret-file CONTENTS in a non-secret dir (pre-M6 residual,
     unchanged by M6); (b) run-id-armed-without-lock window — the stop gate arms on current-run-id but the write
     guards need the compiled `scope.lock`, so edits between `run start` and scope-compile fall to the legacy path;
@@ -141,3 +197,8 @@ M6 → M6.5 → M8 → M7 → M9 → M10.
 9. `192dce6` — M6 T011.1 pre-M6 hook-tree byte fixtures + rollback test (12 files)
 10. `d721487` — M6 T011.2–.4: hooks→shims, 4 Ring-0 verdict CLIs, Rev 3 Option A tamper detection,
     5 suites, evidence + verification (28 files, +5243/−107)
+11. `517bac0` — handoff rev 4 + session log (M6 closed; next M6.5 critic pass)
+12. `40ad75a` — M6.5 spike phase: plan Rev 2 + approval (critic r1→r2), Codex CLI spike, B4 STOP →
+    Option A decision, run-8fef31d58eee verification (9 files, +853/−72)
+13. `8a97e43` — M6.5 build: advisory Codex shims, skills mirrors, AGENTS.md generator, bin/dmc
+    verbs/sections, evidence + verification + r3 sign-off (25 files, +3783/−5)
