@@ -20,11 +20,17 @@ on: [push, workflow_dispatch]
 
 jobs:
   dmc:
-    runs-on: ubuntu-latest
+    # The legacy self-test baseline (802/3/3 EXACT) is pinned on macOS: it reproduces
+    # byte-for-byte on the macOS dev environment but NOT on ubuntu, where 3 frozen
+    # mirror-pinned legacy verify tools (v0.3.1, v0.2.6, v0.3.9) fail for linux-vs-macOS
+    # portability reasons this milestone cannot edit (the tools are byte-frozen). CI runs
+    # on macos-latest to reproduce the baseline environment faithfully; ubuntu-latest
+    # portability for the 3 frozen legacy tools is an M10 hardening candidate.
+    runs-on: macos-latest
     timeout-minutes: 25
     # The DMC self-test suites assert a bytecode-litter-free tree (the m6 rollback byte
     # compare, the m8 providers-no-pycache check, --emit-manifest byte-equality, and the
-    # porcelain PRE/POST sandwiches below): ubuntu-latest's python writes __pycache__/*.pyc
+    # porcelain PRE/POST sandwiches below): a bare python invocation writes __pycache__/*.pyc
     # on import for any module the tools don't already guard with sys.dont_write_bytecode.
     # Setting PYTHONDONTWRITEBYTECODE for the whole job enforces the no-.pyc invariant the
     # tools already assume, with zero logic change. However, the verify tools' explicit
