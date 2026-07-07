@@ -19,7 +19,10 @@ BASHRADIUSLIB="$HERE/lib/dmc-bash-radius.py"
 POSTBASHLIB="$HERE/lib/dmc-postbash-diff.py"
 CROSSCHECKLIB="$HERE/lib/dmc-verify-crosscheck.py"
 STOPGATELIB="$HERE/lib/dmc-stop-gate.py"
+AGENTSMDLIB="$HERE/lib/dmc-agents-md.py"
+SKILLSMIRRORLIB="$HERE/lib/dmc-skills-mirror.py"
 M6SUITEDIR="$HERE/../tests/fixtures/m6"
+M65SUITEDIR="$HERE/../tests/fixtures/m6.5"
 
 usage() {
   cat <<'EOF'
@@ -66,6 +69,18 @@ commands (M5 orchestration):
   linkcheck   [--root DIR]                    no skill/agent/doc-banner references a nonexistent
                                               dmc-verb / artifact-path / role (exit 0 clean / 3 dangling)
 
+commands (M6.5 Codex adapter):
+  agents-md   [--root DIR] [--out FILE | --stdout] | --validate FILE   host AGENTS.md generator
+                                              (docs/CODEX_ADAPTER.md §5 content contract; every
+                                              non-derivable fact emitted literally as `Unknown`;
+                                              NEVER overwrites an existing AGENTS.md; warns when
+                                              output exceeds the 32 KiB Codex size budget, never
+                                              truncates) + `--validate` (0 VALID / 3 REFUSED).
+                                              This verb IS the /dmc-init-deep generator.
+  skills-mirror [--self-test]                 .agents/skills <-> .claude/skills mirror/drift check
+                                              (default: one-shot report; --self-test: hermetic
+                                              negative controls) -> 0 clean / 1 drift
+
 commands (M3):
   validate    plan|run|verification <path>   instance validator (ACCEPT => 0, REFUSED => 3)
   validate    schemas-mirror                 mirrors == canonical roots modulo generated header
@@ -94,10 +109,17 @@ commands (M3):
                                               adversarial negative controls, compatibility matrix,
                                               ultrawork stop-block E2E, pre-commit restore proof.
                                               Named-only; also under --all; NOT in the no-arg default.
+  selftest    agents-md|skills-mirror         M6.5 Codex-adapter module self-tests: host AGENTS.md
+                                              generator + validator (agents-md); .agents/.claude
+                                              skills mirror/drift check (skills-mirror). Named-only;
+                                              also under --all; NOT in the no-arg default.
+  selftest    m65-suite                       M6.5 Codex-adapter suites (tests/fixtures/m6.5):
+                                              codex shims, skills mirror, host AGENTS.md generator.
+                                              Named-only; also under --all; NOT in the no-arg default.
   selftest    --all                          above + all 49 legacy tools (bin/lib) vs the
                                               pinned baseline + rollback-test + run-core/loop-core
                                               + the four M5 orchestration sections + m6-core + m6-suite
-                                              (slow: ~10+ min)
+                                              + skills-mirror + agents-md + m65-suite (slow: ~10+ min)
   help
 
 Artifacts conform to .harness/schemas/{orientation,landmarks,depsurface,radius}.schema.md.
@@ -119,6 +141,21 @@ run_m6_suite() {
       bash "$M6SUITEDIR/$s" || rc=1
     else
       echo "dmc selftest m6-suite: missing suite script: $s" >&2; rc=1
+    fi
+  done
+  return "$rc"
+}
+
+# M6.5 Codex-adapter suites (tests/fixtures/m6.5). Each is a self-contained bash
+# script (mktemp sandboxes; the live repo is left byte-identical). Returns 0 iff
+# every suite passes.
+run_m65_suite() {
+  local rc=0 s
+  for s in test-codex-shims.sh test-skills-mirror.sh test-agents-md.sh; do
+    if [ -f "$M65SUITEDIR/$s" ]; then
+      bash "$M65SUITEDIR/$s" || rc=1
+    else
+      echo "dmc selftest m65-suite: missing suite script: $s" >&2; rc=1
     fi
   done
   return "$rc"
@@ -195,6 +232,12 @@ case "$cmd" in
     [ "${1:-}" = "quick" ] && shift   # `dmc stop-gate quick ...` == `dmc stop-gate ...`
     exec python3 "$STOPGATELIB" "$@"
     ;;
+  agents-md)
+    exec python3 "$AGENTSMDLIB" "$@"
+    ;;
+  skills-mirror)
+    exec python3 "$SKILLSMIRRORLIB" "$@"
+    ;;
   roles)
     exec python3 "$ROLESLIB" "$@"
     ;;
@@ -255,6 +298,9 @@ case "$cmd" in
       python3 "$CROSSCHECKLIB" --self-test || rc=1
       python3 "$STOPGATELIB" --self-test || rc=1
       run_m6_suite || rc=1
+      python3 "$SKILLSMIRRORLIB" --self-test || rc=1
+      python3 "$AGENTSMDLIB" --self-test || rc=1
+      run_m65_suite || rc=1
       exit "$rc"
     fi
     [ $# -eq 0 ] && set -- orient landmarks depsurface radius \
@@ -281,6 +327,9 @@ case "$cmd" in
                                 python3 "$CROSSCHECKLIB" --self-test || rc=1
                                 python3 "$STOPGATELIB" --self-test || rc=1 ;;
         m6-suite)               run_m6_suite || rc=1 ;;
+        skills-mirror)          python3 "$SKILLSMIRRORLIB" --self-test || rc=1 ;;
+        agents-md)              python3 "$AGENTSMDLIB" --self-test || rc=1 ;;
+        m65-suite)              run_m65_suite || rc=1 ;;
         *) echo "dmc selftest: unknown target: $t" >&2; exit 2 ;;
       esac
     done

@@ -1,0 +1,59 @@
+{
+  "schema": "dmc.critic-verdict.v1",
+  "work_id": "dmc-v1-m6.5-codex-adapter",
+  "plan_hash": "8a74a525d735477050d2cf800337f6c31d95683a48c564b03542eb04673b7cd2",
+  "repo_hash": "40ad75aad1e26adb3e116d216555ef16006bafd0",
+  "target_ref": "working-tree build under dmc-run-fe05b840460e at HEAD 40ad75a (23-file scope.lock; DMC-T011b.2-.5 advisory Codex adapter)",
+  "verdict": "APPROVE",
+  "lenses": [
+    "security",
+    "scope",
+    "correctness",
+    "migration"
+  ],
+  "criteria_checked": [
+    {
+      "criterion_ref": "plan-hash + repo-hash + fresh provenance",
+      "result": "met",
+      "note": "Re-hashed plan: shasum -a 256 = 8a74a525..7b7cd2 (post-approval-append bytes) matches; HEAD = 40ad75a; scope.lock.json binds plan_hash 8a74a525.. + repo_hash. I did not author the build (fresh)."
+    },
+    {
+      "criterion_ref": "lens 1 - adapters translate, do not decide",
+      "result": "met",
+      "note": "All DYNAMIC verdicts come from Ring-0 CLIs (bash-radius, dmc-scope-lock --adjudicate, postbash-diff, stop-gate) via subprocess in dmc_codex_common.py; the only in-adapter logic is a faithful reproduction of the Claude shims' STATIC floors (classify_bash_floors mirrors pre-tool-guard.sh; is_secret_path mirrors secret-guard.sh; out-of-project/run-state denies mirror scope-guard.sh) - design-sanctioned by CODEX_ADAPTER s2. Drift of that reproduced copy is caught by the D1-D9 parity fixtures which run the LIVE .claude/hooks/*.sh and assert equal decisions. No new enforcement authority invented."
+    },
+    {
+      "criterion_ref": "lens 2 - no enforcement-parity claim on Codex (Option A)",
+      "result": "met",
+      "note": "Advisory status stated in dmc_codex_common.py docstring, every shim docstring, adapters/codex/README.md, .codex/config.toml header, and the verification report; pre-commit/CI gate named as the real Codex boundary and the post-Bash diff guard as the primary safety net. Shims still EMIT deny/block (not neutered) - only the enforcement CLAIM is withheld, consistent with the spike STOP -> human-gate Option A record."
+    },
+    {
+      "criterion_ref": "lens 3 - fixtures assert the mandate, not cosmetic",
+      "result": "met",
+      "note": "Audited test-codex-shims.sh source directly: D-series is a genuine cross-adapter comparison (claude_run REAL hook vs codex_run shim on identical JSON, assert_eq); B-series fail-closed controls feed empty/garbage/renamed-field/absent-CLI and assert deny/block; C1 runs a real secret-laden command and greps the evidence log for raw tokens (none), C3 asserts dc.redact() byte-matches the actual evidence-log.sh redact(); E-series proves off/passive floors; repo-untouched porcelain guard included. Substantive. Re-execution is the Verifier's lane (recorder re-ran 65/0; I did not re-run under the armed/SUSPENDED guard to avoid perturbing it, and inspected the assertion logic instead)."
+    },
+    {
+      "criterion_ref": "lens 4 - scope vs 23-file lock + protected surfaces + bin/dmc single-owner",
+      "result": "met",
+      "note": "scope.lock.json = 23 entries; every built file is in the lock; bin/dmc is the SOLE enforcement-class edit (grant edit) and is additive (git numstat 50+/1-, the one removal is a --all help-text reword, no Ring-0 verdict logic changed); bin/lib/dmc-{agents-md,skills-mirror}.py are landmark-authorized creates; skills-mirror ships module-only (no bin/dmc edit) with agents-md task owning bin/dmc (A1). No .claude/** or other protected-surface edit; the .claude/hooks redaction contract is consumed read-only. The one out-of-lock modified tracked file (.harness/verification/dmc-run-8fef31d58eee.md) is a benign cosmetic reformat (bare run-id onto its own line so verify-crosscheck parses it), pre-existing-dirty, disclosed, and covered by the crosscheck .harness/{evidence,verification,runs}/ exemption (crosscheck ACCEPT)."
+    },
+    {
+      "criterion_ref": "lens 5 - five disclosed deviations honest; D11-D15 adjudication",
+      "result": "met",
+      "note": "ADJUDICATION of (i): plan Rev 2 B2 carried two latently-conflicting clauses - 'fail-closed deny on malformed (a)-(d)' AND 'byte-comparable with the Claude shim on malformed inputs'. Because the Claude shims themselves fail OPEN on malformed input, the clauses conflict; the build correctly prioritized the FAIL-CLOSED mandate (the entire reason blocker B2 existed) over the byte-parity clause, and DISCLOSED + PROVED the divergence via fixtures D11-D15 (empirically claude=allow, codex=deny). Failing closed is the safe direction; passive/off/unarmed both stand down (D10) so no session bricks. This HONORS B2 - the parity clause rightly yields. Deviations (ii) B2(c) N/A for in-process Read/Grep/Glob secret guard, (iii) hooks.json wiring shape unproven at 0.132.0 (shipped documented-advisory), (iv) MIRRORED_SKILLS = the 5 named workflow skills not a dmc-* glob (worker-bridge skills are a frozen separate surface; a glob would misreport), (v) tool_input field names TBD -> case-insensitive superset -> renamed field degrades fail-closed-in-active - all honest, correctly framed, none hides a gap."
+    },
+    {
+      "criterion_ref": "lens 6 - secret handling (no raw tool_input to logs; no secret-file reads)",
+      "result": "met",
+      "note": "The Bash command is passed through redact() BEFORE the evidence append (posttooluse append_evidence line 48), proven by C1 (no raw sk-/token=/password= in the log) + C3 (byte-parity vs evidence-log.sh redact()); the full raw event JSON (_raw) is never logged; secret-path reads are denied by path only (all modes) and is_secret_path/is_secret_glob operate on strings, never opening a file. No network/model/API call; no secret-file contents opened."
+    },
+    {
+      "criterion_ref": "A5-followup (NEW, non-blocking) Edit/Write path-to-evidence truncated-not-redacted",
+      "result": "unmet",
+      "note": "Advisory only. append_evidence writes an Edit/Write file_path truncated to 500 chars WITHOUT redact() (posttooluse line 51), and Edit/Write is not routed through the secret-path deny (only Read/Grep/Glob are), and is_secret_path matches secret FILE names (.env, *.pem, id_rsa) not an arbitrary path that merely embeds an sk-/token string. So a secret TOKEN literally embedded in an Edit/Write target path would reach the evidence log unredacted (within 500 chars), and no fixture covers this case. NOT a blocker: it is exact parity with the accepted Claude baseline (evidence-log.sh:73 truncates file_path without redact), file CONTENTS are never opened, CLAUDE.md sanctions logging filenames, and the high-risk command field IS redacted. The only imprecision is framing: the A5 resolution text in redact()/posttooluse docstrings implies the path-only deny covers all path-embedded secrets, when it covers secret-NAMED paths via Read/Grep/Glob, not an sk-token in an Edit/Write path. SUGGESTED FIX (post-approval): tighten that wording and/or run file_path through redact() too, and add a fixture for a token-in-Edit-path."
+    }
+  ],
+  "blockers": [],
+  "advisory": true,
+  "context_provenance": "fresh"
+}

@@ -1,0 +1,25 @@
+# DMC v1 — Codex host per-project config (ADVISORY wiring; see adapters/codex/README.md).
+#
+# ADVISORY STATUS (human gate Option A, 2026-07-07): at codex-cli 0.132.0 the M6.5 spike found that
+# whether Codex lifecycle hooks FIRE and whether their deny/allow/block ENVELOPES are HONORED are
+# UNPROVABLE turn-free (.harness/evidence/dmc-v1-m6.5-spike-{findings,stop}.md). The DMC Codex hook
+# shims wired via .codex/hooks.json are therefore ADVISORY, NOT an enforcement boundary. On a Codex
+# host the enforcement boundary is the pre-commit/CI gate, and the M6 post-Bash diff guard is the
+# PRIMARY safety net. No enforcement-parity with the Claude adapter is claimed.
+#
+# TRUST (spike-confirmed turn-free): a per-project <repo>/.codex/config.toml is merged ONLY for a
+# TRUSTED project — Codex records trust as `[projects."<abs-path>"] trust_level = "trusted"` in
+# $CODEX_HOME/config.toml. The per-project .codex/hooks.json is gated by a SEPARATE one-time
+# content-hash `/hooks` trust; a hook whose bytes change is skipped until re-trusted. DMC MUST NOT
+# use `--dangerously-bypass-hook-trust` — surface the trust step, never bypass it.
+
+# Sandbox + approvals. workspace-write keeps <root>/.git, <root>/.agents, <root>/.codex read-only to
+# the agent even in this mode (a helpful asymmetry, NOT load-bearing for DMC enforcement).
+sandbox_mode = "workspace-write"
+approval_policy = "on-request"
+
+# hooks + multi_agent are `stable` and enabled by DEFAULT at 0.132.0 (features list) — set here
+# explicitly for clarity, not because they are opt-in.
+[features]
+hooks = true
+multi_agent = true

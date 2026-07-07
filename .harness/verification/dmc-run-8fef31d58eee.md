@@ -2,10 +2,11 @@
 
 ## Run ID
 
-dmc-run-8fef31d58eee (work-id dmc-v1-m6.5-codex-adapter; SPIKE-PHASE record — covers T011b.1
-only. The build tasks T011b.2–.5 run under a subsequent run with their own scope lock; the full
-milestone verification lands with T011b.5. Run parked SUSPENDED per the M6/direction-run closure
-pattern.)
+dmc-run-8fef31d58eee
+
+(work-id dmc-v1-m6.5-codex-adapter; SPIKE-PHASE record — covers T011b.1 only. The build tasks
+T011b.2–.5 run under a subsequent run with their own scope lock; the full milestone verification
+lands with T011b.5. Run parked SUSPENDED per the M6/direction-run closure pattern.)
 
 ## Plan
 
