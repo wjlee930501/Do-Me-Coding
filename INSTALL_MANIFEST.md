@@ -25,6 +25,7 @@ Dangling-reference rule); DMC-internal provenance references are deliberately no
 - `bin/lib/dmc-legacy-selftest.py`
 - `bin/lib/dmc-orchestration-linkcheck.py`
 - `bin/lib/dmc-postbash-diff.py`
+- `bin/lib/dmc-release-gate.py`
 - `bin/lib/dmc-repo-intel.py`
 - `bin/lib/dmc-roles.py`
 - `bin/lib/dmc-run-core-selftest.py`
@@ -199,6 +200,7 @@ Dangling-reference rule); DMC-internal provenance references are deliberately no
 - `orientation.schema.md`
 - `plan.schema.md`
 - `radius.schema.md`
+- `release-readiness.schema.md`
 - `run-metrics.schema.md`
 - `run.schema.md`
 - `scope-lock.schema.md`

@@ -23,10 +23,12 @@ STOPGATELIB="$HERE/lib/dmc-stop-gate.py"
 AGENTSMDLIB="$HERE/lib/dmc-agents-md.py"
 SKILLSMIRRORLIB="$HERE/lib/dmc-skills-mirror.py"
 DOCTORLIB="$HERE/lib/dmc-doctor.py"
+RGATELIB="$HERE/lib/dmc-release-gate.py"
 M6SUITEDIR="$HERE/../tests/fixtures/m6"
 M65SUITEDIR="$HERE/../tests/fixtures/m6.5"
 M8SUITEDIR="$HERE/../tests/fixtures/m8"
 M7SUITEDIR="$HERE/../tests/fixtures/m7"
+M9SUITEDIR="$HERE/../tests/fixtures/m9"
 
 usage() {
   cat <<'EOF'
@@ -122,6 +124,18 @@ commands (M7 worker/delegation hardening):
                                               P15 CLIs implementing .harness/schemas/worker-
                                               review.schema.md + apply-authorization.schema.md.
 
+commands (M9 release gate):
+  gate        release --full --run-id RID [--root DIR] [--base SHA] [--out FILE]   P18
+                                              full-tier composer: 9 sub-gates (diff-scope,
+                                              gate-checks, receipts, findings, goal, decision,
+                                              approvals, chain, landmark-flag) ->
+                                              .harness/runs/<rid>/release-readiness.json;
+                                              exit 0 PASS / 1 FAIL|PARTIAL / 2 usage / 3 REFUSED
+              release --quick [--run-id RID | --run DIR | --root DIR] [--report FILE]   alias
+                                              tier delegating to `dmc stop-gate quick`
+                                              (architecture-named front door; <2s budget);
+                                              same exit-code mapping as --full
+
 commands (M3):
   validate    plan|run|verification <path>   instance validator (ACCEPT => 0, REFUSED => 3)
   validate    schemas-mirror                 mirrors == canonical roots modulo generated header
@@ -175,11 +189,22 @@ commands (M3):
                                               empty-allowed), worker review->authorize->apply-check
                                               ->fidelity chain, delegation runtime records. Named-
                                               only; also under --all; NOT in the no-arg default.
+  selftest    release-gate                   M9 dmc-release-gate.py module self-test (P18
+                                              composer: per-sub-gate PASS/FAIL/MISSING/FLAG rows +
+                                              --quick alias + exit-code mapping). Named-only; also
+                                              under --all; NOT in the no-arg default.
+  selftest    m9-suite                       M9 release-gate suites (tests/fixtures/m9): green
+                                              path + seeded-gap rows (g1-g12) + the full v1 loop
+                                              E2E (orient->landmarks->plan->critic->run->execute
+                                              ->release gate->human-gate record) + latency rows.
+                                              Named-only; also under --all; NOT in the no-arg
+                                              default.
   selftest    --all                          above + all 49 legacy tools (bin/lib) vs the
                                               pinned baseline + rollback-test + run-core/loop-core
                                               + the four M5 orchestration sections + m6-core + m6-suite
                                               + skills-mirror + agents-md + m65-suite + doctor
-                                              + m8-suite + worker-check + m7-suite (slow: ~10+ min)
+                                              + m8-suite + worker-check + m7-suite + release-gate
+                                              + m9-suite (slow: ~10+ min)
   help
 
 Artifacts conform to .harness/schemas/{orientation,landmarks,depsurface,radius}.schema.md.
@@ -248,6 +273,22 @@ run_m7_suite() {
       bash "$M7SUITEDIR/$s" || rc=1
     else
       echo "dmc selftest m7-suite: missing suite script: $s" >&2; rc=1
+    fi
+  done
+  return "$rc"
+}
+
+# M9 release-gate suites (tests/fixtures/m9). Each is a self-contained bash script
+# (mktemp sandboxes; the live repo is left byte-identical). GUARDED: a missing script is
+# rc=1 (M7/M8 precedent — this section can be registered before T015.1 lands the scripts).
+# Returns 0 iff every suite passes.
+run_m9_suite() {
+  local rc=0 s
+  for s in test-release-gate.sh test-e2e-loop.sh; do
+    if [ -f "$M9SUITEDIR/$s" ]; then
+      bash "$M9SUITEDIR/$s" || rc=1
+    else
+      echo "dmc selftest m9-suite: missing suite script: $s" >&2; rc=1
     fi
   done
   return "$rc"
@@ -367,6 +408,19 @@ case "$cmd" in
         ;;
     esac
     ;;
+  gate)
+    sub=${1:-}
+    [ $# -gt 0 ] && shift
+    case "$sub" in
+      release)
+        exec python3 "$RGATELIB" release "$@"
+        ;;
+      *)
+        echo "dmc gate: unknown verb: ${sub:-<none>} (release)" >&2
+        exit 2
+        ;;
+    esac
+    ;;
   delegation)
     exec python3 "$DELEGLIB" "$@"
     ;;
@@ -414,6 +468,8 @@ case "$cmd" in
       run_m8_suite || rc=1
       python3 "$WORKERREVLIB" --self-test || rc=1
       run_m7_suite || rc=1
+      python3 "$RGATELIB" --self-test || rc=1
+      run_m9_suite || rc=1
       exit "$rc"
     fi
     [ $# -eq 0 ] && set -- orient landmarks depsurface radius \
@@ -447,6 +503,8 @@ case "$cmd" in
         m8-suite)               run_m8_suite || rc=1 ;;
         worker-check)           python3 "$WORKERREVLIB" --self-test || rc=1 ;;
         m7-suite)               run_m7_suite || rc=1 ;;
+        release-gate)           python3 "$RGATELIB" --self-test || rc=1 ;;
+        m9-suite)               run_m9_suite || rc=1 ;;
         *) echo "dmc selftest: unknown target: $t" >&2; exit 2 ;;
       esac
     done

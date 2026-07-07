@@ -1,0 +1,137 @@
+# dmc-ci — the DMC Option A enforcement boundary
+#
+# Context (adapters/codex/README.md "Status: ADVISORY, not an enforcement boundary
+# (human gate Option A)"; docs/CODEX_ADAPTER.md "Stop / completion gate" rows):
+# adapters/codex/** are ADVISORY Ring-1 shims only — whether Codex lifecycle hooks fire
+# and whether their deny/allow envelopes are honored is UNPROVABLE turn-free, so they must
+# never be relied on as a runtime enforcement boundary. THIS workflow is the real
+# enforcement boundary on Codex (and any non-Claude) hosts: it re-runs the full Ring-0
+# self-test surface, the model-name and forbidden-lexeme/network invariants, and the
+# Codex wiring presence check against a pristine checkout. No enforcement-parity with the
+# Claude Code adapter is claimed here or anywhere else in the repo (adapters/codex/README.md
+# "No enforcement-parity with the Claude adapter is claimed.") — this gate is deliberately
+# coarser (release/CI-time) than the Claude Ring-0/1 runtime guards.
+#
+# DMC v1 M9 (dmc-v1-m9-release-gate.md §Proposed Changes 5) — greenfield workflow, additive.
+
+name: dmc-ci
+
+on: [push, workflow_dispatch]
+
+jobs:
+  dmc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          # fetch-depth 0 is REQUIRED: the m6 restore/rollback fixtures (tests/fixtures/m6/
+          # test-restore.sh) `git show` the pinned pre-M6 commit
+          # 299987047e448cff6ea9ddaf8011d66992901003 to prove byte-identical restore —
+          # the default depth-1 shallow clone does not contain that object and the m6
+          # suite (run via `bin/dmc selftest --all`) would fail on a shallow checkout.
+          fetch-depth: 0
+
+      - name: Syntax floor (bash -n)
+        run: |
+          shopt -s nullglob
+          files=(
+            .claude/hooks/*.sh
+            adapters/codex/*.sh
+            bin/lib/*.sh
+            tests/fixtures/m6/*.sh
+            tests/fixtures/m6.5/*.sh
+            tests/fixtures/m7/*.sh
+            tests/fixtures/m8/*.sh
+            tests/fixtures/m9/*.sh
+          )
+          shopt -u nullglob
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "bash -n floor: no shell scripts matched any of the pinned globs" >&2
+            exit 1
+          fi
+          rc=0
+          for f in "${files[@]}"; do
+            if ! bash -n "$f"; then
+              echo "SYNTAX FAIL: $f" >&2
+              rc=1
+            fi
+          done
+          if [ "$rc" -ne 0 ]; then
+            exit 1
+          fi
+          echo "bash -n floor: PASS (${#files[@]} files)"
+
+      - name: Porcelain PRE-sandwich (pristine checkout)
+        run: |
+          status="$(git status --porcelain)"
+          if [ -n "$status" ]; then
+            echo "PRE-sandwich FAIL: checkout is not pristine:" >&2
+            echo "$status" >&2
+            exit 1
+          fi
+          echo "porcelain PRE-sandwich: PASS (empty)"
+
+      - name: dmc mirror-check
+        run: bin/dmc mirror-check
+
+      - name: dmc doctor
+        run: bin/dmc doctor
+
+      - name: dmc selftest --all (legacy 802/3/3 EXACT baseline + every section 0 FAIL)
+        run: bin/dmc selftest --all
+
+      - name: Model-name grep (CF3 — model names live only in orchestration/models.json)
+        run: |
+          # Whole-file exemptions for the sanctioned display-only home (models.json) and
+          # the detector-carrying module (dmc-roles.py MODEL_NAME_RE + seeded negative
+          # controls) are more robust than line-number exclusions, which rot on edit.
+          if grep -RInE 'claude-(opus|sonnet|haiku|fable|mythos)|gpt-[0-9]|codex-[0-9]' \
+              bin adapters .claude/install orchestration .claude/agents \
+              --exclude=models.json --exclude=dmc-roles.py; then
+            echo "model-name grep FAIL: forbidden model-name literal found outside orchestration/models.json" >&2
+            exit 1
+          fi
+          echo "model-name grep: PASS (empty)"
+
+      - name: Forbidden-lexeme / network grep (AA1 — byte-exact M8 :507 pattern, scoped)
+        run: |
+          # AA1 (mandatory implementation directive, dmc-v1-m9-release-gate.md
+          # §Approval Status): pin the byte-exact M8 :507 AUTHORITATIVE pattern, scoped to
+          # .claude/install/ + bin/lib/dmc-doctor.py ONLY — NOT repo-wide. The
+          # dangerously-bypass-hook-trust lexeme legitimately appears in ~10 tracked files
+          # (adapters/codex/README.md, .codex/config.toml, docs/CODEX_ADAPTER.md, plan/
+          # evidence files) that document or forbid it; a repo-wide grep would be
+          # permanently red. This scope is exactly what M8 verified.
+          if grep -RInE '\b(nc|netcat)\b|curl|wget|urllib|http\.client|socket|requests|smtplib|ftplib|api\.|CODEX_API_KEY|GLM_API_KEY|dangerously-bypass-hook-trust' \
+              .claude/install bin/lib/dmc-doctor.py; then
+            echo "forbidden-lexeme/network grep FAIL: network/credential/trust-bypass lexeme found in install/doctor surface" >&2
+            exit 1
+          fi
+          echo "forbidden-lexeme/network grep: PASS (empty)"
+
+      - name: Codex wiring presence (honest extent — trust state is per-user, not assertable here)
+        run: |
+          # Per-user Codex `/hooks` trust state cannot be asserted in CI — this step proves
+          # only that the Codex wiring files exist on disk AND are tracked in git; it is
+          # the honest extent of "the CI gate IS the Codex enforcement boundary" for the
+          # wiring-presence dimension. The `.dmc-created` sentinel is a HOST-install
+          # provenance marker (dropped only when the installer creates .codex; this repo's
+          # .codex was authored directly by the M6.5 milestone, so no sentinel exists here
+          # by design) — sentinel provenance behavior is proven separately by the m8-suite
+          # fixtures inside `selftest --all`.
+          test -f .codex/config.toml
+          test -f .codex/hooks.json
+          git ls-files --error-unmatch .codex/config.toml .codex/hooks.json
+          echo "Codex wiring presence: PASS"
+
+      - name: Porcelain POST-sandwich (suites left the checkout byte-identical)
+        run: |
+          status="$(git status --porcelain)"
+          if [ -n "$status" ]; then
+            echo "POST-sandwich FAIL: checkout was mutated by the suites:" >&2
+            echo "$status" >&2
+            exit 1
+          fi
+          echo "porcelain POST-sandwich: PASS (empty)"

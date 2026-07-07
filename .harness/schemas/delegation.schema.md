@@ -18,6 +18,7 @@ delegate's prose is never consumed unvalidated: schema validation precedes consu
   "role": "<orchestration/roles.json role>",
   "capability_class": "frontier-long-horizon|adversarial-review|standard-implementation|cheap-fast|deterministic-tool|human-only-gate",
   "may_mutate": <bool>,
+  "scope_lock_ref": "<path | run-default>",
   "depth": <int >=0>,
   "max_depth": <int >=1>,
   "artifact_ref": "<path to the delegate's artifact | null>",
@@ -31,13 +32,20 @@ Rules (validator-enforced, fail-closed):
 - `schema` exact; subject-binding fields present/non-empty; `delegation_id` non-empty.
 - `role` must resolve in `orchestration/roles.json` (single taxonomy, M5); `capability_class` ∈
   the v0.6.1 enum. `may_mutate: true` is permitted ONLY for the executor role and ONLY under an
-  active `scope.lock` — a mutation-capable dispatch without a lock is refused.
+  active `scope.lock` — a mutation-capable dispatch without a lock is refused. That active
+  `scope.lock` is named by the `scope_lock_ref` field, required whenever `may_mutate: true` (the
+  validator has enforced this since M5; this illustration catches up — validator behavior unchanged).
 - `depth ≤ max_depth` (deterministic recursion bound, v0.6.0 defer-card condition); over-depth is
   a stop condition.
 - Consuming an artifact requires `validation_verdict == PASS`; `FAIL`/`PENDING` artifacts must not
   be consumed (unvalidated-prose consumption is a stop condition). When `artifact_ref` is present,
   `artifact_schema` must name the schema it was validated against.
-- Append-only JSONL with `prev_hash`; deterministic per input.
+- Append-only JSONL with `prev_hash`; deterministic per input. Serialization (external chain authors
+  MUST reproduce it): each stored line is compact-canonical JSON —
+  `json.dumps(sort_keys=True, separators=(",", ":"), ensure_ascii=False)`, UTF-8 — and `prev_hash` is
+  the sha256 of the PREVIOUS stored line's exact bytes with the terminating LF EXCLUDED (the newline
+  is the JSONL record separator, not part of the hashed record), or the literal `genesis` for the
+  first line. Hash the stored canonical serialization, not your submitted bytes.
 
 Negative controls the M5 validator must REFUSE: `may_mutate: true` with no scope-lock reference;
 `depth > max_depth`; a `role` absent from the registry; consumption recorded with

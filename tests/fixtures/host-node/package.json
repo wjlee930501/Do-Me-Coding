@@ -1,0 +1,10 @@
+{
+  "name": "host-app",
+  "version": "1.0.0",
+  "description": "Minimal Node host tree — the committed substrate the DMC v1 M9 E2E copies into a mktemp repo and arms (never armed in place).",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "node -e \"process.exit(0)\""
+  },
+  "license": "MIT"
+}

@@ -369,8 +369,8 @@ Global not-edit for every milestone unless its own list authorizes it:
 
 ## Approval Status
 
-Status: APPROVED (M2 + M3 + M4 + M5 · M6, M6.5, M8, and M7 each via their own milestone-scoped plans) —
-M9/M10 remain UNAPPROVED (DRAFT)
+Status: APPROVED (M2 + M3 + M4 + M5 · M6, M6.5, M8, M7, and M9 each via their own milestone-scoped plans) —
+M10 remains UNAPPROVED (DRAFT)
 Approver: wjlee (wjlee@motionlabs.kr) — human release gate
 Approved At: 2026-07-05 (M1/M2) · 2026-07-06 (M3) · 2026-07-06 (M4 — via the milestone-scoped
 plan `.harness/plans/dmc-v1-m4-run-lifecycle.md`, critic-APPROVED Rev 3; scope recorded there) ·
@@ -387,7 +387,11 @@ there; executed BEFORE M7 per the Rev 3 order M6.5→M8→M7→M9→M10) · 2026
 `.harness/plans/dmc-v1-m7-worker-hardening.md`, critic r1 REJECT (B1 legacy-baseline
 compatibility · B2 diff_paths import surface) → Rev 2 → r2 APPROVE (plan_hash `dd3a1993…`);
 scope + the four-advisory disposition (A1 task_id path-safety + A2 exception-wrapped
-detector load both MANDATORY) recorded there)
+detector load both MANDATORY) recorded there) · 2026-07-08 (M9 — via
+`.harness/plans/dmc-v1-m9-release-gate.md`, critic r1 NEEDS_CLARIFICATION (B1 CI
+lexeme-grep scope) → Rev 2 → r2 APPROVE (plan_hash `b90722a6…`); scope + the
+three-advisory disposition (AA1 byte-exact M8 :507 CI grep + AA3 G2 cached-diff fixture
+rule both MANDATORY) recorded there)
 
 Approval record (verbatim scope of the human gate, 2026-07-05):
 - **M1 retroactive ratification** covers: Phase 0–4 document deliverables, M1
