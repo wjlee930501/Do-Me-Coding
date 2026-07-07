@@ -14,8 +14,9 @@ live `--all` 802/3/3 EXACT + doctor 24/0 + m8-suite 126/0, post-commit crosschec
 stop-gate STOP-PASS.
 
 > Reconstruction aid only. Canonical resume doc: `.harness/plans/dmc-v1-runtime-upgrade-handoff.md`
-> (rev 5). Full M6.5 reports: `.harness/verification/dmc-v1-m6.5-codex-adapter.md`,
-> `.harness/verification/dmc-run-8fef31d58eee.md`, `.harness/evidence/dmc-v1-m6.5-build-20260707.md`.
+> (rev 6). Full M6.5 reports: `.harness/verification/dmc-v1-m6.5-codex-adapter.md`,
+> `.harness/verification/dmc-run-8fef31d58eee.md`, `.harness/evidence/dmc-v1-m6.5-build-20260707.md`;
+> full M8 reports: `.harness/verification/dmc-v1-m8-host-install.md`, `.harness/evidence/dmc-v1-m8-build-20260707.md`.
 
 ## 1. What shipped
 

@@ -162,9 +162,14 @@ ACCEPT + stop-gate STOP-PASS) + `.harness/evidence/dmc-v1-m8-build-20260707.md`.
 (worker validators under `.claude/hooks/`: `worker-result-check.py`, `worker-context-guard.sh`) —
 expect the HEAVY critic rotation (M6-grade), not the light M6.5/M8 rotation. Master plan §M7
 (DMC-T012): token classes imported from oauth-cli detectors; rename/copy/binary diff parsing;
-empty-allowed ⇒ DENY; task_id/provider cross-check; worker-context-guard fail-closed on parse
-error; NEW `dmc worker review-check` validator; hash-chained apply-authorization consumed by P7;
-post-apply fidelity; delegation records + subagent artifact validation. Because M7 edits worker
+empty-allowed ⇒ DENY; task_id/provider cross-check; required-field presence; worker-context-guard
+fail-closed on parse error; NEW `dmc worker review-check` validator; hash-chained
+apply-authorization consumed by P7; post-apply fidelity; delegation records + subagent artifact
+validation. Acceptance/rollback/evidence per master §M7 (~L318–322): canonical-five fixtures
+(4)(5) + empty-allowed REJECT; v0.3.3 contract suite green unchanged; apply-without-chain refused;
+INSTALL_MANIFEST drift re-run clean post-M7; rollback = revert commit with the pre-M7 validator
+retained as fixture; evidence dmc-v1-m7-*.md. Not-edit: provider adapters/router (never) AND the
+M6 hook surface. Because M7 edits worker
 validators that the M8 installer now SHIPS, M7 must regenerate the INSTALL_MANIFEST worker-validator
 entries (`dmc-install.sh --emit-manifest` re-run) and run a post-M7 manifest drift re-run. Note:
 the M8 uninstaller strip-list bonus fix (worker-context-guard added to the settings.json `is_dmc()`
