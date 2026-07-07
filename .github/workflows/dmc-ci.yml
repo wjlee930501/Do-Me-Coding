@@ -29,12 +29,12 @@ jobs:
     # Setting PYTHONDONTWRITEBYTECODE for the whole job enforces the no-.pyc invariant the
     # tools already assume, with zero logic change. However, the verify tools' explicit
     # `python3 -m py_compile` calls IGNORE PYTHONDONTWRITEBYTECODE but DO honor
-    # PYTHONPYCACHEPREFIX, so PYTHONPYCACHEPREFIX is also set (to a path under runner.temp,
-    # outside the checked-out workspace) to redirect all bytecode caches out of the tree —
+    # PYTHONPYCACHEPREFIX, so PYTHONPYCACHEPREFIX is also set (to /tmp, outside the
+    # checked-out workspace) to redirect all bytecode caches out of the tree —
     # keeping every `git status --porcelain` cleanliness assertion green.
     env:
       PYTHONDONTWRITEBYTECODE: "1"
-      PYTHONPYCACHEPREFIX: ${{ runner.temp }}/dmc-pycache
+      PYTHONPYCACHEPREFIX: /tmp/dmc-pycache
     steps:
       - name: Checkout (full history)
         uses: actions/checkout@v4
