@@ -1,0 +1,75 @@
+{
+  "schema": "dmc.critic-verdict.v1",
+  "work_id": "dmc-v1-m8-host-install",
+  "plan_hash": "dd8e23d7246836517103c1e94d949c94132759f6c01b9981d56639137907c24c",
+  "repo_hash": "82300bda8cb23618b4d89c6abe4038e2a218decd",
+  "target_ref": ".harness/plans/dmc-v1-m8-host-install.md",
+  "verdict": "APPROVE",
+  "lenses": [
+    "security",
+    "correctness",
+    "scope",
+    "honesty",
+    "migration"
+  ],
+  "criteria_checked": [
+    {
+      "criterion_ref": "plan-hash-rebind",
+      "result": "met",
+      "note": "Re-hashed target = dd8e23d7... matches the assigned r3 plan_hash exactly; HEAD unchanged at 82300bda. Reviewed the correct bytes."
+    },
+    {
+      "criterion_ref": "B6-closure-codex-provenance",
+      "result": "met",
+      "note": "CLOSED, decision-complete and coherent. (a) Mechanism pinned: host-side receipt .harness/install-receipt.json (created_paths + merged_targets, added to the DMC .gitignore block, removed LAST) AND the .codex/.dmc-created sentinel with pinned bytes '# DMC-CREATED' (L186-193, L428-429). (b) Collision check is provenance-based: foreign (no sentinel AND not in receipt) => skip-with-warn; DMC-owned (signal present) => idempotent re-affirm with NO misleading warning (L194-200). (c) Uninstaller removal is receipt/sentinel-scoped incl. bin/lib by recorded filenames not a glob, receipt removed LAST (L234-240, L447-451). (d) Fixture arms added: existing-codex foreign-untouched + fresh->install codex->install codex->uninstall byte-clean + idempotency re-affirm (L282-286, L323-333, L469-478). EMPIRICAL: the new Finding's dmc-uninstall.sh:18 citation (rm -rf by fixed name, provenance-blind) is accurate; the current .gitignore block covers only .harness/ transient paths + .env, so the plan's add-receipt-rule / .codex-not-gitignored reasoning is consistent."
+    },
+    {
+      "criterion_ref": "residual-abort-rerunnability",
+      "result": "met",
+      "note": "SOUND: because uninstall removes the receipt LAST, a mid-uninstall abort re-reads the still-present receipt and re-removes the remaining created_paths (rm is idempotent), then drops the receipt — safely re-runnable, as the Risk row claims (L401)."
+    },
+    {
+      "criterion_ref": "residual-receipt-loss",
+      "result": "met",
+      "note": "ADVISORY A1 (non-blocking, honestly named): if the receipt is LOST/cleaned before uninstall (not merely aborted), the non-.codex unconditionally-shipped Ring-0 paths (bin/, orchestration/, adapters/, .agents/) are stranded — only .codex has the redundant sentinel. Risk L401 names the strand honestly and the mitigation covers abort + the .codex sentinel; the residual for the other surfaces is a recoverable inconvenience (known constant filenames), not host-data-loss. Recommend (non-blocking) a fixed-name fallback removal for the unconditionally-shipped Ring-0 paths when the receipt is absent."
+    },
+    {
+      "criterion_ref": "residual-committed-host-porcelain",
+      "result": "met",
+      "note": "ADVISORY A2 (non-blocking): the byte-clean PROOF uses git status --porcelain empty, which holds for the hermetic uncommitted fixtures (DMC files are ?? untracked, removed on uninstall => porcelain returns empty; the receipt is gitignored so never shows; .gitignore/CLAUDE.md round-trip byte-restored). It does NOT literally hold for a real host that COMMITS the control plane (bin/, orchestration/, .codex/, adapters/, .agents/ are intentionally NOT gitignored): after uninstall git honestly reports those deletions. The plan makes no false claim (the criterion is fixture-scoped and passes) but omits the caveat — recommend an honest Risks hedge distinguishing 'working tree restored' from 'git-status clean after the host committed the control plane'."
+    },
+    {
+      "criterion_ref": "residual-sentinel-gitignore-status",
+      "result": "met",
+      "note": "ADVISORY A3 (non-blocking): the plan gitignores the RECEIPT (L193) but is silent on the SENTINEL .codex/.dmc-created. For cross-clone provenance to survive a host that commits .codex/, the sentinel must NOT be gitignored (else a fresh clone's re-install sees .codex without the signal => misclassifies DMC's own wiring as foreign => wrong skip-with-warn). Recommend the plan state explicitly that the sentinel is committed-alongside-.codex (not gitignored), so an implementer does not accidentally ignore it."
+    },
+    {
+      "criterion_ref": "advisory-fold-per-host-matrix-and-mode",
+      "result": "met",
+      "note": "FOLDED in BOTH places: the doctor Change pins the enforcement matrix rendered PER-HOST (each physical line about exactly one host) + the DMC mode reported host-independently (never 'active' on a Codex line) (L254-257), and the acceptance criterion mirrors it (L337-343) so the /codex/i-scoped honesty control stays fail-closed-sound (a claude-code=enforced cell can no longer share a Codex line)."
+    },
+    {
+      "criterion_ref": "advisory-fold-binlib-receipt-scoped",
+      "result": "met",
+      "note": "FOLDED: the uninstaller removes DMC-shipped bin/lib files by recorded filenames (receipt/manifest-scoped, NOT a bin/lib/** glob), protecting a host's own bin/lib content — in the Change (L234-236), T013.2 (L448-449), and a Risk row (L403)."
+    },
+    {
+      "criterion_ref": "NO-RELAXATION",
+      "result": "met",
+      "note": "Every r2 'met' item preserved: B1-B5 closure changelog retained (L15-36) + master-DMC-T013 conformance + citations + AC-ship-ring01 + AC-codex-trust + single-owner DAG. Out of Scope (L154-171) unchanged. Allowlist gains NO new row and the reasoning is SOUND: the receipt (.harness/install-receipt.json) and sentinel (.codex/.dmc-created) are HOST-side runtime artifacts written by the already-allowlisted installer/uninstaller — no new file exists in THIS repo (the sentinel bytes are inline, the receipt is generated JSON, neither needs a template file); the new fixture arm is within the existing tests/fixtures/m8/** row."
+    },
+    {
+      "criterion_ref": "new-issue-sweep-rev3",
+      "result": "met",
+      "note": "No new blocker. The receipt schema fields (created_paths / merged_targets) are pinned in the plan so the T013.1 writer and T013.2 reader cannot diverge (same shared-contract discipline as the marker pairs); idempotent re-affirm re-writes .codex templates from source (byte-stable when the source is unchanged, no duplication); the receipt being inside the # DMC:BEGIN/END .gitignore block plus removed-LAST keeps post-uninstall porcelain clean. The new Finding (L114-118) is accurate."
+    },
+    {
+      "criterion_ref": "B1-B5-and-A1-A5-still-closed",
+      "result": "met",
+      "note": "Carried forward from r2 (verified there empirically): narrow model-name detector + exclusions (B1), pinned # / HTML marker pairs (B2), Codex-scoped 7-lexeme honesty control (B3), skip-with-warn + existing-codex (B4), full templated manifest + deletion control (B5); A1 26-schema present-tense, A2 single-quote eval falsifier, A3 all 8 section-3 rows, A4 hardened no-network grep, A5 5-skill ship set."
+    }
+  ],
+  "blockers": [],
+  "advisory": true,
+  "context_provenance": "fresh"
+}

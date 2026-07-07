@@ -1,0 +1,80 @@
+{
+  "schema": "dmc.critic-verdict.v1",
+  "work_id": "dmc-v1-m8-host-install",
+  "plan_hash": "7449efd1540dea7e04366de3ee5ede1e51618d750176149332a8e2b9e7c9bf9a",
+  "repo_hash": "82300bda8cb23618b4d89c6abe4038e2a218decd",
+  "target_ref": "uncommitted working-tree build under run dmc-run-03cba8c2797c at HEAD 82300bda (git diff HEAD: .claude/install/dmc-install.sh, dmc-uninstall.sh, INSTALL_MANIFEST.md, bin/dmc modified; bin/lib/dmc-doctor.py, orchestration/{models,harness-matrix}.json, tests/fixtures/m8/* created) vs plan .harness/plans/dmc-v1-m8-host-install.md@7449efd1",
+  "verdict": "APPROVE",
+  "lenses": [
+    "security",
+    "correctness",
+    "scope",
+    "honesty",
+    "migration"
+  ],
+  "criteria_checked": [
+    {
+      "criterion_ref": "plan-hash-rebind",
+      "result": "met",
+      "note": "Re-hashed the plan = 7449efd1... matches the assigned r4 hash. This is the carry-forward-9 post-approval append over r3's frozen pre-approval bytes dd8e23d7 (§Approval Status confirms: r3 binds dd8e23d7, the approval-record append yields 7449efd1, run.json binds post-append). The build mandates (Goal/Changes/Acceptance/Tasks) are unchanged from dd8e23d7. HEAD unchanged 82300bda."
+    },
+    {
+      "criterion_ref": "fixtures-have-teeth (lens1, INDEPENDENTLY RE-RUN)",
+      "result": "met",
+      "note": "Read all four suites + _m8common: assert_* are real comparisons, not cosmetic. Re-executed each on the as-built tree, all byte-identical repo after: test-manifest-drift 10/0 (--emit-manifest==committed byte-for-byte + section-presence + hand-edit AND section-deletion negative controls + 24-ref dangling scan), test-doctor-negcontrols 16/0 (nc4 SEEDS a 'Codex enforced/firing' line and REQUIRES the /codex/i grep to trip => teeth; positive control clean; no 'active' on a Codex line), test-install-roundtrip 83/0 (5-fixture byte-clean; Ring-0 omission; single-quote-in-path; created-.codex removed; the B6 codex install->install->uninstall sequence byte-clean with no duplication and no skip-warn; foreign .codex byte-unchanged through install AND uninstall), test-idempotency 17/0 (one CLAUDE.md/.gitignore/settings block; receipt classification preserved created-vs-merged across re-install; ${DRY:+} fixed). dmc-doctor.py --self-test 24/0."
+    },
+    {
+      "criterion_ref": "pinned-byte-contracts (lens2)",
+      "result": "met",
+      "note": "Writer (installer) and stripper (uninstaller) share byte-identical contracts: CLAUDE.md <!-- DMC:BEGIN -->/<!-- DMC:END -->, .gitignore # DMC:BEGIN/# DMC:END (distinct, valid gitignore comments), sentinel '# DMC-CREATED', receipt {created_paths,merged_targets}. strip_markers removes the marker block PLUS contiguous blank separators before/after, byte-preserving the rest; byte-clean holds on canonical-form fixtures (5-fixture diff -r + porcelain empty, re-run above). The non-canonical caveat is honestly a SEMANTIC restoration (A2), not over-claimed."
+    },
+    {
+      "criterion_ref": "A3-sentinel-provenance MANDATORY (lens3)",
+      "result": "met",
+      "note": "The gate made A3 a MANDATORY implementation directive (plan §Approval Status). As-built: print_gitignore_block (dmc-install.sh:65-90) lists .harness/install-receipt.json (L76) so the RECEIPT is gitignored, but does NOT list .codex/.dmc-created, so the SENTINEL is committed alongside .codex for cross-clone provenance; the manifest text states 'committed, never gitignored' verbatim. The created-.codex test asserts the sentinel bytes == '# DMC-CREATED'."
+    },
+    {
+      "criterion_ref": "no-enforced-class-on-codex (lens4)",
+      "result": "met",
+      "note": "harness-matrix.json Codex column is entirely 'advisory'/asymmetry with a named backstop each — direct inspection of all 8 rows found NO forbidden lexeme (enforced|enforce|fires|firing|runtime-enforced|active|guaranteed); the claude-code 'enforced' cells never contain the token 'codex' so per-host rendering keeps them out of the /codex/i scope. The doctor Codex section is honest (ADVISORY + pre-commit/CI, hook execution UNPROVEN); the honesty control has teeth (nc4). The installer's printed Codex notice says the shims are 'NOT a runtime enforcement boundary' and names pre-commit/CI as the boundary (honest, not a false claim). Manifest labels the Codex adapter ADVISORY."
+    },
+    {
+      "criterion_ref": "scope-14-lock-and-single-owner (lens5)",
+      "result": "met",
+      "note": "git status: the tracked modifications are the 4 in-lock installer/uninstaller/manifest/bin-dmc files + the master-plan §Approval-Status record; the untracked creates are the in-lock doctor/data-files/fixtures. bin/dmc diff adds ONLY the doctor verb + guarded run_m8_suite() + doctor/m8-suite selftest registrations (named-only + under --all, NEVER in the no-arg default) — no other verb's logic touched (single-owner). NO protected surface edited: .claude/hooks/**, .claude/settings.json, worker validators, provider adapters, adapters/**, .agents/**, .codex/**, orchestration/roles.json are all absent from the diff. The master-plan edit is the plan-mandated approval RECORD (bookkeeping), disclosed in the report as an out-of-band pre-run artifact outside the build lock — correctly framed, not a build-output scope violation."
+    },
+    {
+      "criterion_ref": "secret-network-hygiene (lens6)",
+      "result": "met",
+      "note": "Independent no-network/no-bypass scan over dmc-install.sh + dmc-uninstall.sh + dmc-doctor.py: NO match (nc/netcat word-bounded, curl/wget/urllib/http.client/socket/requests/smtplib/ftplib/api./keys/dangerously-bypass all absent). Doctor is python3 stdlib-only, offline, deterministic; no secret-file contents opened (path-only). models.json is display-only: read solely by dmc-doctor.py:256 (display render); dmc-roles.py only names it in comments/errors, never opens it — no gate/verdict/routing consumer."
+    },
+    {
+      "criterion_ref": "model-name-free-scan",
+      "result": "met",
+      "note": "Independent narrow-detector scan over the new/modified surface (dmc-doctor.py, harness-matrix.json, roles.json, both installers, bin/dmc): NO match. The only full-surface hit is the pre-existing, enumerated-excluded bin/lib/dmc-roles.py:394 fixture line (unchanged by this build). harness-matrix.json is harness-ids-only; models.json is the sole model-name home and is excluded from the scan surface by design."
+    },
+    {
+      "criterion_ref": "gate-mandated-advisories-implemented",
+      "result": "met",
+      "note": "All three gate-bound dispositions (plan §Approval Status) are as-built: A3 (MANDATORY) sentinel committed/never-gitignored — verified; A1 receipt-absent fixed-name fallback WITH the honest residual printed (dmc-uninstall.sh:107-118: does not remove .codex except via the sentinel; cannot disambiguate a host's own dmc-*-prefixed files) — verified; A2 the verification report hedges 'working tree restored' vs 'git-status clean after the host committed the control plane' (Unresolved Risks) — verified."
+    },
+    {
+      "criterion_ref": "disclosed-residuals-honest (lens7)",
+      "result": "met",
+      "note": "All four disclosed residuals are honest and correctly framed, none hiding a gap: (1) the verify-crosscheck REFUSE (exit 3) on the two .harness/plans/* is recorded VERBATIM and correctly explained as a pre-run-artifact suspend/wait-state hold — it is NOT a plan Verification Command, so it fails no required plan criterion, and the report explicitly declines to game it (declaring/committing would be a human gate); (2) 0644 fixture-script mode is cosmetic — every real caller uses `bash <script>` (I re-ran all four that way); (3) canonical-form-only byte restore is honestly SEMANTIC for non-canonical hosts; (4) the A1 dmc-* fallback trade-off is a documented residual."
+    },
+    {
+      "criterion_ref": "selftest-all-committed-replica",
+      "result": "met",
+      "note": "NON-BLOCKING NOTE: the committed-replica `selftest --all` (legacy 802/3/3 EXACT + all prior sections + new doctor 24/0 + m8-suite 126/0) I did NOT independently re-run — building a tar-replica + a ~10-min run is impractical under the active run's bash scope guard. The build touches NO legacy bin/lib tool (mirror-check green per the report), so the pinned baseline is structurally unaffected; the fast default is preserved (bin/dmc puts doctor/m8-suite named-only + under --all, never in the no-arg default), and I independently re-ran the two NEW sections (doctor 24/0, m8-suite 126/0). I relied on the recorded evidence + the independent Verifier lane for the legacy 802/3/3 replica only."
+    },
+    {
+      "criterion_ref": "C11-lane-separation",
+      "result": "met",
+      "note": "This build sign-off is advisory and opens no gate; the build evidence + verification report are the implementer's records and make no approval. The phase commit + release remain the human gate's call, which the report correctly does not take."
+    }
+  ],
+  "blockers": [],
+  "advisory": true,
+  "context_provenance": "fresh"
+}

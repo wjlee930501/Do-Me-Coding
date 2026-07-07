@@ -1,0 +1,121 @@
+{
+  "schema": "dmc.critic-verdict.v1",
+  "work_id": "dmc-v1-m8-host-install",
+  "plan_hash": "8dfdcf68fbf9635b4b5c84d7df25dbe8ec21aa24f0450d86b139d2b0114a8068",
+  "repo_hash": "82300bda8cb23618b4d89c6abe4038e2a218decd",
+  "target_ref": ".harness/plans/dmc-v1-m8-host-install.md",
+  "verdict": "REJECT",
+  "lenses": [
+    "security",
+    "correctness",
+    "scope",
+    "honesty",
+    "migration"
+  ],
+  "criteria_checked": [
+    {
+      "criterion_ref": "plan-hash-rebind",
+      "result": "met",
+      "note": "Re-hashed target = 8dfdcf68... matches the assigned plan_hash exactly; HEAD confirmed 82300bda8cb23618b4d89c6abe4038e2a218decd. Reviewed the correct bytes."
+    },
+    {
+      "criterion_ref": "master-DMC-T013-conformance",
+      "result": "met",
+      "note": "Every master M8 element is covered: Ring 0+1 ship (bin/ + orchestration/ always, adapters/.agents/.codex per --host), generated manifest, uninstaller strip fixes, idempotent marker CLAUDE.md append, DRY/eval fixes, dmc doctor (interpreters/hook-firing/foreign-harness/enforcement-matrix), P20 models.json + harness matrix, --host claude|codex|both. Nothing smuggled from M7 (worker validators explicitly out-of-scope; manifest re-run acknowledged), M9 (real CI gate out-of-scope), or M10 (docs refresh / B1-B10 out-of-scope)."
+    },
+    {
+      "criterion_ref": "citations-current-repo-findings",
+      "result": "met",
+      "note": "Empirically re-verified: dmc-install.sh:27-33 copy lists carry no bin/adapters/orchestration; :24 act()/eval; :106-112 non-idempotent bare-open-comment CLAUDE.md append; :130 & dmc-uninstall.sh:70 DRY always-expands (DRY in {0,1}, both non-empty); dmc-uninstall.sh:38-43 dead-skip .gitignore no-op; :28 removed-below with no CLAUDE.md removal code; orchestration/ = roles.json only; bin/dmc has no doctor/m8-suite/models.json/harness-matrix collision and agents-md exists; ship sources (bin, adapters/codex incl README, .agents/skills, .codex config.toml+hooks.json) all present; tests/fixtures/m8 absent; DMC-T013.N sub-ids unused; default selftest verified 75 PASS / 0 FAIL at HEAD."
+    },
+    {
+      "criterion_ref": "AC-ship-ring01 (plan L198-204)",
+      "result": "met",
+      "note": "Ship sources exist; dry-run listing asserts + post-install bin/dmc help smoke + seeded Ring-0-omission negative control are well-formed and falsifiable."
+    },
+    {
+      "criterion_ref": "AC-P19-fixes (plan L205-209)",
+      "result": "unmet",
+      "note": "ADVISORY A2: sub-check (c) install into a space-containing path succeeds does NOT falsify pre-fix behavior — the current act() eval already protects spaces via the literal single-quotes embedded in each command string, so the space-path test passes both before and after the fix. Real eval fragility is a single-quote/$()/metachar-in-path; use such a fixture for a true pre/post falsifier. (a)/(b) are sound. The falsified-against-pre-fix framing over-claims for (c)."
+    },
+    {
+      "criterion_ref": "AC-byte-clean-roundtrip (plan L210-217)",
+      "result": "unmet",
+      "note": "Blocked by B2 (.gitignore marker contract) and B4 (no pre-existing-.codex fixture). Canonical-JSON merge caveat is honestly hedged in Risks."
+    },
+    {
+      "criterion_ref": "AC-doctor-honest (plan L218-226)",
+      "result": "unmet",
+      "note": "Blocked by B3: the Codex forbidden-substring honesty control is self-contradictory (Claude row + matrix must print enforced) and evadable (fixed 2-token grep)."
+    },
+    {
+      "criterion_ref": "AC-P20-model-name-free (plan L227-235)",
+      "result": "unmet",
+      "note": "Blocked by B1: the v0.6.1 self-scan over bin/** ... is clean is empirically unsatisfiable under either candidate detector; detector identity + exclusions unspecified."
+    },
+    {
+      "criterion_ref": "AC-manifest-generated (plan L236-242)",
+      "result": "unmet",
+      "note": "Blocked by B5: --emit-manifest can drop the hand-authored Dangling-reference rule (itself an acceptance criterion) and DELIBERATELY NOT COPIED rationale while the exact-equality drift test still passes by deletion."
+    },
+    {
+      "criterion_ref": "AC-codex-trust-never-bypassed (plan L243-249)",
+      "result": "met",
+      "note": "bypass-flag-absent source grep + advisory-wording substring asserts are sound and faithful to CODEX_ADAPTER Wiring (two trust steps, never --dangerously-bypass-hook-trust) and adapters/codex/README Option A."
+    },
+    {
+      "criterion_ref": "AC-no-network-hermetic (plan L250-257)",
+      "result": "met",
+      "note": "ADVISORY A4: the no-network grep alternative 'nc ' false-positives on any token ending nc+space (sync/func/async) and omits python3 network primitives (urllib|http.client|socket|requests|smtplib|ftplib) — the doctor is python3, so a leak would most likely use those, not curl/wget. Harden to \\b(nc|netcat)\\b + the python primitives so the assertion is meaningful. selftest 75/0 baseline verified accurate; mktemp-hermetic approach is sound."
+    },
+    {
+      "criterion_ref": "single-owner-DAG (plan Execution Tasks)",
+      "result": "met",
+      "note": "T013.1 installer+manifest, T013.2 uninstaller, T013.3 bin/dmc+doctor+models.json+harness-matrix.json, T013.4 fixtures, T013.5 evidence — no file is double-owned; blockedBy DAG is sane (.4 after .1/.2/.3; .5 last). Guarded run_m8_suite() registered before T013.4 scripts exist is acceptable per M6.5 precedent. CAVEAT: the No-blockedBy justification (marker strings are fixed in this plan) for the parallel .1/.2 pair is FALSE for the .gitignore markers (see B2)."
+    },
+    {
+      "criterion_ref": "ADVISORY-A1-stale-schema-count",
+      "result": "na",
+      "note": "Current Repo Findings (plan L56-58) states installer copies all 14 schemas; HEAD actually has 26 .harness/schemas/*.schema.md (dmc-install.sh:96 copies all). The number is inherited verbatim from audit section 3:121 and is stale — the drift direction holds and is understated, and the generate-from-installer remedy is count-agnostic, so non-blocking; correct the present-tense number."
+    },
+    {
+      "criterion_ref": "ADVISORY-A3-harness-matrix-invariant-subset",
+      "result": "na",
+      "note": "The plan's harness-matrix.json invariant set (scope-edit, scope-bash, secret-read, stop-gate, natural-activation, approval — 6) is a subset of CODEX_ADAPTER section 3's 8-row matrix (omits hook-trust and protected-DMC-bindings). Include those two rows or state the scoping so faithful-to-section-3 is verifiable."
+    },
+    {
+      "criterion_ref": "ADVISORY-A5-agents-skills-subset",
+      "result": "na",
+      "note": ".agents/skills currently holds only 5 dmc-* skills (dmc-critic, dmc-plan-hard, dmc-start-work, dmc-status, dmc-verify-hard) vs 15 in .claude/skills. The .agents/skills/dmc-* copy-glob is fine, but the ship set is governed by the M6.5 skills-mirror invariant — doctor/install must not assume 1:1 skill parity between the two surfaces."
+    }
+  ],
+  "blockers": [
+    {
+      "id": "B1",
+      "statement": "The acceptance criterion 'the v0.6.1 model-name self-scan over bin/** adapters/** .claude/install/** orchestration/roles.json orchestration/harness-matrix.json is clean' (plan L227-235, L344) is empirically UNSATISFIABLE as written under either candidate detector, and the plan pins neither the detector regex nor the required exclusions. Demonstrated: (a) the NARROW model-version regex (roles.py MODEL_NAME_RE: claude-(opus|sonnet|haiku|fable|mythos)|gpt-[0-9]|codex-[0-9]) matches bin/lib/dmc-roles.py:394 (the legitimate negative-control fixture tokens claude-opus-4-8, gpt-5, codex-5) -> scan not clean; (b) the BROAD detector literally named v0.6.1 (dmc-v0.6.1-capability-router.py:136 MODEL_NAMES = ...|claude|opus|sonnet|haiku|...) matches the bare vendor word claude 24+ times in .claude/install/dmc-install.sh alone AND matches the harness identifier claude that harness-matrix.json MUST contain (plan requires claude=enforced) -> the plan's own 'harness-matrix.json is model-name-free and self-scan is clean' becomes self-contradictory. The only stated exclusion is models.json. FIX: (1) pin the exact detector regex to the narrow model-version form (roles.py MODEL_NAME_RE), explicitly NOT the broad v0.6.1 vendor-word MODEL_NAMES; (2) enumerate the exclusions verbatim in the plan — models.json, the detector's own pattern-definition line, and the roles.py selftest fixture line (or scope the scan to exclude selftest fixture blocks); (3) state that harness identifiers claude-code/codex are permitted because they do not match the narrow regex, so harness-matrix.json can pass. Then re-verify the negative control (seeded model-version token in dmc-doctor.py) trips the pinned detector.",
+      "evidence_ref": "plan L227-235,344; bin/lib/dmc-roles.py:72-74 & 394; bin/lib/dmc-v0.6.1-capability-router.py:136; empirical scan (narrow flags roles.py:394; broad flags harness id claude)"
+    },
+    {
+      "id": "B2",
+      "statement": "The .gitignore paired-marker contract is invalid AND not actually pinned, so the two parallel single-owners (T013.1 writer, T013.2 stripper) can diverge and byte-clean reversal — the acceptance-defining invariant — silently fails. The plan writes HTML-comment markers <!-- DMC:BEGIN --> / <!-- DMC:END --> into the .gitignore block (Change 1 L125-127, Change 3 L146-149, T013.1 L287-288, T013.2 L295-296), but HTML comments are not .gitignore comments — they become stray literal ignore patterns — and the current installer uses a #-comment marker (dmc-install.sh:116). T013.1 and T013.2 are declared No-blockedBy explicitly BECAUSE marker strings are fixed in this plan (L302), yet the plan fixes only the CLAUDE.md HTML markers, not a .gitignore marker; if the writer emits a #-form and the stripper matches the <!-- -->-form (or vice versa), the strip misses and DMC .gitignore lines persist — reproducing the very class of the pre-fix dead-skip bug. FIX: pin an explicit, valid #-comment .gitignore marker PAIR with exact bytes (e.g. '# DMC:BEGIN' ... '# DMC:END'), stated verbatim in the plan and distinct from the CLAUDE.md HTML pair, so both single-owner tasks share byte-identical markers; keep <!-- DMC:BEGIN -->/<!-- DMC:END --> for CLAUDE.md only.",
+      "evidence_ref": "plan L125-127,146-149,287-288,295-302; .claude/install/dmc-install.sh:116"
+    },
+    {
+      "id": "B3",
+      "statement": "The doctor forbidden-substring grep honesty control (plan L218-226, L342) — the single most safety-relevant property of the doctor feature — is self-contradictory and evadable. The criterion requires doctor output to contain NO enforced/fires claim for Codex hooks via a substring grep, while SIMULTANEOUSLY requiring the Claude row to report ENFORCED and the enforcement matrix to print enforced for claude; a whole-output grep -qi enforced therefore cannot pass (the Claude row legitimately contains enforced), and a fixed two-lexeme grep lets a rephrased Codex claim (enforcement active, hooks run/execute, runtime-enforced, guaranteed) slip past. FIX: specify the control is SCOPED to the Codex row/section only (e.g. extract lines matching /codex/i and grep those), enumerate the full forbidden lexeme set case-insensitively (enforced|enforce|fires|firing|runtime-enforced|active|guaranteed), and assert the required ADVISORY + pre-commit/CI substrings on that same Codex row — so the Claude enforced row can neither mask nor trip the control.",
+      "evidence_ref": "plan L218-226,264,342"
+    },
+    {
+      "id": "B4",
+      "statement": "The pre-existing host .codex collision (install) and reversal (uninstall) path is unspecified and uncovered by any fixture, on a shipped --host codex|both surface. The installer copies .codex/config.toml + .codex/hooks.json TEMPLATES (Change 1 L119-122); the uninstaller does created-only removal — never touch a pre-existing host .codex (Change 3 L152-154). But (a) the INSTALL-time collision policy for a pre-existing host .codex/config.toml|hooks.json is left undefined (overwrite / merge / skip-with-warn?), which must reconcile HOST_REPO_ADAPTATION_POLICY's never-overwrite rule with CODEX_ADAPTER Wiring's config-merged-only-for-a-trusted-project; and (b) none of the four fixtures (empty, node, existing-claude-settings, existing-OMC) carries a pre-existing .codex, so the created-vs-merged distinction and its byte-clean reversal are never exercised — created-only removal would either delete a host file it should have merged-and-stripped, or leave DMC-merged keys behind. FIX: state the install-time .codex collision policy explicitly (recommend skip-with-warn or marker-merge per HOST_REPO_ADAPTATION_POLICY), and either add a fifth existing-codex fixture proving byte-clean reversal or explicitly scope the byte-clean claim to hosts without a pre-existing .codex and record the residual in Risks.",
+      "evidence_ref": "plan L119-122,152-154,185-192,210-217; docs/HOST_REPO_ADAPTATION_POLICY.md:12-18; docs/CODEX_ADAPTER.md Wiring (README L50-59)"
+    },
+    {
+      "id": "B5",
+      "statement": "--emit-manifest regeneration can silently drop the manifest's load-bearing hand-authored sections while still passing the drift test. The committed INSTALL_MANIFEST.md carries hand-authored content the plan's own acceptance depends on: the Dangling-reference rule (INSTALL_MANIFEST.md:95-98 — itself an acceptance criterion at plan L236-242) and the DELIBERATELY NOT COPIED rationale (INSTALL_MANIFEST.md:65-69 — encodes the never-ship-AGENTS.md and never-ship-internal-README safety decisions). The plan says --emit-manifest prints the manifest deterministically from the installer's own copy-list variables and asserts --emit-manifest output == committed manifest EXACTLY; if the generator emits only copy tables, the committed file must be trimmed to match, dropping those sections, and the drift test still PASSES (both lack them) — losing safety-relevant documentation with no signal. FIX: specify that --emit-manifest reproduces the FULL manifest including the Dangling-reference rule and DELIBERATELY NOT COPIED sections (emit them verbatim / from templated constants), OR relocate those sections to a non-generated doc and narrow the drift test to the generated copy-list region only — so exact-equality cannot be achieved by deletion.",
+      "evidence_ref": "plan L134-145,236-242; INSTALL_MANIFEST.md:55-69,95-98"
+    }
+  ],
+  "advisory": true,
+  "context_provenance": "fresh"
+}

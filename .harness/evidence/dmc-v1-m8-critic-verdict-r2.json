@@ -1,0 +1,96 @@
+{
+  "schema": "dmc.critic-verdict.v1",
+  "work_id": "dmc-v1-m8-host-install",
+  "plan_hash": "4f6a34edc54aac2297ee129570030da1bb1938314126e4a4cb809d21a84ddd64",
+  "repo_hash": "82300bda8cb23618b4d89c6abe4038e2a218decd",
+  "target_ref": ".harness/plans/dmc-v1-m8-host-install.md",
+  "verdict": "REJECT",
+  "lenses": [
+    "security",
+    "correctness",
+    "scope",
+    "honesty",
+    "migration"
+  ],
+  "criteria_checked": [
+    {
+      "criterion_ref": "plan-hash-rebind",
+      "result": "met",
+      "note": "Re-hashed target = 4f6a34ed... matches the assigned r2 plan_hash exactly; HEAD unchanged at 82300bda (only working-tree adds: this plan + the persisted r1 verdict). Reviewed the correct bytes."
+    },
+    {
+      "criterion_ref": "B1-closure-model-name-self-scan",
+      "result": "met",
+      "note": "CLOSED per fix, not cosmetic. Narrow detector pinned verbatim (claude-(?:opus|sonnet|haiku|fable|mythos)|gpt-[0-9]|codex-[0-9], the roles.py MODEL_NAME_RE form), explicitly NOT the broad v0.6.1 MODEL_NAMES; exclusions enumerated (models.json, MODEL_NAME_RE def line, dmc-roles.py:394 fixture); harness ids claude-code/codex permitted. EMPIRICAL: the pinned scan over bin+adapters+.claude/install+roles.json matches ONLY dmc-roles.py:394 (an enumerated exclusion) => criterion is CLEAN on the current tree; a seeded codex-5-class token trips the detector => negative control fires. harness-matrix.json (claude-code/codex/opencode ids) does not match the narrow regex, so it passes."
+    },
+    {
+      "criterion_ref": "B2-closure-gitignore-marker",
+      "result": "met",
+      "note": "CLOSED. .gitignore pair pinned as valid #-comment bytes # DMC:BEGIN / # DMC:END; CLAUDE.md pair distinct HTML <!-- DMC:BEGIN --> / <!-- DMC:END -->; both single-owner tasks (T013.1 writer L385-387, T013.2 stripper L396-397) reference the identical pinned bytes, so the No-blockedBy parallelism justification is now true."
+    },
+    {
+      "criterion_ref": "B3-closure-doctor-honesty-control",
+      "result": "met",
+      "note": "CLOSED substantively. Control scoped to /codex/i lines, 7-lexeme forbidden set (enforced|enforce|fires|firing|runtime-enforced|active|guaranteed) + required ADVISORY/pre-commit-CI on the same row + nc4 seeded-Codex-enforced-line control. ADVISORY (refine, fail-closed): the /codex/i line-scoping is sound ONLY if the enforcement matrix is rendered per-host (each Codex line exclusively about Codex). If doctor prints a per-invariant row naming claude-code=enforced AND codex on one physical line, that line matches /codex/i and contains enforced -> false-FAIL; likewise the lexeme 'active' collides with the DMC mode word 'active' if the mode is printed on a Codex line. Both fail closed (never a false-pass). FIX-suggestion: pin that doctor renders the matrix per-host and reports mode host-independently."
+    },
+    {
+      "criterion_ref": "B4-closure-codex-collision-single-install",
+      "result": "met",
+      "note": "Single-install case CLOSED: install-time skip-with-warn (never-overwrite, HOST_REPO_ADAPTATION_POLICY cited) + fifth existing-codex fixture (host .codex byte-unchanged) + created-.codex-removed arm. NOTE: the DOUBLE-install created-then-seen-as-pre-existing sequence is NOT covered here and is incoherent — see blocker B6."
+    },
+    {
+      "criterion_ref": "B5-closure-full-manifest",
+      "result": "met",
+      "note": "CLOSED. --emit-manifest re-emits the FULL manifest (copy tables + templated Dangling-reference rule + DELIBERATELY NOT COPIED constants); drift test asserts byte-equality AND section-presence; deletion negative control (removing the Dangling-reference section from the committed manifest still FAILs drift, because the generator re-emits it) closes the deletion loophole."
+    },
+    {
+      "criterion_ref": "A1-fold-schema-count",
+      "result": "met",
+      "note": "Present-tense 26 (dmc-install.sh:96 globs *.schema.md) with the audit-14-is-stale note. Empirically verified 26 .schema.md at HEAD."
+    },
+    {
+      "criterion_ref": "A2-fold-eval-falsifier",
+      "result": "met",
+      "note": "Single-quote-in-path replaces the invalid space-path falsifier. EMPIRICAL: reproducing the dmc-install.sh:24 eval pattern, a space path SUCCEEDS (space protected by the embedded single-quotes — not a falsifier) while a single-quote path FAILS (the embedded quote closes early — a true pre/post falsifier). Claim about :24 confirmed."
+    },
+    {
+      "criterion_ref": "A3-fold-matrix-rows",
+      "result": "met",
+      "note": "All 8 CODEX_ADAPTER section-3 rows named (scope-edit, scope-bash, secret-read, stop-gate, natural-activation, approval, hook-trust, protected-DMC-bindings). EMPIRICAL: section 3 has exactly 8 data rows."
+    },
+    {
+      "criterion_ref": "A4-fold-network-grep",
+      "result": "met",
+      "note": "Hardened grep (\\b(nc|netcat)\\b + curl|wget|urllib|http.client|socket|requests|smtplib|ftplib|api.|keys|bypass). EMPIRICAL: no match over the current .claude/install, so the required criterion is satisfiable (won't pre-fail on the existing installer); the new dmc-doctor.py is implementer-controlled."
+    },
+    {
+      "criterion_ref": "A5-fold-skills-ship-set",
+      "result": "met",
+      "note": "The 5 M6.5 skills-mirror workflow skills (dmc-critic/plan-hard/start-work/status/verify-hard) are stated as the ship set, NOT 1:1 with .claude/skills' 15 (Finding L106-108, Change L157-159)."
+    },
+    {
+      "criterion_ref": "NO-RELAXATION",
+      "result": "met",
+      "note": "Out of Scope (L130-147) unchanged from r1; allowlist gains no new row (tests/fixtures/m8/** fixture count expanded in-row 4->5); every r1 'met' criterion (master-DMC-T013 conformance, citations, AC-ship-ring01, AC-codex-trust, single-owner DAG) is preserved. No scope was smuggled in or dropped."
+    },
+    {
+      "criterion_ref": "new-issue-codex-double-install-coherence",
+      "result": "unmet",
+      "note": "Blocked by B6: the .codex created-only removal has no provenance mechanism and the plan's premise fails under install->install->uninstall over a Codex host — a host-data-loss / byte-clean-reversal risk."
+    },
+    {
+      "criterion_ref": "ADVISORY-uninstaller-bin-lib-broad-removal",
+      "result": "na",
+      "note": "Secondary provenance note: the uninstaller removes bin/lib/** broadly; on the rare host with its own bin/lib content this could clobber host files. Prefer manifest-scoped removal of the specific DMC-shipped filenames (same provenance principle as B6). Lower probability than .codex; advisory only."
+    }
+  ],
+  "blockers": [
+    {
+      "id": "B6",
+      "statement": "The uninstaller's created-only .codex removal (Change L200-202, T013.2 L392, AC L279-285) is unimplementable as specified and incoherent under the install->install->uninstall sequence, risking either a byte-clean-reversal failure or destruction of foreign host content on the shipped --host codex surface. Install-time policy is skip-with-warn 'if the host already has .codex/config.toml or hooks.json' (L161-163); the uninstaller then removes 'a DMC-created .codex only' on the premise that 'a skip-with-warn'd pre-existing host .codex carries no DMC-authored content' (L200-202). But (i) NO provenance mechanism is defined for the uninstaller to distinguish a DMC-created .codex (must remove, byte-clean) from a pre-existing foreign .codex (must leave untouched) — unlike CLAUDE.md/.gitignore (BEGIN/END markers) and settings.json (DMC-hook-entry stripping), the .codex path has no marker, sentinel, or created-paths receipt; and (ii) the premise is FALSE for the sequence: fresh host -> install --host codex (DMC CREATES .codex) -> re-install --host codex (the collision check now sees DMC's OWN .codex as already-present -> skip-with-warn, misreporting 'wiring not applied') -> uninstall (the .codex is simultaneously pre-existing-at-the-2nd-install AND fully DMC-authored). A literal implementation of the stated logic either LEAVES a DMC-created .codex behind (byte-clean reversal FAILS) or, if it removes any present .codex, DESTROYS a genuinely foreign host .codex (violates HOST_REPO_ADAPTATION_POLICY never-overwrite/never-destroy — host data loss). The fixtures cover only single-install-created and single-install-pre-existing, not this sequence. FIX: define an explicit .codex provenance mechanism consistent with the plan's other merge targets — the installer records every CREATED path in a host-side install receipt (or drops a .codex/.dmc-created sentinel when it creates .codex from templates); the collision check treats an existing .codex WITHOUT the DMC signal as foreign->skip-with-warn and one WITH it as DMC-owned->idempotent re-affirm (no misleading skip warning); the uninstaller removes only .codex paths carrying the DMC signal / recorded in the receipt. Add a fixture arm: fresh host -> install --host codex -> install --host codex -> uninstall asserts the DMC .codex is fully removed (byte-clean) and no foreign content is ever touched.",
+      "evidence_ref": "plan L161-165,200-202,279-285,392; docs/HOST_REPO_ADAPTATION_POLICY.md:12-18; docs/CODEX_ADAPTER.md Wiring (README L50-59)"
+    }
+  ],
+  "advisory": true,
+  "context_provenance": "fresh"
+}

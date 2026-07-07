@@ -1,0 +1,80 @@
+{
+  "schema": "dmc.harness-matrix.v1",
+  "as_of": "2026-07-07",
+  "provenance": {
+    "canonical_source": "orchestration/harness-matrix.json",
+    "role": "The machine-readable per-harness enforcement matrix (P20 / M10 standing data). For each DMC invariant it records what each host harness actually guarantees, so no invariant degrades silently and `dmc doctor` can render each host honestly.",
+    "faithful_to": [
+      "docs/CODEX_ADAPTER.md §3 (degraded-invariant matrix — the eight rows below are §3 verbatim in intent)",
+      "docs/DMC_V1_RUNTIME_ARCHITECTURE.md §P20 (standing enforcement matrix)"
+    ],
+    "milestone": "dmc-v1 M8 (P20 data file; M10 owns the narrative doc)",
+    "model_name_free": "Harness IDENTIFIERS only (claude-code, codex, opencode). No model-version-name string appears here; those live solely in the dated orchestration/models.json. The harness ids do not match the narrow model-version detector.",
+    "honesty_rule": "The Codex column NEVER claims an enforced-class guarantee: no cell in the `codex` field asserts runtime enforcement. `dmc doctor` renders this matrix PER-HOST (each physical line names exactly one harness) and reports the DMC mode host-independently, so the Codex-scoped honesty control stays fail-closed-sound.",
+    "dmc_mode_reporting": "host-independent — the DMC mode (active | passive | off) is read from .harness/mode (absent => active) and reported on its own line, never attributed to a single harness."
+  },
+  "harnesses": ["claude-code", "codex", "opencode"],
+  "classification_legend": {
+    "enforced": "a runtime host mechanism denies/blocks before the effect (claude-code column only)",
+    "advisory": "wired but not a runtime boundary on this host; a named backstop closes the gap",
+    "stub": "Ring-1 adapter not built for this host (absent)"
+  },
+  "invariants": [
+    {
+      "id": "scope-edit",
+      "title": "Scope lock on edits",
+      "claude-code": "enforced — PreToolUse Edit|Write deny before write",
+      "codex": "advisory — PreToolUse over edit tools (deny before write); tool-input field names unproven at the M6.5 spike; backstop: the post-Bash diff guard",
+      "opencode": "stub — Ring-1 adapter not built (absent)"
+    },
+    {
+      "id": "scope-bash",
+      "title": "Scope lock on Bash writes",
+      "claude-code": "enforced — Bash write-radius classify (L0 git-apply/patch deny always, L1 scope adjudication when armed) + post-Bash diff guard",
+      "codex": "advisory — PreToolUse Bash is non-airtight (unified_exec and non-shell paths evade interception); PRIMARY safety net: the M6 post-Bash diff guard",
+      "opencode": "stub — Ring-1 adapter not built (absent)"
+    },
+    {
+      "id": "secret-read",
+      "title": "Secret-path read deny",
+      "claude-code": "enforced — secret-guard PreToolUse path-only deny",
+      "codex": "advisory — PreToolUse path-only, pending a tool-input field-name shim; backstop: the instruction-level secret rule (CLAUDE.md / AGENTS.md)",
+      "opencode": "stub — Ring-1 adapter not built (absent)"
+    },
+    {
+      "id": "stop-gate",
+      "title": "Stop / completion gate",
+      "claude-code": "enforced — Stop hook + verification-report validator",
+      "codex": "advisory — Stop decision:block parity, envelope honoring unproven at the M6.5 spike; backstop: the pre-commit/CI release gate",
+      "opencode": "stub — Ring-1 adapter not built (absent)"
+    },
+    {
+      "id": "natural-activation",
+      "title": "Natural activation (suffix routing)",
+      "claude-code": "enforced — UserPromptSubmit router (Ring-0 owns the routing logic)",
+      "codex": "advisory — UserPromptSubmit parity; both hosts delegate to the Ring-0 router (no material residual gap)",
+      "opencode": "stub — Ring-1 adapter not built (absent)"
+    },
+    {
+      "id": "approval",
+      "title": "Approval gates",
+      "claude-code": "enforced — ask prompts via settings.json + the human-only gate",
+      "codex": "advisory — approval_policy + PermissionRequest hook; the human-only gate is Ring-0 and host-independent",
+      "opencode": "stub — Ring-1 adapter not built (absent)"
+    },
+    {
+      "id": "hook-trust",
+      "title": "Hook trust",
+      "claude-code": "enforced — hooks active once wired in settings.json",
+      "codex": "advisory — non-managed hooks need a one-time /hooks content-hash trust; a changed hook is skipped until re-trusted; the installer surfaces the trust step and never bypasses it",
+      "opencode": "stub — Ring-1 adapter not built (absent)"
+    },
+    {
+      "id": "protected-dmc-bindings",
+      "title": "Protected DMC bindings",
+      "claude-code": "scope-guard-dependent — .claude/** is editable by the agent unless a scope guard denies it",
+      "codex": "stronger asymmetry — the OS sandbox keeps <root>/.codex, <root>/.agents and <root>/.git read-only to the agent even in workspace-write, so the agent cannot self-edit its own DMC bindings at runtime",
+      "opencode": "stub — Ring-1 adapter not built (absent)"
+    }
+  ]
+}

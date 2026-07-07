@@ -21,8 +21,10 @@ CROSSCHECKLIB="$HERE/lib/dmc-verify-crosscheck.py"
 STOPGATELIB="$HERE/lib/dmc-stop-gate.py"
 AGENTSMDLIB="$HERE/lib/dmc-agents-md.py"
 SKILLSMIRRORLIB="$HERE/lib/dmc-skills-mirror.py"
+DOCTORLIB="$HERE/lib/dmc-doctor.py"
 M6SUITEDIR="$HERE/../tests/fixtures/m6"
 M65SUITEDIR="$HERE/../tests/fixtures/m6.5"
+M8SUITEDIR="$HERE/../tests/fixtures/m8"
 
 usage() {
   cat <<'EOF'
@@ -81,6 +83,17 @@ commands (M6.5 Codex adapter):
                                               (default: one-shot report; --self-test: hermetic
                                               negative controls) -> 0 clean / 1 drift
 
+commands (M8 host install):
+  doctor      [--root DIR]                    host self-check (fast, offline): interpreters; Ring-0
+                                              presence; Claude hook registration + a synthetic-event
+                                              FIRING PROBE (canned PreToolUse -> Ring-0 verdict CLI
+                                              deny/allow envelope) => firing PROVEN; Codex config/
+                                              trust presence + turn-free surfaces => ADVISORY (never
+                                              an enforced-class claim on a Codex line); foreign-
+                                              harness non-interference; the harness-matrix.json
+                                              enforcement matrix rendered PER-HOST + the DMC mode
+                                              host-independently. 0 healthy / 1 real defect.
+
 commands (M3):
   validate    plan|run|verification <path>   instance validator (ACCEPT => 0, REFUSED => 3)
   validate    schemas-mirror                 mirrors == canonical roots modulo generated header
@@ -116,10 +129,20 @@ commands (M3):
   selftest    m65-suite                       M6.5 Codex-adapter suites (tests/fixtures/m6.5):
                                               codex shims, skills mirror, host AGENTS.md generator.
                                               Named-only; also under --all; NOT in the no-arg default.
+  selftest    doctor                          M8 host self-check module self-test (dmc-doctor.py):
+                                              firing-probe positive control + Codex-scoped honesty
+                                              grep + negative controls (missing-python3, seeded
+                                              Codex-enforced line, wiring gap, foreign harness).
+                                              Named-only; also under --all; NOT in the no-arg default.
+  selftest    m8-suite                        M8 host-install suites (tests/fixtures/m8): install
+                                              round-trip, idempotency, doctor negative controls,
+                                              manifest drift. Named-only; also under --all; NOT in
+                                              the no-arg default.
   selftest    --all                          above + all 49 legacy tools (bin/lib) vs the
                                               pinned baseline + rollback-test + run-core/loop-core
                                               + the four M5 orchestration sections + m6-core + m6-suite
-                                              + skills-mirror + agents-md + m65-suite (slow: ~10+ min)
+                                              + skills-mirror + agents-md + m65-suite + doctor
+                                              + m8-suite (slow: ~10+ min)
   help
 
 Artifacts conform to .harness/schemas/{orientation,landmarks,depsurface,radius}.schema.md.
@@ -156,6 +179,22 @@ run_m65_suite() {
       bash "$M65SUITEDIR/$s" || rc=1
     else
       echo "dmc selftest m65-suite: missing suite script: $s" >&2; rc=1
+    fi
+  done
+  return "$rc"
+}
+
+# M8 host-install suites (tests/fixtures/m8). Each is a self-contained bash script
+# (mktemp sandboxes; the live repo is left byte-identical). GUARDED: a missing script
+# is rc=1, so this section can be registered before T013.4 lands the scripts (M6.5
+# precedent). Returns 0 iff every suite passes.
+run_m8_suite() {
+  local rc=0 s
+  for s in test-install-roundtrip.sh test-idempotency.sh test-doctor-negcontrols.sh test-manifest-drift.sh; do
+    if [ -f "$M8SUITEDIR/$s" ]; then
+      bash "$M8SUITEDIR/$s" || rc=1
+    else
+      echo "dmc selftest m8-suite: missing suite script: $s" >&2; rc=1
     fi
   done
   return "$rc"
@@ -238,6 +277,9 @@ case "$cmd" in
   skills-mirror)
     exec python3 "$SKILLSMIRRORLIB" "$@"
     ;;
+  doctor)
+    exec python3 "$DOCTORLIB" "$@"
+    ;;
   roles)
     exec python3 "$ROLESLIB" "$@"
     ;;
@@ -301,6 +343,8 @@ case "$cmd" in
       python3 "$SKILLSMIRRORLIB" --self-test || rc=1
       python3 "$AGENTSMDLIB" --self-test || rc=1
       run_m65_suite || rc=1
+      python3 "$DOCTORLIB" --self-test || rc=1
+      run_m8_suite || rc=1
       exit "$rc"
     fi
     [ $# -eq 0 ] && set -- orient landmarks depsurface radius \
@@ -330,6 +374,8 @@ case "$cmd" in
         skills-mirror)          python3 "$SKILLSMIRRORLIB" --self-test || rc=1 ;;
         agents-md)              python3 "$AGENTSMDLIB" --self-test || rc=1 ;;
         m65-suite)              run_m65_suite || rc=1 ;;
+        doctor)                 python3 "$DOCTORLIB" --self-test || rc=1 ;;
+        m8-suite)               run_m8_suite || rc=1 ;;
         *) echo "dmc selftest: unknown target: $t" >&2; exit 2 ;;
       esac
     done

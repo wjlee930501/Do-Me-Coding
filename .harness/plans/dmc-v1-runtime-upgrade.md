@@ -369,8 +369,8 @@ Global not-edit for every milestone unless its own list authorizes it:
 
 ## Approval Status
 
-Status: APPROVED (M2 + M3 + M4 + M5 · M6 and M6.5 each via their own milestone-scoped plans) —
-M7/M8/M9/M10 remain UNAPPROVED (DRAFT)
+Status: APPROVED (M2 + M3 + M4 + M5 · M6, M6.5, and M8 each via their own milestone-scoped plans) —
+M7/M9/M10 remain UNAPPROVED (DRAFT)
 Approver: wjlee (wjlee@motionlabs.kr) — human release gate
 Approved At: 2026-07-05 (M1/M2) · 2026-07-06 (M3) · 2026-07-06 (M4 — via the milestone-scoped
 plan `.harness/plans/dmc-v1-m4-run-lifecycle.md`, critic-APPROVED Rev 3; scope recorded there) ·
@@ -380,7 +380,10 @@ critic-APPROVED Rev 2; scope incl. the first-`.claude/**`-edit confirmation reco
 r5 build sign-off; initial gate + mid-run Rev 3 amendment gate; scope recorded there; shipped +
 CLOSED at `d721487`) · 2026-07-06 (M6.5 — via `.harness/plans/dmc-v1-m6.5-codex-adapter.md`,
 critic r1 REJECT → Rev 2 → r2 APPROVE (plan_hash `b02b1554…`); scope + A5 advisory disposition
-recorded there)
+recorded there) · 2026-07-07 (M8 — via `.harness/plans/dmc-v1-m8-host-install.md`, critic
+r1 REJECT (5) → Rev 2 → r2 REJECT (B6) → Rev 3 → r3 APPROVE (plan_hash `dd8e23d7…`); scope +
+the three-advisory disposition (incl. the MANDATORY sentinel-not-gitignored directive) recorded
+there; executed BEFORE M7 per the Rev 3 order M6.5→M8→M7→M9→M10)
 
 Approval record (verbatim scope of the human gate, 2026-07-05):
 - **M1 retroactive ratification** covers: Phase 0–4 document deliverables, M1

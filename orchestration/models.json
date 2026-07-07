@@ -1,0 +1,62 @@
+{
+  "schema": "dmc.models.v1",
+  "as_of": "2026-07-07",
+  "provenance": {
+    "canonical_source": "orchestration/models.json",
+    "role": "Dated, replaceable lookup mapping each orchestration capability class (orchestration/roles.json) to the concrete model-version bindings available to it, per binding kind {claude-code-subagent | worker-provider | human | deterministic-tool}.",
+    "faithful_to": [
+      "orchestration/roles.json (the six capability_classes)",
+      "docs/DMC_V1_RUNTIME_ARCHITECTURE.md §P20 (dated model-binding lookup)",
+      "docs/CODEX_ADAPTER.md §1 (model names are dated, non-load-bearing, capability-classes-only in Ring-0)"
+    ],
+    "milestone": "dmc-v1 M8 (P20)",
+    "sole_model_name_home": "This is the ONLY sanctioned home for model-version-name strings in the DMC control plane. Model names must never appear in Ring-0 code, role logic, or gate/verdict paths. The v0.6.1 / M8 model-name self-scan EXCLUDES this file by design (the dated row of docs/CODEX_ADAPTER.md §1 is the parallel precedent).",
+    "not_load_bearing": "No gate, verdict, routing, or delegation-execution decision reads this file. `dmc doctor` may DISPLAY it. It is a lookup/reference artifact only; replace it as models evolve and re-date `as_of`.",
+    "date_semantics": "`as_of` pins the freshness of the bindings below. A stale date is a signal to refresh, never a gate failure."
+  },
+  "binding_kinds": [
+    "claude-code-subagent",
+    "worker-provider",
+    "human",
+    "deterministic-tool"
+  ],
+  "bindings": {
+    "frontier-long-horizon": {
+      "note": "Strategic Orchestrator lane — deepest reasoning / longest horizon; main-session bound, never a mutator.",
+      "claude-code-subagent": ["claude-opus-4-8", "claude-fable-5"],
+      "worker-provider": [],
+      "human": null
+    },
+    "standard-implementation": {
+      "note": "Implementer lane — the only mutation-capable role; executor subagent mutates under a scope.lock, worker providers are proposal-only.",
+      "claude-code-subagent": ["claude-sonnet-5"],
+      "worker-provider": ["glm-4.6", "codex-5-preview"],
+      "human": null
+    },
+    "cheap-fast": {
+      "note": "High-frequency lightweight lane — quick lookups, exploration, cheap checks.",
+      "claude-code-subagent": ["claude-haiku-4-5"],
+      "worker-provider": [],
+      "human": null
+    },
+    "adversarial-review": {
+      "note": "Critic / Falsifier and Release Auditor lanes — fresh-context adversarial review; advisory verdicts only (C11), never a release grant.",
+      "claude-code-subagent": ["claude-opus-4-8"],
+      "worker-provider": ["gpt-5"],
+      "human": null
+    },
+    "deterministic-tool": {
+      "note": "Verifier lane — deterministic Ring-0 tooling, not a model. Reports the deterministic result; never a model self-assessment.",
+      "claude-code-subagent": [],
+      "worker-provider": [],
+      "human": null,
+      "deterministic-tool": ["bin/dmc"]
+    },
+    "human-only-gate": {
+      "note": "Human Release Gate — the only lane that may open a release/closure gate. Never inferred, never automated, never a model.",
+      "claude-code-subagent": [],
+      "worker-provider": [],
+      "human": "human operator (explicit, recorded authorization)"
+    }
+  }
+}
