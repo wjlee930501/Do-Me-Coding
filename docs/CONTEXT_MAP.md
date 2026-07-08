@@ -1,4 +1,4 @@
-# DMC Context Map (v0.4.7)
+# DMC Context Map (v1.0; supersedes v0.4.7)
 
 A **single-source pointer index** of where each operating concern lives — so instructions are **referenced, not
 duplicated** across context files. When a rule belongs in one place, link to it here instead of copy-pasting.
@@ -13,7 +13,7 @@ duplicated** across context files. When a rule belongs in one place, link to it 
 | secret-protection patterns | `DMC.md` §Secret Protection | the secret pattern list |
 | non-negotiable rules (incl. Rule 7) | `DMC.md` §Non-Negotiable Rules | the rule list |
 | project memory (repo facts) | `AGENTS.md` | repo facts / landmarks |
-| global agent instructions | `CLAUDE.md` (user-private) | — |
+| global agent instructions | `CLAUDE.md` (project-committed, git-tracked) | — |
 | schemas | `*_SCHEMA.md` (root) + `.harness/schemas/*.schema.md` | schema bodies |
 | guards / control plane | `.harness/evidence/dmc-v0.4.*.sh` + `.claude/hooks/*` | guard logic |
 

@@ -13,7 +13,7 @@ own `.harness/mode` switch.
 | `passive` | full destructive + secret deny (no `ask`) | stand down | OMC is driving; keep the safety net |
 | `off` | catastrophic + secret-exposure deny only | stand down | OMC experiments; minimal interference |
 
-`.harness/mode` is gitignored and local; **absent means `active`** (so v0.1 protections are preserved on clean clones).
+`.harness/mode` is gitignored and local; **absent means `active`** (so DMC protections are preserved on clean clones).
 
 ## Natural activation
 

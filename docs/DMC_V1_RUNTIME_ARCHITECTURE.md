@@ -1,7 +1,7 @@
 # DMC v1.0 Runtime Architecture
 
-Status: DESIGN (Phase 2 of dmc-v1-runtime-upgrade; implementation gated on the approved plan
-`.harness/plans/dmc-v1-runtime-upgrade.md`).
+Status: IMPLEMENTED (M2–M9 shipped what this document designs; preserved as the design record —
+see docs/DMC_V1_ENFORCEMENT_MATRIX.md for the shipped per-harness reality).
 Inputs: `.harness/plans/dmc-v1-runtime-upgrade-audit.md` (Phase 0),
 `docs/FABLE_WORKFLOW_TRANSFER.md` (Phase 1, behaviors B1–B13).
 Thesis carried forward from v0.6.0: **"Learn suggestions, encode gates."** Nothing below is prompt
@@ -352,7 +352,9 @@ Field key: **Pur** purpose · **In** inputs · **Out** outputs · **St** state �
 - **Pur:** per-model binding profile: `orchestration/models.json` (dated, replaceable, non-load-
   bearing — v0.6.0 lookup pattern) mapping capability classes → available bindings {claude-code
   subagent, worker provider, human}; plus per-harness feature detection (which Ring-1 events
-  exist: Codex has no Stop hook ⇒ release gate runs as a pre-commit/CI check instead).
+  exist: Codex ships a Stop hook with confirmed `decision:"block"` parity (M6.5 spike, Option A),
+  but decision-envelope honoring is unproven turn-free, so the Stop shim is treated as advisory
+  and the pre-commit/CI release gate remains the backstop).
 - **In:** capability-routing schema (v0.6.1); harness feature matrix. **Out:** binding decisions
   recorded in delegation records.
 - **T−:** model-name strings in any gate logic (v0.6.1 self-scan invariant extends to all Ring-0
@@ -360,8 +362,8 @@ Field key: **Pur** purpose · **In** inputs · **Out** outputs · **St** state �
 - **FM:** silent degradation on a harness lacking an event — must be **loud**: doctor prints the
   enforcement matrix (which invariants are runtime-enforced vs advisory on this harness).
 - **Ver:** self-scan (no model names in Ring 0); adapter matrix test per harness fixture.
-- **v1.0: REQUIRED (claude-code full matrix; codex matrix = pre-commit/CI binding; opencode
-  stub).**
+- **v1.0: REQUIRED (claude-code full matrix; codex matrix = advisory Stop-hook shim +
+  pre-commit/CI backstop; opencode stub).**
 
 ---
 
@@ -382,7 +384,7 @@ dmc orient (P1) → dmc landmarks (P2) → plan (+P3 exemplars, P4/P5 radius, P6
 - No learned/adaptive gate authority (v0.6.0 anti-goal #8) — all 20 primitives are deterministic.
 - No cryptographic approval authentication (P17 labels the debt; v1.1+).
 - No LSP/AST dependency analysis (P4 regex tier only; defer card).
-- No independent daemon/web UI/MCP server (DMC.md v0.1 exclusions stand).
+- No independent daemon/web UI/MCP server (DMC.md "v1.0 Scope" exclusions stand).
 - No automatic patch application from any external model (P15 keeps translate-then-verify).
 - No rewrite of shipped validators — relocation + routing + wiring only.
 

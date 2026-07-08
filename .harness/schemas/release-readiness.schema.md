@@ -115,10 +115,11 @@ RUN-DIR artifacts under `.harness/runs/<run-id>/`.
 - **Write-once output.** `release-readiness.json` is written once per gate run; a second write to an
   existing path is REFUSED (exit 3, `RGATE-OUTPUT-EXISTS`) unless `--out -` (stdout). Canonical JSON
   (sorted keys), no timestamps ⇒ byte-deterministic per input. `--out` is path-safety guarded.
-- **M10 checklist extension point.** `docs/DMC_V1_RELEASE_CHECKLIST.md` is a reserved optional input
-  consumed from M10 onward; its ABSENCE does NOT produce a MISSING sub-gate in v1.0-M9 (M9 leaves the
-  extension point only; M10 validates consumption via its own `dmc gate release --full` PASS
-  acceptance).
+- **M10 checklist extension point (realized).** `docs/DMC_V1_RELEASE_CHECKLIST.md` now EXISTS as the
+  human-facing mirror of the nine sub-gates, but the composer still does NOT read it: `SUB_GATES` stays
+  nine and its absence still produces no MISSING sub-gate. Consumption is OUT-OF-BAND — the checklist
+  mirrors this contract row-for-row and is validated by M10's own `dmc gate release --full` PASS, not by
+  the gate parsing the file.
 
 Negative controls the composer must handle: a tampered run.json or forged `snapshot.txt` ⇒ structural
 REFUSE exit 3 (never diffed); an out-of-scope new change ⇒ diff-scope FAIL; an uncovered required

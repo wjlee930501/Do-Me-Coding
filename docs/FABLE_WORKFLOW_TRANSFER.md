@@ -291,7 +291,14 @@ and blocks itself on any gap.
 
 ## Transfer table (behavior → primitive → exists today?)
 
-| Behavior | Primitive | Today in DMC |
+Note: the "Today in DMC" column below is a **Phase-0/1 audit snapshot (2026-07-05 — pre-build)**,
+frozen at the point this document was authored. M2–M9 subsequently shipped the runtime primitives
+that close most of these gaps (B4/B8/B9/B11/B12/B13-class items in particular) — see
+`docs/DMC_V1_ENFORCEMENT_MATRIX.md` and `.harness/verification/dmc-v1-runtime-upgrade.md` (B1-B10
+traceability) for the shipped, per-harness reality. Rows below are preserved unchanged as the
+historical record that motivated the primitives.
+
+| Behavior | Primitive | Today in DMC (Phase-0/1 audit snapshot, 2026-07-05 — pre-build) |
 |---|---|---|
 | B1 orientation | P1 | prose only (`/dmc-init-deep` → free-text AGENTS.md, stale in own repo) |
 | B2 landmarks | P2 | hand-maintained lists ×6 docs, drifting |

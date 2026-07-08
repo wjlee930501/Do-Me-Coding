@@ -1,6 +1,7 @@
 # DMC v1.0 Orchestration Model
 
-Status: DESIGN (Phase 3 of dmc-v1-runtime-upgrade; implementation gated on the approved plan).
+Status: IMPLEMENTED (M2–M9 shipped what this document designs; preserved as the design record —
+see docs/DMC_V1_ENFORCEMENT_MATRIX.md for the shipped per-harness reality).
 Companion: `docs/DMC_V1_RUNTIME_ARCHITECTURE.md` (primitives P14/P15/P16/P17/P20),
 `docs/ORCHESTRATION_TAXONOMY.md` (v0.6.0 — remains the philosophical reference).
 Invariants carried: **C11** (advisory verdicts never open gates), **"learn suggestions, encode
@@ -82,7 +83,7 @@ Gate logic never names models (v0.6.1 self-scan invariant). The **dated, replace
 |---|---|---|
 | frontier-long-horizon | Fable-class frontier model | Strategic Orchestrator: decomposition, plan authorship, accountability for all consumed artifacts |
 | adversarial-review | Opus-4.8-class high-reliability model, fresh context | critic verdicts, release audits, verifier judgment calls — reliability over speed; MUST NOT share the author's context |
-| standard-implementation | Codex-5.5-class / GPT-Sol-class via **worker bridge** | implementation proposals, portability probes, bulk mechanical transforms — always proposal-only |
+| standard-implementation | Codex-5.5-class / GPT-Sol-class via **worker bridge** | the Implementer lane — the only mutation-capable role: the executor subagent mutates solely under a held scope.lock; worker providers supply implementation proposals, portability probes, bulk mechanical transforms and remain proposal-only |
 | cheap-fast | small fast models / mock workers | bounded proposal generation, fixture drafting, large fan-out scans whose outputs are validator-checked |
 | deterministic-tool | no model — `bin/dmc` CLIs | every gate verdict, every validation |
 | human-only-gate | human | plan approval, scope amendment, bound raise, release, push, live-call, waivers |

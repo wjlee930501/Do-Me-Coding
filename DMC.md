@@ -1,4 +1,4 @@
-# Do-Me-Coding v0.1
+# Do-Me-Coding v1.0
 
 Do-Me-Coding is a Claude Code-first execution harness that forces AI coding agents to plan, critique, implement, verify, recover, and report with evidence.
 
@@ -19,8 +19,8 @@ Do not fake completion.
 2. No accepted file scope, no edit.
 3. No explicit acceptance criteria, no execution.
 4. No evidence log, no final completion claim.
-5. No independent runtime in v0.1.
-6. No OMO runtime clone in v0.1.
+5. No independent agent runtime — DMC runs inside host harnesses (Claude Code enforced; Codex advisory); `bin/dmc` is a Ring-0 verdict/validation CLI, not an agent runtime.
+6. No OMO runtime clone.
 7. No copied leaked prompt text.
 
 ## Default Loop
@@ -66,7 +66,7 @@ Runs strict verification and writes a report under `.harness/verification/`.
 
 Builds or refreshes `AGENTS.md` project memory from repo facts only.
 
-## Modes & Natural Activation (v0.1.1)
+## Modes & Natural Activation (v1.0; introduced in v0.1.1)
 
 Do-Me-Coding has a mode switch in `.harness/mode` (gitignored; absent means `active`):
 
@@ -86,7 +86,7 @@ Triggers are suffix-only and exact (the token must end the prompt). Switch expli
 
 See `docs/OMC_COEXISTENCE.md` for running OMC in the same repo (separate branch/worktree, run-in-progress warning, no assumed OMC off switch).
 
-## Secret Protection (v0.1.3)
+## Secret Protection (v1.0; introduced in v0.1.3)
 
 DMC denies access to secret-bearing files at two layers:
 
@@ -102,7 +102,7 @@ Defense-in-depth: a broad `Grep` with no path can't be path-blocked, but Grep re
 (gitignored secrets are skipped) and the CLAUDE.md instruction-level rule remains required. `Glob`
 does NOT respect `.gitignore`, so `secret-guard` also blocks secret-targeting glob patterns.
 
-## Install & Host Adaptation (v0.1.3)
+## Install & Host Adaptation (v1.0; introduced in v0.1.3)
 
 DMC installs into host repos via a manifest-driven installer, not ad-hoc copy:
 
@@ -114,18 +114,18 @@ DMC installs into host repos via a manifest-driven installer, not ad-hoc copy:
 - `docs/HOST_REPO_ARTIFACT_POLICY.md` — host `.harness` plans/evidence/verification default to local-only (commit opt-in); the DMC repo itself commits durable artifacts.
 - `docs/HOST_REPO_ADAPTATION_POLICY.md` — never blind-copy `AGENTS.md`; merge/preserve host docs; generate host-specific docs only via `/dmc-init-deep`.
 
-## Worker Bridge (v0.2, mock-only)
+## Worker Bridge (v1.0; introduced in v0.2, mock-only)
 
 Claude/Codex orchestrates; bounded workers (e.g. GLM 5.2) produce **structured proposals only** —
-they never mutate the repo. v0.2 is **mock-only**: no live API, no credentials, no auto-apply.
+they never mutate the repo. The worker bridge is **mock-only** (introduced in v0.2): no live API, no credentials, no auto-apply.
 
 - Schemas: `WORKER_TASK_SCHEMA.md`, `WORKER_RESULT_SCHEMA.md`, `WORKER_REVIEW_SCHEMA.md`.
 - Skills: `/dmc-worker-plan`, `-dispatch`, `-import`, `-review`, `-status`, `-cancel`.
 - `worker-context-guard.sh` validates a task bundle before dispatch (fail-closed on any secret/forbidden path); `worker-result-check.py` validates a result at import/review.
-- **No-mutation rule:** a worker diff is a **review artifact only**. v0.2 does NOT apply worker patches with `git apply`/`patch`. If accepted, the orchestrator translates the change into scope-guarded `Edit`/`Write` under a `/dmc-start-work` scope → verify → evidence.
+- **No-mutation rule:** a worker diff is a **review artifact only**. DMC does NOT apply worker patches with `git apply`/`patch`. If accepted, the orchestrator translates the change into scope-guarded `Edit`/`Write` under a `/dmc-start-work` scope → verify → evidence.
 - Storage `.harness/workers/{tasks,results,reviews,sessions}/` — local-only by default in host repos (commit opt-in). Workers receive clipped, secret-scrubbed context only; no `.env*`/credentials/OAuth tokens.
-- Provider Access Layer: `mock` | `api_key` | `oauth_cli` | `manual_import`. v0.2 = `mock`/`manual_import` only; API-key adapter → v0.2.1, OAuth/local-CLI → v0.2.2+.
-- **v0.2.1 `glm-api` adapter** (`.claude/workers/providers/glm-api/`, `provider_target.type=api_key`): mock-first — default `--mock`/no-network; `--live` is multi-gated (`--live` + `--allow-network` + `GLM_API_KEY` env + not-CI). Key read from env ONLY, non-printing, never serialized into logs/results/evidence/`.harness/`; Authorization header redacted; raw provider responses local-only. Output is still validated by `worker-result-check.py`. See `.claude/workers/providers/glm-api/README.md` + `CONFIG.md`.
+- Provider Access Layer: `mock` | `api_key` | `oauth_cli` | `manual_import` — all four ship in v1.0 (`mock`/`manual_import` introduced in v0.2, the `api_key` `glm-api` adapter in v0.2.1, `oauth_cli` in v0.2.2).
+- **`glm-api` adapter** (introduced in v0.2.1; `.claude/workers/providers/glm-api/`, `provider_target.type=api_key`): mock-first — default `--mock`/no-network; `--live` is multi-gated (`--live` + `--allow-network` + `GLM_API_KEY` env + not-CI). Key read from env ONLY, non-printing, never serialized into logs/results/evidence/`.harness/`; Authorization header redacted; raw provider responses local-only. Output is still validated by `worker-result-check.py`. See `.claude/workers/providers/glm-api/README.md` + `CONFIG.md`.
 
 ## Evidence Policy
 
@@ -175,20 +175,22 @@ For very large repo-wide audits or migrations, you may still use:
 /effort ultracode
 ```
 
-## v0.1 Scope
+## v1.0 Scope
 
 Included:
-- Claude Code skills
-- Claude Code subagents
-- Claude Code hooks
-- `.harness` evidence and schema structure
-- repo operating docs
+- `bin/dmc` Ring-0 verdict/validation CLI + `bin/lib` verdict tools
+- `orchestration/` registries (`roles.json`, `models.json`, `harness-matrix.json`)
+- `.harness` schemas + gates (evidence, verification, release readiness)
+- worker adapters (`mock`, `manual-import`, `glm-api` mock-first, `oauth-cli`)
+- Claude Code hooks (enforced) + Codex Option-A shims (advisory)
+- installer / uninstaller + `dmc doctor`
+- release gate + CI
 
 Excluded:
-- independent CLI
-- model router
-- external GLM/Kimi router
 - web UI
 - mobile UI
 - MCP server
+- live provider calls by default (mock-first)
+- independent agent runtime
 - full OMO fork
+- cryptographic approval authentication (v1.1+)

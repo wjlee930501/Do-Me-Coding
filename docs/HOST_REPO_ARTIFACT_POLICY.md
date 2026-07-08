@@ -1,4 +1,4 @@
-# Do-Me-Coding — Host-Repo Artifact Policy (v0.1.3)
+# Do-Me-Coding — Host-Repo Artifact Policy (v1.0; introduced in v0.1.3)
 
 When DMC is installed into a HOST repository, its `.harness/` artifacts are **working artifacts of
 the DMC tool**, not host product. They default to **local-only / gitignored**; committing is opt-in.

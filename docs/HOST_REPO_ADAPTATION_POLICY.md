@@ -1,4 +1,4 @@
-# Do-Me-Coding — Host-Repo Adaptation Policy (v0.1.3)
+# Do-Me-Coding — Host-Repo Adaptation Policy (v1.0; introduced in v0.1.3)
 
 How DMC adapts to an existing host repo WITHOUT overwriting or misdescribing it.
 

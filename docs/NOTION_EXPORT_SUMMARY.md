@@ -10,9 +10,9 @@ This scaffold reflects the Notion research vault created for:
 
 ## Key Design Decision
 
-Do-Me-Coding v0.1 is a Claude Code Native Pack first.
+Do-Me-Coding v1.0 is a Claude Code Native Pack first.
 
-It intentionally avoids:
+Its founding (v0.1) design decision intentionally avoided:
 - independent CLI
 - web UI
 - model router

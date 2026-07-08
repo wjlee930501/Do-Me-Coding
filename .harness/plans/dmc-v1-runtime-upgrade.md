@@ -370,7 +370,9 @@ Global not-edit for every milestone unless its own list authorizes it:
 ## Approval Status
 
 Status: APPROVED (M2 + M3 + M4 + M5 · M6, M6.5, M8, M7, and M9 each via their own milestone-scoped plans) —
-M10 remains UNAPPROVED (DRAFT)
+M10 APPROVED via its milestone-scoped plan (.harness/plans/dmc-v1-m10-final-docs.md Rev 2; critic
+r1 NEEDS_CLARIFICATION → fold → r2 APPROVE 0 blockers; human plan gate 2026-07-08 — CF14=option (b),
+D1=document, .harness/evidence originals=KEEP, AGENTS.md=regenerate)
 Approver: wjlee (wjlee@motionlabs.kr) — human release gate
 Approved At: 2026-07-05 (M1/M2) · 2026-07-06 (M3) · 2026-07-06 (M4 — via the milestone-scoped
 plan `.harness/plans/dmc-v1-m4-run-lifecycle.md`, critic-APPROVED Rev 3; scope recorded there) ·

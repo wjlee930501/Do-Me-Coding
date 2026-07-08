@@ -515,3 +515,92 @@ trace-integrity, cross-gate consistency, and an adversarial acceptance suite —
 
 **Next:** (open) — v0.6.6–v0.6.9 Governance Hardening is decomposed and DMC-critic-APPROVED but **not** started; each
 milestone requires its own approved plan + human gate. No build has begun.
+
+## v1.0 — DMC v1 Runtime Upgrade (M1–M10) — CLOSED (2026-07-08)
+
+- **Published:** `main` == `origin/main` == `11f26a3` immediately pre-M10 (pre-M10 audit + 16-fix remediation
+  fast-forwarded onto `main`, unifying the whole v1 stack — no merge commit, no force push, no history rewrite
+  anywhere in the M1–M10 arc). M10 — this identity refresh + closure entry — lands as the milestone's own docs
+  commit under the same human plan/build/commit/push gate chain every prior milestone used.
+
+### Why this layer existed
+v0.1–v0.6.5 shipped a wide advisory rails/control-plane surface but the runtime enforcement floor stayed thin and
+the product still called itself "v0.1" everywhere. The v1 Runtime Upgrade
+(`.harness/plans/dmc-v1-runtime-upgrade.md`, Rev 3) exists to build the actual bounded-agent runtime — repo
+intelligence, run lifecycle, an orchestration registry, a real Ring-0 enforcement floor, worker/delegation
+hardening, a release-gate composer + CI, host installation, and finally an honest v1.0 identity — closing the
+pre-v1 audit's ten numbered release blockers (B1–B10).
+
+### What was implemented
+- **M1** — docs/design trio (`DMC_V1_AUDIT`, `DMC_V1_RUNTIME_ARCHITECTURE`, `DMC_V1_ORCHESTRATION_MODEL`) + the
+  master plan, human-ratified as the build's blueprint.
+- **M2** — repository intelligence: `dmc orient` (P1), `landmarks` (P2), `depsurface` (P4), `radius` (P5,
+  change-radius prediction).
+- **M3** — 6 contract schemas + instance validators + a 55-file `bin/lib` copy-routing, pinning legacy
+  `selftest --all` at `tools=49 / PASS=802 / FAIL=3 / N/A=3` (3 human-accepted upstream FAILs, never masked).
+- **M4** — run-lifecycle core: 8 primitives spanning P7–P13 + P17 (run start, scope.lock, approvals, the evidence
+  ledger + receipts, checkpoints, acceptance, verify-plan, fix-loop/recovery).
+- **M5** — the orchestration registry (`orchestration/roles.json` + `models.json`), 6 contract-ized agent roles,
+  verdict/delegation validators + verdict-gate, 3 skills bound to `dmc run start`.
+- **M6** — Ring-0 hook hardening on the PROTECTED SURFACE: hooks rewired as shims over `bin/dmc` verdict CLIs,
+  scope.lock adjudication, bash-radius L0/L1 write-scope floors, postbash-diff, verify-crosscheck, and the stop
+  gate — scope/stop/secret enforcement went from advisory to live.
+- **M6.5 + M8** — the Codex adapter shipped ADVISORY-only shims (Option A; a spike could not prove hook execution
+  turn-free at the time), and the host installer began shipping Ring 0+1 to `--host claude|codex|both`; `dmc doctor`
+  keeps the honesty split ever since — Claude hook execution is proven by a synthetic probe, the Codex column stays
+  ADVISORY only.
+- **M7 + M9** — worker/delegation hardening made the apply-authorization chain (review-check → authorize →
+  apply-check → fidelity) skill-mandated at runtime (M7, the honest tier — Ring-0/1 does not itself block a
+  chain-less Edit/Write); the release-gate composer `dmc gate release --full` (9 sub-gates, 39/0) +
+  `.github/workflows/dmc-ci.yml` (13 blocking checks + advisory legacy replay) then made chain-absence BLOCKING
+  at release (M9).
+- **Pre-M10** — a full-project audit + 16 Tier-1/2/3 fixes across 19 files (`6d571a8`), then the fast-forward main
+  unification landing the whole stack on `main` at `11f26a3`.
+- **M10** — final docs + the v1.0 identity refresh, three new honesty docs (`DMC_V1_ENFORCEMENT_MATRIX`,
+  `DMC_V1_HONEST_SCOPE`, `DMC_V1_RELEASE_CHECKLIST`), the B1–B10 audit-blocker traceability table, and this
+  closure entry.
+
+### What problem was solved
+DMC went from an advisory rails/control-plane prototype still labeled "v0.1" to a runtime with a real write-scope
+enforcement floor, an honest per-harness tier split, an accountable worker-bridge, a single release-readiness
+composer + CI boundary, and documentation matching what ships — closing all ten audit blockers B1–B10: nine by
+shipped mechanism, one (B8, tracked-backup/zip repo hygiene) by an explicit, human-ratified deferral to a future
+cleanup milestone.
+
+### Deliverables
+`bin/dmc` (single Ring-0 dispatch entry point); `bin/lib/` primitives (repo-intel, run-lifecycle, orchestration,
+hook shims, worker-bridge validators, `dmc-release-gate.py`); `.harness/schemas/` contract set;
+`orchestration/{roles,models,harness-matrix}.json`; `.claude/hooks/**` (Ring-0 shims); `adapters/codex/**`
+(Option A advisory shims); `.claude/install/**` + uninstaller + `dmc doctor`; `.github/workflows/dmc-ci.yml`;
+the 5 M10 identity/honesty docs; `.harness/verification/dmc-v1-runtime-upgrade.md` (B1–B10 traceability).
+
+### Verification & review posture
+Every milestone: milestone-scoped plan → non-authoring critic → human plan gate → an armed, scope-locked run with
+synchronous Opus/Sonnet executors → independent verifier (own probes + own committed-replica run) →
+committed-replica `selftest --all` at 802/3/3 EXACT → human commit gate → live post-commit `--all` re-run at
+802/3/3 EXACT as the closure proof. `.github/workflows/dmc-ci.yml` went green on the branch at M9 (Actions run
+`28899008386`), carried unchanged into M10.
+
+### Safety posture
+CF14 (CI-baseline-portability) is ratified as **option (b)**: the pinned 802/3/3 legacy baseline is a
+maintainer-local/committed-replica-scoped dev-environment artifact, formalized as an advisory CI tier alongside a
+documented CI-tier baseline — the 13 substantive M9-built blocking checks are never weakened. D1 (~20 frozen
+tools' bare-BSD-md5 self-asserts, vacuous on any non-BSD-md5 host) is documented, not hardened, for v1.0 — the one
+site masking a security invariant (`bin/lib/dmc-v0.2-verify.sh:15-17`) is named explicitly in
+`docs/DMC_V1_HONEST_SCOPE.md`. The frozen `bin/lib/dmc-v0.*` tools + their `.harness/evidence/` originals
+(55 files) are KEPT canonical (M3 rollback + mirror-check depend on them). No live provider/model/API call at any
+milestone; no `.env*`/credential read; every worker result stays proposal-only (never `git apply`/`patch`).
+
+### Long-term significance
+v1.0 is the point where DMC's stated identity and its actual runtime behavior converge: a real Ring-0 write-scope
+floor, a per-harness tier split that is never uniform across Claude and Codex (advisory-only on Codex, documented
+not claimed), an accountable worker-bridge chain, and a single release-readiness composer any future milestone
+must pass. The disclosed-not-hidden posture (CF14, D1, the M7/M9 honest tiers) is the durable pattern: v1.1+ work
+extends this floor rather than re-deriving it.
+
+**Next:** v1.1+ deferred register — cryptographic approval authentication (the former v0.6.6 Governance Hardening
+mission, folded in per `docs/DMC_V1_RUNTIME_ARCHITECTURE.md`'s Deferred register), worker-bridge expansion, the
+P5 change-radius benchmark, the CF14 option-(a) frozen-tool portability hygiene plan, and D1 hardening — per
+`docs/DMC_V1_HONEST_SCOPE.md` and the master plan's own Deferred register. **This supersedes the prior trailing
+"Next:" pointer immediately above** (v0.6.6–v0.6.9 Governance Hardening, "decomposed and DMC-critic-APPROVED but
+not started") — that mission never shipped standalone; it folded into this same v1.1+ register instead.

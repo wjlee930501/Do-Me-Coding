@@ -25,7 +25,8 @@
 # ADVISORY (continue-on-error: true) so its full output stays visible in the CI log without
 # failing the job. The definitive 802/3/3 proof is the maintainer's local/committed-replica
 # run recorded in the M9 evidence; making this replay CI-reproducible is an M10 hardening
-# candidate.
+# candidate. The canonical posture doc for this advisory tier (the named-tool root cause, the
+# D1 bare-md5 disposition, and the CF14 CI-baseline decision) is docs/DMC_V1_HONEST_SCOPE.md.
 
 name: dmc-ci
 
@@ -188,5 +189,6 @@ jobs:
           echo "porcelain MID-sandwich: PASS (empty)"
 
       - name: Legacy full self-test replay (ADVISORY — 802/3/3 baseline is dev-environment-pinned)
+        # Advisory-tier rationale + named-tool root cause: docs/DMC_V1_HONEST_SCOPE.md §5 (CF14).
         continue-on-error: true
         run: bin/dmc selftest --all

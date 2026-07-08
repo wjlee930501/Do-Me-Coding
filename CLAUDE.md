@@ -1,6 +1,6 @@
 # Claude Code Instructions — Do-Me-Coding Enabled
 
-This repository uses Do-Me-Coding v0.1.
+This repository uses Do-Me-Coding v1.0.
 
 Before substantial edits:
 1. Read `DMC.md`.
@@ -24,7 +24,7 @@ For complex work, prefer:
 For normal work, still follow:
 plan → scope → execute → verify → evidence.
 
-## Mode & Natural Activation Routing (v0.1.1)
+## Mode & Natural Activation Routing (v1.0; introduced in v0.1.1)
 
 `.harness/mode` controls enforcement: `active` (full), `passive` (deny tier only, gates stand down), `off` (catastrophic + secret-exposure deny only). Absent ⇒ `active`.
 
@@ -36,7 +36,7 @@ Natural-activation triggers (suffix-only, exact; precedence dmc-off > dmc-plan >
 
 Explicit switches: `/dmc-on [active|passive]`, `/dmc-off`, `/dmc-status`. For OMC in the same repo, see `docs/OMC_COEXISTENCE.md` (prefer a separate branch/worktree; do not assume OMC has a universal off switch).
 
-## Secret Protection (v0.1.3) — non-negotiable
+## Secret Protection (v1.0; introduced in v0.1.3) — non-negotiable
 
 NEVER read, grep, print, edit, summarize, quote, copy, or otherwise expose the contents of
 secret-bearing files — in ANY mode, via ANY tool (Read, Grep, Glob, Bash, editor):
@@ -51,16 +51,16 @@ instruction-level rule is the defense-in-depth layer and applies even where tool
 cannot reach (e.g. a broad `Grep`). Inventory secret files by **filename only**. Treat any
 production secret file as completely off-limits.
 
-## Worker Bridge (v0.2) — non-negotiable
+## Worker Bridge (v1.0; introduced in v0.2) — non-negotiable
 
 Workers produce structured PROPOSALS only and NEVER mutate the repo. A worker diff is a review
 artifact, not an executable patch. Do NOT apply worker results with `git apply`/`patch`. If a
 proposal is accepted, translate it into scope-guarded `Edit`/`Write` operations under a
 `/dmc-start-work` scope, then verify. Never put secrets, `.env*` contents, credentials, OAuth
-tokens, or API keys into a worker task or result. v0.2 is mock-only — no live provider API, no
-credentials.
+tokens, or API keys into a worker task or result. The worker bridge is mock-only (introduced in
+v0.2) — no live provider API, no credentials.
 
-The v0.2.1 `glm-api` adapter is **mock-first**: default mode makes no network call. Its `--live` path
+The `glm-api` adapter (introduced in v0.2.1) is **mock-first**: default mode makes no network call. Its `--live` path
 is strongly opt-in (`--live` + `--allow-network` + `GLM_API_KEY` env + not-CI). NEVER print, log,
 commit, or serialize `GLM_API_KEY` (or any provider key) — it is read from the environment only; the
 `Authorization` header is redacted in any log. Do NOT call the live provider during build/verification.
