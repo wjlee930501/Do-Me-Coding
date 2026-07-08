@@ -16,6 +16,7 @@ duplicated** across context files. When a rule belongs in one place, link to it 
 | global agent instructions | `CLAUDE.md` (project-committed, git-tracked) | — |
 | schemas | `*_SCHEMA.md` (root) + `.harness/schemas/*.schema.md` | schema bodies |
 | guards / control plane | `.harness/evidence/dmc-v0.4.*.sh` + `.claude/hooks/*` | guard logic |
+| repo-maintenance governance / amendment | `docs/DMC_CONSTITUTION.md` | law index; governance supremacy only (facts = machine SSoT) |
 
 **Orthogonality:** the **autonomy level** (`AUTONOMY.md`) and the **enforcement mode** (`DMC.md`/`.harness/mode`) are
 **independent axes** that compose; neither redefines the other. The enforcement floor (secret/destructive deny) +

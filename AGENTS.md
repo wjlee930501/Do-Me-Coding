@@ -235,8 +235,9 @@ Never read, edit, or print these (secrets, DMC bindings, generated/vendored surf
 Core loop: plan -> scope -> execute -> verify -> evidence.
 
 Companion context docs (discoverability): `AUTONOMY.md` (autonomy charter — levels /
-stop-conditions) and `docs/CONTEXT_MAP.md` (context-file map: what loads when, single-source
-rules).
+stop-conditions), `docs/CONTEXT_MAP.md` (context-file map: what loads when, single-source
+rules), and `docs/DMC_CONSTITUTION.md` (repo-maintenance governance — READ BEFORE any substantial
+change; amendment rules within).
 
 Non-negotiable rules:
 

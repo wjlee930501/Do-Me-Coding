@@ -84,4 +84,11 @@ for an unauthorized hook change; the independent landmark-flag remains the struc
   documented /tmp-clone baseline (pinned v0.1.3×1 + v0.2.3×1 + v0.3.2 AC5, plus the v0.3.2 AC4
   clone-environment artifact; pristine-clone delta = ZERO). The v1.0.1 changes add no legacy
   regression — as scout lane 1 predicted (the router is outside the 55-file frozen mirror).
-- Live post-commit `selftest --all` + CI: _recorded post-commit/post-push_.
+- Live post-commit `selftest --all` (commit `f819fa3`, real dev tree): `aggregate: tools=49
+  PASS=802 FAIL=3 N/A=3` — **legacy 802/3/3 EXACT**, `SELFTEST-ALL RESULT: PASS`, exit 0. The
+  frozen baseline is intact through v1.0.1 (CF1 honored; the router edit proven outside the
+  frozen surface, exactly as scout lane 1 predicted).
+- CI: Actions run `28928976825` on commit `f819fa3` — **conclusion=success** (all 15 blocking
+  steps green incl. m65-suite with the new A16 parity rows).
+- main unification: fast-forwarded `186ed8c..f819fa3` (ff-safety pre-checked); origin/main ==
+  local main == branch HEAD == `f819fa3`. **v1.0.1 complete and unified on main.**
