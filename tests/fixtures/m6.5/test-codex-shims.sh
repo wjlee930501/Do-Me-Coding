@@ -164,6 +164,94 @@ printf '%s' "$oc" | grep -q 'Okay, Let me do you Coding!' && record FAIL "A16 P5
 printf '%s' "$ox" | grep -q 'Okay, Let me do you Coding!' && record FAIL "A16 P5 codex: plan route leaked the dmc signature"  || record PASS "A16 P5 codex: plan route carries NO signature"
 assert_eq "$(seg_after "$oc" "$PLAN_MARK")" "$(seg_after "$ox" "$PLAN_MARK")" "A16 P5 PARITY: routed task equal across adapters"
 
+# --- A16 P-ML/P-TO — multi-line suffix-anchor tripwire (dmc-v1.0.2-router-anchor DMC-T001 fix) ---
+# The router's trigger anchor is now whole-prompt (multi-line-safe): the token must end the ENTIRE
+# prompt, never merely an interior line. These rows drive BOTH adapters on multi-line and
+# token-only prompts, making the restored parity machine-checked. Round-trip verified: the JSON
+# encoder on both sides collapses a real embedded newline into the same two-character `\n` escape
+# before bash ever sees it, so seg_after/ups_fingerprint compare byte-for-byte with no json-aware
+# helper needed — a plain assert_eq suffices even for a task segment that spans an embedded newline.
+
+# P-ML1 — interior line-terminal token: the trigger sits at the end of an INTERIOR line, not the
+# end of the whole prompt -> BOTH emit nothing; NO mode write (fresh unseeded dirs stay <absent>);
+# PARITY asserted explicitly on both has_context_of and mode (critic-r1 advisory 2).
+dc=$(new_dir); oc=$(run_router claude "$dc" $'refactor this dmc\nand also update docs'); mc=$(mode_of "$dc")
+dx=$(new_dir); ox=$(run_router codex  "$dx" $'refactor this dmc\nand also update docs'); mx=$(mode_of "$dx")
+[ -z "$oc" ] && record PASS "A16 P-ML1 claude: interior line-terminal dmc emits nothing" || record FAIL "A16 P-ML1 claude: expected empty emit, got [$oc]"
+[ -z "$ox" ] && record PASS "A16 P-ML1 codex: interior line-terminal dmc emits nothing"  || record FAIL "A16 P-ML1 codex: expected empty emit, got [$ox]"
+assert_eq '<absent>' "$mc" "A16 P-ML1 claude: NO mode write (fresh dir stays absent)"
+assert_eq '<absent>' "$mx" "A16 P-ML1 codex: NO mode write (fresh dir stays absent)"
+assert_eq "$(has_context_of "$oc")" "$(has_context_of "$ox")" "A16 P-ML1 PARITY: has_context_of equal across adapters (none)"
+assert_eq "$mc" "$mx" "A16 P-ML1 PARITY: mode-file state equal across adapters"
+
+# P-ML2 — true multi-line suffix: the trigger ends the WHOLE prompt, on its last line -> BOTH route
+# ultrawork; the routed task segment spans the embedded newline; mode active; PARITY.
+dc=$(new_dir); oc=$(run_router claude "$dc" $'first line\nsecond line dmc'); mc=$(mode_of "$dc")
+dx=$(new_dir); ox=$(run_router codex  "$dx" $'first line\nsecond line dmc'); mx=$(mode_of "$dx")
+assert_eq 'sig,prio,uw|first line\nsecond line' "$(ups_fingerprint "$oc" "$UW_MARK")" "A16 P-ML2 claude: sig+priority+ultrawork+task spanning the embedded newline"
+assert_eq 'sig,prio,uw|first line\nsecond line' "$(ups_fingerprint "$ox" "$UW_MARK")" "A16 P-ML2 codex: sig+priority+ultrawork+task spanning the embedded newline"
+assert_eq "$(ups_fingerprint "$oc" "$UW_MARK")" "$(ups_fingerprint "$ox" "$UW_MARK")" "A16 P-ML2 PARITY: claude additionalContext content == codex (embedded newline included)"
+assert_eq active "$mc" "A16 P-ML2 claude: mode set active"
+assert_eq active "$mx" "A16 P-ML2 codex: mode set active"
+assert_eq "$mc" "$mx" "A16 P-ML2 PARITY: mode-file write equal across adapters"
+
+# P-ML3 — interior 'dmc-off' line: the trigger sits at the end of an INTERIOR line -> BOTH emit
+# nothing; a seeded passive sentinel SURVIVES on both; PARITY asserted explicitly (critic-r1
+# advisory 2: a symmetric parity assertion, not just two independent one-sided checks).
+dc=$(new_dir passive); oc=$(run_router claude "$dc" $'the dmc-off switch\nis documented here'); mc=$(mode_of "$dc")
+dx=$(new_dir passive); ox=$(run_router codex  "$dx" $'the dmc-off switch\nis documented here'); mx=$(mode_of "$dx")
+[ -z "$oc" ] && record PASS "A16 P-ML3 claude: interior dmc-off line emits nothing" || record FAIL "A16 P-ML3 claude: expected empty emit, got [$oc]"
+[ -z "$ox" ] && record PASS "A16 P-ML3 codex: interior dmc-off line emits nothing"  || record FAIL "A16 P-ML3 codex: expected empty emit, got [$ox]"
+assert_eq passive "$mc" "A16 P-ML3 claude: passive sentinel SURVIVES (no spurious off write)"
+assert_eq passive "$mx" "A16 P-ML3 codex: passive sentinel SURVIVES (no spurious off write)"
+assert_eq "$(has_context_of "$oc")" "$(has_context_of "$ox")" "A16 P-ML3 PARITY: has_context_of equal across adapters (none)"
+assert_eq "$mc" "$mx" "A16 P-ML3 PARITY: mode-file state equal across adapters (passive survives)"
+
+# P-ML4 — token-only final line: the last line IS just the token; the newline before it is a valid
+# whitespace boundary -> BOTH route ultrawork; task strips to 'do the thing' on both; PARITY.
+dc=$(new_dir); oc=$(run_router claude "$dc" $'do the thing\ndmc'); mc=$(mode_of "$dc")
+dx=$(new_dir); ox=$(run_router codex  "$dx" $'do the thing\ndmc'); mx=$(mode_of "$dx")
+assert_eq 'sig,prio,uw|do the thing' "$(ups_fingerprint "$oc" "$UW_MARK")" "A16 P-ML4 claude: sig+priority+ultrawork+clean task (newline boundary)"
+assert_eq 'sig,prio,uw|do the thing' "$(ups_fingerprint "$ox" "$UW_MARK")" "A16 P-ML4 codex: sig+priority+ultrawork+clean task (newline boundary)"
+assert_eq "$(ups_fingerprint "$oc" "$UW_MARK")" "$(ups_fingerprint "$ox" "$UW_MARK")" "A16 P-ML4 PARITY: claude additionalContext content == codex"
+assert_eq active "$mc" "A16 P-ML4 claude: mode set active"
+assert_eq active "$mx" "A16 P-ML4 codex: mode set active"
+assert_eq "$mc" "$mx" "A16 P-ML4 PARITY: mode-file write equal across adapters"
+
+# P-TO1 (critic-r1 advisory 1) — bare token-only prompt 'dmc' -> BOTH route ultrawork; mode active;
+# EMPTY task (nothing precedes the token); PARITY.
+dc=$(new_dir); oc=$(run_router claude "$dc" 'dmc'); mc=$(mode_of "$dc")
+dx=$(new_dir); ox=$(run_router codex  "$dx" 'dmc'); mx=$(mode_of "$dx")
+assert_eq 'sig,prio,uw|' "$(ups_fingerprint "$oc" "$UW_MARK")" "A16 P-TO1 claude: sig+priority+ultrawork+EMPTY task"
+assert_eq 'sig,prio,uw|' "$(ups_fingerprint "$ox" "$UW_MARK")" "A16 P-TO1 codex: sig+priority+ultrawork+EMPTY task"
+assert_eq "$(ups_fingerprint "$oc" "$UW_MARK")" "$(ups_fingerprint "$ox" "$UW_MARK")" "A16 P-TO1 PARITY: claude additionalContext content == codex"
+assert_eq active "$mc" "A16 P-TO1 claude: mode set active"
+assert_eq active "$mx" "A16 P-TO1 codex: mode set active"
+assert_eq "$mc" "$mx" "A16 P-TO1 PARITY: mode-file write equal across adapters"
+
+# P-TO2 (critic-r1 advisory 1) — bare token-only prompt 'dmc-plan' -> BOTH route planning; mode
+# UNCHANGED (seeded passive sentinel survives, plan route never writes mode); EMPTY task; PARITY.
+dc=$(new_dir passive); oc=$(run_router claude "$dc" 'dmc-plan'); mc=$(mode_of "$dc")
+dx=$(new_dir passive); ox=$(run_router codex  "$dx" 'dmc-plan'); mx=$(mode_of "$dx")
+printf '%s' "$oc" | grep -q 'dmc-plan-hard' && record PASS "A16 P-TO2 claude: routes to /dmc-plan-hard" || record FAIL "A16 P-TO2 claude: dmc-plan-hard route absent"
+printf '%s' "$ox" | grep -q 'dmc-plan-hard' && record PASS "A16 P-TO2 codex: routes to /dmc-plan-hard"  || record FAIL "A16 P-TO2 codex: dmc-plan-hard route absent"
+assert_eq '' "$(seg_after "$oc" "$PLAN_MARK")" "A16 P-TO2 claude: EMPTY task (nothing precedes the token)"
+assert_eq '' "$(seg_after "$ox" "$PLAN_MARK")" "A16 P-TO2 codex: EMPTY task (nothing precedes the token)"
+assert_eq passive "$mc" "A16 P-TO2 claude: mode UNCHANGED (seeded sentinel survives)"
+assert_eq passive "$mx" "A16 P-TO2 codex: mode UNCHANGED (seeded sentinel survives)"
+assert_eq "$(seg_after "$oc" "$PLAN_MARK")" "$(seg_after "$ox" "$PLAN_MARK")" "A16 P-TO2 PARITY: routed task equal across adapters"
+assert_eq "$mc" "$mx" "A16 P-TO2 PARITY: mode-file state equal across adapters (passive survives)"
+
+# P-TO3 (critic-r1 advisory 1) — bare token-only prompt 'dmc-off' -> BOTH route off; mode off; PARITY.
+dc=$(new_dir); oc=$(run_router claude "$dc" 'dmc-off'); mc=$(mode_of "$dc")
+dx=$(new_dir); ox=$(run_router codex  "$dx" 'dmc-off'); mx=$(mode_of "$dx")
+printf '%s' "$oc" | grep -q 'mode set to OFF' && record PASS "A16 P-TO3 claude: emit routes to OFF" || record FAIL "A16 P-TO3 claude: OFF routing text absent"
+printf '%s' "$ox" | grep -q 'mode set to OFF' && record PASS "A16 P-TO3 codex: emit routes to OFF"  || record FAIL "A16 P-TO3 codex: OFF routing text absent"
+assert_eq off "$mc" "A16 P-TO3 claude: mode set off"
+assert_eq off "$mx" "A16 P-TO3 codex: mode set off"
+assert_eq "$mc" "$mx" "A16 P-TO3 PARITY: mode-file write equal across adapters (off)"
+assert_eq "$(has_context_of "$oc")" "$(has_context_of "$ox")" "A16 P-TO3 PARITY: has_context_of equal across adapters (ctx)"
+
 # =============================================================================== B
 echo "== B. B2 fail-closed negative controls (a)-(d), active + armed =="
 E=$(mktmp); arm_fixture "$E" >/dev/null || { echo "FATAL: arm E" >&2; exit 2; }

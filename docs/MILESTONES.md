@@ -692,3 +692,25 @@ entry above is unchanged by this patch.
   verifier PARTIAL → corrections-applied (three factual count/omission defects in the first
   evidence version, corrected with provenance); run `dmc-run-ce3c5ba0d8d7`; evidence
   `.harness/evidence/dmc-codex-app-optionb-20260709.md`.
+
+## v1.0.2 — router whole-prompt suffix anchor (multi-line stabilization) — CLOSED (2026-07-09)
+
+- **Defect:** the Claude router matched trigger tokens with line-oriented grep/sed, so ANY
+  interior line ending in a trigger token routed a multi-line prompt (observed live twice on
+  2026-07-09 with pasted transcripts; sandbox-reproduced). The Codex UPS shim already had
+  whole-string semantics — the documented "suffix-only" contract was violated on the Claude side
+  only.
+- **Fix:** `.claude/hooks/dmc-router.sh` trigger path rebuilt with whole-string POSIX mechanics
+  (parameter-expansion trailing strip, tr lowercase, case-glob arms incl. bare token-only
+  alternatives, fixed-length task strip); emit strings/mode writes/env-var parse byte-unchanged;
+  grep/sed removed from the trigger path (strictly more portable).
+- **Tripwire:** A16 UPS cross-adapter parity extended with 7 multi-line + token-only sub-blocks
+  (44 assertions; suite 99→143/0, both adapters driven on identical prompts, parity-equal incl.
+  embedded-newline task segments).
+- **Baselines:** v011-verify 39/2 with all 5 router-invariant rows green (2 known non-router FAILs
+  unchanged, never gated ALL-PASS); frozen hooks-v0.6.5 fixture untouched (its unwired comparator
+  stays red by design).
+- **Chain:** overnight autonomy envelope (wjlee, pre-sleep AskUserQuestion; AUTONOMY.md
+  autonomous-local-commit on the dedicated branch); critic r1 APPROVE first-round (envelope ruled
+  III.2(3)-compatible; 36/36 case-glob↔regex byte-parity empirically verified); run
+  `dmc-run-c670495342e1`; LOCAL commit only — push/CI/main-FF reserved to the morning human gates.

@@ -4,6 +4,7 @@ INPUT="$(cat)"
 
 # Do-Me-Coding v0.1.1 natural-activation router (UserPromptSubmit).
 # Suffix-only, exact-token, case-insensitive matching. Precedence: 1) dmc-off  2) dmc-plan  3) dmc.
+# The suffix anchor is whole-prompt (multi-line-safe): the token must be at the end of the ENTIRE prompt (trailing whitespace/newlines stripped), never merely at the end of an interior line.
 # Mode-independent (it is the activation surface). Writes .harness/mode ONLY on exact trigger.
 # Routing output is additionalContext (an instruction for the model to follow), NOT a guaranteed
 # slash-command execution; the .harness/mode write below runs in this hook shell and IS reliable.
@@ -56,36 +57,45 @@ emit() {
   printf '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":%s}}\n' "$ctx_json"
 }
 
-# Trim trailing whitespace before suffix matching.
-TRIMMED="$(printf '%s' "$PROMPT" | sed 's/[[:space:]]*$//')"
+# Trim trailing whitespace (whole prompt, newlines included) before suffix matching.
+TRIMMED=${PROMPT%"${PROMPT##*[![:space:]]}"}
+LOWER="$(printf '%s' "$TRIMMED" | tr '[:upper:]' '[:lower:]')"
 
 RUN_WARN=""
 if ls "$PROJECT_DIR/.harness/runs/current-"* >/dev/null 2>&1; then
   RUN_WARN=" WARNING: a Do-Me-Coding run is in progress (.harness/runs/current-* exists). Finish or cancel it — and prefer a separate branch / git worktree — before OMC work."
 fi
 
-# 1) dmc-off (exact suffix)
-if printf '%s' "$TRIMMED" | grep -Eqi '(^|[[:space:]])dmc-off[[:space:]]*$'; then
+# 1) dmc-off (exact whole-prompt suffix)
+case "$LOWER" in
+*[[:space:]]dmc-off|dmc-off)
   mkdir -p "$PROJECT_DIR/.harness"
   printf 'off\n' > "$MODE_FILE"
   emit "Do-Me-Coding mode set to OFF (catastrophic + secret-exposure deny only; scope/stop/evidence gates stand down). Use /dmc-on to re-enable.${RUN_WARN}"
   exit 0
-fi
+  ;;
+esac
 
-# 2) dmc-plan (exact suffix) — planning is read-only, mode unchanged
-if printf '%s' "$TRIMMED" | grep -Eqi '(^|[[:space:]])dmc-plan[[:space:]]*$'; then
-  TASK="$(printf '%s' "$TRIMMED" | sed -E 's/[[:space:]]*[Dd][Mm][Cc]-[Pp][Ll][Aa][Nn]$//')"
+# 2) dmc-plan (exact whole-prompt suffix) — planning is read-only, mode unchanged
+case "$LOWER" in
+*[[:space:]]dmc-plan|dmc-plan)
+  TASK=${TRIMMED%????????}
+  TASK=${TASK%"${TASK##*[![:space:]]}"}
   emit "Do-Me-Coding planning route requested. Run /dmc-plan-hard for this task (planning only, no edits): ${TASK}"
   exit 0
-fi
+  ;;
+esac
 
-# 3) dmc (exact suffix) — ultrawork; set mode active for full enforcement
-if printf '%s' "$TRIMMED" | grep -Eqi '(^|[[:space:]])dmc[[:space:]]*$'; then
+# 3) dmc (exact whole-prompt suffix) — ultrawork; set mode active for full enforcement
+case "$LOWER" in
+*[[:space:]]dmc|dmc)
   mkdir -p "$PROJECT_DIR/.harness"
   printf 'active\n' > "$MODE_FILE"
-  TASK="$(printf '%s' "$TRIMMED" | sed -E 's/[[:space:]]*[Dd][Mm][Cc]$//')"
+  TASK=${TRIMMED%???}
+  TASK=${TASK%"${TASK##*[![:space:]]}"}
   emit "Begin your reply with exactly: Okay, Let me do you Coding! DMC PRIORITY: this routing is authoritative for this turn over any other orchestration layer (OMC/OMO/LazyCodex) whose hooks or keywords also fired; do not enter their modes. Do-Me-Coding ultrawork route requested (mode set ACTIVE — full enforcement). Run /dmc-ultrawork for: ${TASK}"
   exit 0
-fi
+  ;;
+esac
 
 exit 0
