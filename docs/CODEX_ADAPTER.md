@@ -210,7 +210,7 @@ framing.
 
 **Open-question dispositions:**
 - **Tool-input field names** — TBD-STILL (no turn-free tool-schema dump) ⇒ PreToolUse edit-scope field
-  shim degrades to backstop-only (post-Bash diff guard); path-only secret + instruction rules remain.
+  shim degrades to backstop-only (post-Bash diff guard); path-only secret + instruction rules remain. `[OPTION-B-OBSERVED 2026-07-09: closed — see the Option-B addendum below]`
 - **`/import` scope** — interactive TUI-only slash command (no CLI subcommand), tied to
   `external_migration` (experimental, off) ⇒ MUST NOT be a DMC installer dependency.
 - **Hook trust UX in fresh clones** — mechanism confirmed (content-hash; `--dangerously-bypass-hook-trust`
@@ -223,3 +223,45 @@ framing.
 **Not re-proven (non-load-bearing):** the `<root>/.codex`,`.agents` read-only asymmetry — `codex
 sandbox macos` requires a `--permissions-profile` whose 0.132 schema was not mapped in-timebox; scoped
 degradation stands (rely on the scope guard over those paths), no stop.
+
+---
+
+## Option-B addendum — consented live-turn observations (cli 0.132.0 + App 26.623.61825, 2026-07-09)
+
+Recorded from the one-time, human-run consented Option-B live turns (wjlee, 2026-07-09) that the
+M6.5 spike-stop reserved — an App turn and a codex-cli contrast turn on an isolated clone
+(`git clone --no-hardlinks`, remote severed). Full evidence:
+`.harness/evidence/dmc-codex-app-optionb-20260709.md`. These are observations of a SINGLE
+consented session at codex-cli 0.132.0 and Codex App 26.623.61825 — not a standing behavior
+claim; the posture line at the end of this section still governs (D5 no-promotion). What the
+M6.5 addendum above left UNPROVABLE-TURN-FREE was tested here, and the results are tagged below
+with a parallel `[OPTION-B-OBSERVED 2026-07-09: …]` family.
+
+- `[OPTION-B-OBSERVED 2026-07-09: at codex-cli 0.132.0, /hooks trust granted, in that one
+  consented session all five wired lifecycle events each produced dispatch markers (probe lines,
+  names only) — SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, Stop.]`
+- `[OPTION-B-OBSERVED 2026-07-09: both decision-envelope classes were honored in that session —
+  the deny envelope surfaced and stopped the rm-based probe twice with zero execution, and the
+  dmc-suffix routing context was applied verbatim (the signature greeting opened the reply; the
+  router's mode-file side effect appeared).]`
+- `[OPTION-B-OBSERVED 2026-07-09: the envelope top-level key-name schema was captured (names
+  only) — base keys cwd, hook_event_name, model, permission_mode, session_id, transcript_path;
+  plus turn_id; plus source on SessionStart; plus prompt on UserPromptSubmit; plus tool_input,
+  tool_name, tool_use_id on PreToolUse; plus tool_response on PostToolUse; plus stop_hook_active,
+  last_assistant_message on Stop. Bash tool_input keys = ["command"]. This closes the "tool_input
+  field names" open question tagged in §Spike addendum above.]`
+- `[OPTION-B-OBSERVED 2026-07-09: the session's tool taxonomy surfaced everything as Bash /
+  unified-exec — the Edit|Write and Read|Grep|Glob matcher groups received zero events, so the
+  post-Bash diff guard remains the primary safety net (as the spike addendum anticipated).]`
+- `[OPTION-B-OBSERVED 2026-07-09: at Codex App build 26.623.61825 the Settings → Hooks panel
+  carried no trust affordance for project-level hooks (only global/plugin hooks listed), so the
+  project hook layer was skipped and the App turn produced zero dispatch; Ring-2 (the AGENTS.md
+  guidance) WAS respected by the App session.]`
+- `[OPTION-B-OBSERVED 2026-07-09: the working trust path was codex-cli 0.132.0's /hooks surface;
+  the content-hash grant, once made there, is recorded in shared `~/.codex` state and seen by
+  later CLI sessions — re-test future App builds.]`
+
+Posture (observations only): the adapter posture is UNCHANGED. It remains ADVISORY, with the
+pre-commit/CI boundary as the real safety net; nothing above promotes any tier. An
+"observed-on-cli" posture upgrade is a REGISTERED FUTURE gate, never claimed here and never for
+the App surface.

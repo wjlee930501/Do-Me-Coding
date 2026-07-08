@@ -85,6 +85,7 @@ suppress another plugin's hooks.
 - (c) the Codex boundary under Option A was DOCUMENTED-ONLY at M6.5; M9 made it real (`.github/workflows/dmc-ci.yml`).
 - (d) Option B (one-time, human-run, consented live-turn verification, NEW gate + own scope) remains available to upgrade the shims to verified-blocking.
 - (e) `.codex/hooks.json` wiring shape + per-tool `tool_input` field names remain UNPROVEN at codex-cli 0.132.0 — re-probe at an Option-B turn or a newer CLI.
+  — Closed 2026-07-09 (Option-B consented turn, cli 0.132.0): the `tool_input` field-name premise was settled by the captured envelope key-name schema; see the v1.0.4 register entries below.
 
 ### M7 (item 13; worker hardening)
 - (a) the apply-authorization chain is skill-mandated at apply time — nothing in Ring-0/1 blocks an in-scope Edit/Write lacking an authorization; the runtime write floor remains scope-lock adjudication; M9 makes chain-absence BLOCKING at release (the honest tier inherited by the enforcement matrix).
@@ -118,6 +119,10 @@ suppress another plugin's hooks.
 ### Audit-remediation critic advisories (`.harness/evidence/dmc-v1-audit-remediation-critic-r2.json`)
 - V1 (low): `resolve_scope_lock_ref` None maps to `DELEG-SCOPE-LOCK-TRAVERSAL`, and also None for an empty/absent ref (schema-guaranteed non-empty, so ~unreachable); fail-closed either way, cosmetic reason-code only.
 - V3 (low): the C1 key/cert operand classes match as substrings — a benign path ending in `.key`/`.pem` denies on a read-verb; an accepted conservative over-match, no allow-set impact.
+
+### v1.0.4 (Option-B consented-turn observations, 2026-07-09; OBSERVATION ONLY — no tier change)
+- (a) Option-B observed-on-cli record: one consented human-run session (2026-07-09, cli 0.132.0, isolated clone, /hooks trust granted) produced dispatch markers for all five wired lifecycle events and both decision-envelope classes were honored in that session (deny stopped the rm-based probe twice; routing context applied verbatim). RECORDED AS OBSERVATION ONLY — every tier claim in this document, the enforcement matrix, and doctor output stands unchanged (D5); an "observed-on-cli" posture upgrade is a registered future gate.
+- (b) App-surface trust-affordance gap: at Codex App build 26.623.61825 (observed 2026-07-09) the Settings Hooks panel surfaced no project-level hooks (no trust affordance) — the project hook layer was skipped on that surface (zero dispatch in the observed session) while Ring-2 AGENTS.md guidance was respected; the working trust path is the CLI /hooks surface (state shared via ~/.codex); re-test future App builds.
 
 ## 5. CF14 — CI-tier baseline / legacy `--all` divergence (the v1.0 posture)
 

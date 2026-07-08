@@ -735,3 +735,27 @@ entry above is unchanged by this patch.
 - **Chain:** overnight envelope; critic r1 REJECT (a host dangling-reference catch) → Rev 2 folded
   in the presence-gate → critic r2 APPROVE; scope-locked, synchronous execution under run
   `dmc-run-c9a159039747`; LOCAL commit only, morning gates pending.
+
+## v1.0.4 — Codex interop & coexistence documentation — CLOSED (2026-07-09)
+
+- **What shipped:** the SHIPPED `docs/OMC_COEXISTENCE.md` gained a `## Codex coexistence` section
+  (layer-merge standing facts; observed contenders OMX + omo in dated pinned "Observed" callouts;
+  the observed foreign-layer write into a project `.codex/config.toml`; the trust asymmetry at App
+  build 26.623.61825 vs cli 0.132.0; precedence extended instruction-level with the single blessed
+  HONEST_SCOPE breadcrumb — dangling-reference law honored, 1 non-bundled ref total).
+- The repo-internal `docs/CODEX_ADAPTER.md` gained the `[OPTION-B-OBSERVED 2026-07-09]` addendum
+  (5/5 dispatch markers + both envelope classes honored in the one consented session; captured
+  envelope key-name schema; Bash-only tool taxonomy; App findings; CLI /hooks trust path) + an
+  inline dated closure tag on the superseded spike-addendum field-names bullet.
+- `docs/DMC_V1_HONEST_SCOPE.md` §4: v1.0.4 register subsection appended (observed-on-cli record +
+  App trust-affordance gap, both OBSERVATION-ONLY with the D5 no-change line) + a compact dated
+  closure sub-note under M6.5 item-10(e). Append-only +5/-0.
+- **Constitution line-pin drift** (record for a future constitution-hygiene amendment):
+  HONEST_SCOPE grew 149→154 lines; the constitution's pins into this file shift — `:103`→`:104`
+  (+1), `:122-129`→`:127-134` (+5); `:79`, `:29-30`, `:65-68`, `:70-73` unchanged. IV.3's own
+  append duty makes this drift unavoidable; refresh the pins in the next constitution amendment.
+- **Posture:** NO tier/posture/code change (D5) — observations recorded into the operating docs
+  only.
+- **Chain:** overnight envelope (third and final cycle); critic r1 APPROVE first round
+  (dangling-law + promotion-line + IV.3 rulings); run `dmc-run-9885068dc4d9`; LOCAL commit only,
+  morning gates pending.

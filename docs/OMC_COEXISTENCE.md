@@ -72,3 +72,37 @@ modes for that turn. OMC is the observed real same-repo contender (see the audit
 OMO and LazyCodex are comparator patterns, not confirmed same-repo observations. This is
 instruction-level best-effort, not a runtime boundary — see `docs/DMC_V1_HONEST_SCOPE.md` for the
 disclosed caveat.
+
+## Codex coexistence
+
+DMC also binds to the Codex CLI as a second host harness, so the same coexistence discipline
+applies there over a different layering surface.
+
+**Layer model (standing facts, from the official Codex hooks/config reference).** Hook layers
+MERGE rather than override: a global `~/.codex/hooks.json` and a per-project `.codex/hooks.json`
+both contribute their entries. A per-project `.codex/config.toml` (and its hooks) loads ONLY for
+a project the CLI records as trusted. Beyond trust, a non-managed project hook additionally needs
+one-time content-hash hook trust — a hook whose content later changes is skipped until
+re-trusted (managed/org hooks are exempt). So on a trusted project the global and project hook
+layers both dispatch, while an untrusted (or changed-hash) project layer is simply skipped.
+
+> Observed (one machine, one session; codex-cli 0.132.0 + Codex App 26.623.61825, 2026-07-09):
+> oh-my-codex (OMX) global hooks and the omo plugin were both live on the host — a real
+> same-host contender set beside DMC. OMX injects advisory context and carries no dmc keyword,
+> so it does not contend for the suffix trigger. During that session a third-party layer wrote
+> `model` / `reasoning` and `multi_agent_v2` fields into the project's `.codex/config.toml`
+> mid-session. Treat the project Codex config as a surface OTHER layers write to: keep it out of
+> scope.locks unless a plan grants it, and diff it after any foreign-layer session.
+
+> Observed (same session, pinned): at Codex App build 26.623.61825 the Settings → Hooks panel
+> did not surface project-level hooks — no trust affordance, so the project hook layer stayed
+> dark on that surface — whereas codex-cli 0.132.0's `/hooks` surface listed those hooks and
+> trusted them. Trust state is shared through `~/.codex`, so a grant made once via the CLI is
+> then seen by later CLI sessions. The coexistence asymmetry: a Codex App session may run with
+> the project hook layer dark while the global layers stay live.
+
+The precedence clause above holds on the Codex host too. When the dmc suffix trigger routes on
+that host, the UPS shim injects the identical priority context, so the model follows DMC
+discipline and does not enter OMX/OMO/LazyCodex modes for that turn. This is the same
+instruction-level best-effort, not a runtime boundary — see `docs/DMC_V1_HONEST_SCOPE.md` for
+the disclosed caveat.
