@@ -1,6 +1,23 @@
 # HANDOFF — dmc-v1-runtime-upgrade (session → session)
 
-Date: 2026-07-08 (rev 8 — M9 release-gate composition + CI + E2E dry run shipped + CLOSED at
+Date: 2026-07-08 (rev 9 — **DMC v1.0 COMPLETE: M10 shipped + CLOSED + MERGED at `772cd83`;
+main == branch unified; CI GREEN (run 28916581848); live `selftest --all` 802/3/3 EXACT;
+`dmc gate release --full --run-id dmc-run-bef12a3d3345` PASS 9/9.** M10 deliverables: v1.0
+identity across 11 docs (VC2 12→0), docs/DMC_V1_{ENFORCEMENT_MATRIX,HONEST_SCOPE,
+RELEASE_CHECKLIST}.md, Audit-Blocker B1-B10 traceability at
+.harness/verification/dmc-v1-runtime-upgrade.md, MILESTONES.md v1.0 closure entry, AGENTS.md
+REGENERATED (agents-md --validate VALID). Gate decisions ratified 2026-07-08: CF14=option (b)
+(advisory CI tier + documented CI-tier baseline in HONEST_SCOPE — 13 blocking checks never
+weakened), D1=documented-not-hardened, .harness/evidence dmc-v0.* originals=KEEP, provenance
+tags="(v1.0; introduced in v0.x)", version verb NO (v1.1). Chain: critic r1 NEEDS_CLARIFICATION →
+Rev 2 → r2 APPROVE → gate → 5 sync executors → verifier PASS → gate PASS → r3 APPROVE → replica
+801/4 (clone-delta 0) → live 802/3/3. Two honest corrections on record: the v0.2.6 G2↔G3
+evidence-grant catch-22 (Rev 2.1 re-arm, FAIL archived — NEVER grant .harness/evidence paths in
+scope.lock) and the frozen v0.4.7 AC6 catch of the AGENTS.md-regen pointer loss (restored,
+re-gated). **Post-v1.0 work = the v1.1+ deferred register** (approval authentication, CF14
+option-(a) frozen-tool portability, D1 hardening incl. dmc-v0.2-verify.sh:15-17, worker-bridge
+expansion, P5 benchmark, stray-file hygiene execution per the proposal in
+.harness/evidence/dmc-v1-m10-build-20260708.md). Prior rev: rev 8 — M9 shipped + CLOSED at
 `a7ef8d6`, CI green at `4114a6b`; supersedes rev 7) · Branch: `claude/dmc-v1-runtime-upgrade-c5uch1`
 
 **Rev 8 session end state:** milestone `HEAD` == `origin` == `4114a6b` (pushed, fast-forward, no
@@ -122,7 +139,7 @@ macOS-dev-pinned and no GitHub runner reproduces it exactly — see Carry-forwar
 | **M8 host install/adaptation (P19+P20)** | **DONE + CLOSED, pushed** (critic r1 REJECT(5)→r2 REJECT(B6)→Rev 3→r3 APPROVE · human gate w/ A1/A2/A3 dispositions · r4 build sign-off APPROVE · verifier ACCEPT · live `--all` 802/3/3 + all sections 0 FAIL) | `39c420e` (20 files +3613/−131) | installer ships Ring 0+1 `--host claude\|codex\|both` + provenance receipt/sentinel + P19 fixes + `--emit-manifest`; receipt-scoped uninstaller; `dmc doctor` (Claude PROVEN / Codex ADVISORY); models.json + harness-matrix.json; 5-fixture install suite; selftest sections doctor/m8-suite |
 | **M7 worker/delegation hardening (P15 + P14 records, PROTECTED SURFACE)** | **DONE + CLOSED, pushed** (critic r1 REJECT(B1/B2)→Rev 2→r2 APPROVE · human gate w/ A1/A2 MANDATORY dispositions · r3 build sign-off APPROVE · verifier ACCEPT · live `--all` 802/3/3 EXACT, ZERO fail lines) | `3d91180` (21 files +4019/−81) | hardened worker-result-check.py (imported token classes, diff_entries, empty-allowed DENY, task/provider cross-checks w/ mock + empty-provider carve-outs, required-field floor; DISALLOWED/diff_paths byte-preserved) + fail-closed worker-context-guard.sh; NEW bin/lib/dmc-worker-review.py (review-check/authorize/apply-check/fidelity) + apply-authorization.schema.md; delegation append/check runtime records; bin/dmc worker verb + worker-check/m7-suite sections; skills wired to the machine-checked apply chain; tests/fixtures/m7 (85 rows); INSTALL_MANIFEST +2 regen |
 | **M9 release-gate + CI + E2E (P18 full + Option A boundary)** | **DONE + CLOSED, pushed** (critic r1 NEEDS_CLARIFICATION→r2 APPROVE · human gate AA1/AA3 MANDATORY · r3 build sign-off APPROVE · verifier PASS · committed-replica + live `--all` 802/3/3 EXACT · **CI GREEN** at `4114a6b`) | `a7ef8d6` (17-file scope) + `395da6c`..`4114a6b` (6 CI fix-forwards) | `dmc gate release --full` composer `dmc-release-gate.py` (9 sub-gates, 39/0); `.github/workflows/dmc-ci.yml` (13 blocking + advisory legacy replay); release-readiness.schema.md; delegation.schema additions; host-node + tests/fixtures/m9 (release-gate 56/0 + e2e-loop 35/0, <2s quick); bin/dmc gate verb + m9-suite/release-gate selftest sections |
-| M10 (final docs, identity, release checklist) | **NOT STARTED, NOT APPROVED** | — | master plan §Execution Tasks (Rev 3) LAST milestone; owns Carry-forward 14 (CI-baseline-portability) |
+| M10 (final docs, identity, release checklist) | **DONE + CLOSED + MERGED (2026-07-08)** | `772cd83` | plan dmc-v1-m10-final-docs Rev 2 (+2.1); full gate PASS 9/9 (run dmc-run-bef12a3d3345); CF14 resolved = option (b) documented posture (HONEST_SCOPE §CF14); D1 documented; live --all 802/3/3; main FF-unified |
 
 Approval state (master plan `## Approval Status`, updated at this docs commit): **APPROVED
 M2+M3+M4+M5 (M1 retroactively ratified) · M6, M6.5, M8, M7, and M9 each via their own
@@ -135,9 +152,10 @@ detector load were MANDATORY implementation directives, verified as-built by cri
 verifier); M9 carried the Rev 2 approval with the **AA1/AA3 MANDATORY dispositions** (AA1
 byte-exact M8:507 CI lexeme-grep scope + AA3 G2 cached-diff fixture rule) plus the human-gated
 **CI advisory-legacy decision** (full 802/3/3 replay ADVISORY, M9-built checks BLOCKING; the
-macOS-dev-pinned-baseline gap deferred to M10 — Carry-forward 14). **Only M10 remains UNAPPROVED**;
-it needs its own milestone plan → critic → human gate (pattern: milestone-scoped plan file,
-`dmc validate plan` VALID, critic APPROVE, approval record in both plans).
+macOS-dev-pinned-baseline gap deferred to M10 — Carry-forward 14). **M10 CLOSED (rev 9): every
+milestone M1–M10 is now APPROVED + SHIPPED + MERGED; Carry-forward 14 is RESOLVED as the ratified
+option-(b) documented posture (docs/DMC_V1_HONEST_SCOPE.md §CF14) — the 13 blocking CI checks were
+never weakened and the pinned FAILs never masked.**
 No active run: `.harness/runs/current-*` cleared after M9 closure; per-milestone run archives are local-only.
 **M6 wired Ring-0 into the live enforcement floor** — the six hooks are now shims over `bin/dmc`
 verdict CLIs; scope/stop/secret enforcement is no longer advisory. `.claude/settings.json` was NOT
