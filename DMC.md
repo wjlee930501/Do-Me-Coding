@@ -80,9 +80,10 @@ Do-Me-Coding has a mode switch in `.harness/mode` (gitignored; absent means `act
 <task> dmc        # route to /dmc-ultrawork and set mode active
 <task> dmc-plan   # route to /dmc-plan-hard (planning only; mode unchanged)
 dmc-off           # set mode off (for OMC coexistence)
+리팩터링 해줘. DMC        # mixed-case works — routes to /dmc-ultrawork
 ```
 
-Triggers are suffix-only and exact (the token must end the prompt). Switch explicitly with `/dmc-on [active|passive]`, `/dmc-off`, `/dmc-status`.
+Triggers are suffix-only, exact-token, and case-insensitive (the token must end the prompt; matched regardless of case). Switch explicitly with `/dmc-on [active|passive]`, `/dmc-off`, `/dmc-status`.
 
 See `docs/OMC_COEXISTENCE.md` for running OMC in the same repo (separate branch/worktree, run-in-progress warning, no assumed OMC off switch).
 

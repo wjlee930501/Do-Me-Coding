@@ -74,6 +74,96 @@ assert_eq off "$(head -n1 "$D/.harness/mode" 2>/dev/null)" "A14 router: '… dmc
 o=$(codex_run "$UPS" "$(c_prompt 'plain prompt no trigger')" "$D")
 assert_eq none "$(has_context_of "$o")" "A15 router: no trigger -> no routing context"
 
+# --- A16 — UPS cross-adapter parity (v1.0.1 activation tuning) -------------------
+# Drives BOTH the REAL Claude router (.claude/hooks/dmc-router.sh via claude_run) AND the Codex UPS
+# shim (adapters/codex/dmc-codex-userpromptsubmit.py via codex_run) on the SAME prompts, asserting
+# emit CONTENT (not just the additionalContext key), mode-file writes, and cross-adapter equality —
+# closing the zero-tripwire UPS parity gap (plan dmc-v1.1-activation-tuning §Proposed Changes T018.2).
+# (critic-r1 A2) each prompt case uses a FRESH per-prompt sandbox dir per adapter, and the
+# mode-unchanged cases (P3/P5) seed a `passive` sentinel + assert it survives — so no prior write can
+# bleed into them. has_context_of() greps only the key name, so these rows grep real content.
+echo "== A16. UPS cross-adapter parity (v1.0.1 activation tuning) =="
+
+UW_MARK='Run /dmc-ultrawork for: '
+PLAN_MARK='Run /dmc-plan-hard for this task (planning only, no edits): '
+
+# seg_after OUTPUT MARKER -> the routed task text after MARKER, up to the JSON closing quote.
+# Shape-robust (critic-r2 A5): literal marker strip + JSON-quote boundary, NOT a grep -v on an
+# assumed single-line shape (the Claude emit is even multi-line; the Codex emit is compact). MARKER
+# is unquoted in the pattern deliberately — it carries no glob metachar (`* ? [`), so `(`/`)`/`:`/`/`
+# match literally; `${rest%%\"*}` strips from the first double-quote.
+seg_after() { local rest="${1#*$2}"; printf '%s' "${rest%%\"*}"; }
+# new_dir [SEED_MODE] -> fresh sandbox project dir with .harness/ (+ optional seeded mode sentinel).
+new_dir() { local d; d=$(mktmp); mkdir -p "$d/.harness"; [ -n "${1:-}" ] && printf '%s\n' "$1" > "$d/.harness/mode"; printf '%s' "$d"; }
+mode_of() { if [ -f "$1/.harness/mode" ]; then head -n1 "$1/.harness/mode"; else printf '<absent>'; fi; }
+run_router() { case "$1" in
+    claude) claude_run dmc-router.sh "$(c_prompt "$3")" "$2" ;;
+    codex)  codex_run  "$UPS"        "$(c_prompt "$3")" "$2" ;;
+  esac; }
+# ups_fingerprint OUTPUT MARKER -> "sig,prio,uw|<taskseg>" over ASCII key substrings only, so the
+# router \uXXXX vs Codex ensure_ascii=False em-dash escaping never breaks the parity compare.
+ups_fingerprint() { local out="$1" f=""
+  printf '%s' "$out" | grep -q 'Okay, Let me do you Coding!' && f="sig"
+  printf '%s' "$out" | grep -q 'DMC PRIORITY'                && f="${f:+$f,}prio"
+  printf '%s' "$out" | grep -q 'dmc-ultrawork'               && f="${f:+$f,}uw"
+  printf '%s|%s' "$f" "$(seg_after "$out" "$2")"; }
+
+# P1 — lowercase 'fix the parser dmc' -> BOTH fire: signature + DMC PRIORITY + dmc-ultrawork; active.
+dc=$(new_dir); oc=$(run_router claude "$dc" 'fix the parser dmc'); mc=$(mode_of "$dc")
+dx=$(new_dir); ox=$(run_router codex  "$dx" 'fix the parser dmc'); mx=$(mode_of "$dx")
+assert_eq 'sig,prio,uw|fix the parser' "$(ups_fingerprint "$oc" "$UW_MARK")" "A16 P1 claude: sig+priority+ultrawork+clean task"
+assert_eq 'sig,prio,uw|fix the parser' "$(ups_fingerprint "$ox" "$UW_MARK")" "A16 P1 codex: sig+priority+ultrawork+clean task"
+assert_eq "$(ups_fingerprint "$oc" "$UW_MARK")" "$(ups_fingerprint "$ox" "$UW_MARK")" "A16 P1 PARITY: claude additionalContext content == codex"
+assert_eq active "$mc" "A16 P1 claude: mode set active"
+assert_eq active "$mx" "A16 P1 codex: mode set active"
+assert_eq "$mc" "$mx" "A16 P1 PARITY: mode-file write equal across adapters"
+
+# P2 — mixed-case 'please refactor this. DMC' -> BOTH fire; CLEAN task extraction (critic-r2 A5); active.
+dc=$(new_dir); oc=$(run_router claude "$dc" 'please refactor this. DMC'); mc=$(mode_of "$dc")
+dx=$(new_dir); ox=$(run_router codex  "$dx" 'please refactor this. DMC'); mx=$(mode_of "$dx")
+assert_eq 'please refactor this.' "$(seg_after "$oc" "$UW_MARK")" "A16 P2 claude: clean task extraction (no trigger token)"
+assert_eq 'please refactor this.' "$(seg_after "$ox" "$UW_MARK")" "A16 P2 codex: clean task extraction (no trigger token)"
+printf '%s' "$ox" | grep -q 'refactor this[.] DMC' \
+  && record FAIL "A16 P2 codex: trigger token leaked into routed task" \
+  || record PASS "A16 P2 codex: NO trigger-token leak (critic-r2 A5 ! grep form)"
+assert_eq 'sig,prio,uw|please refactor this.' "$(ups_fingerprint "$oc" "$UW_MARK")" "A16 P2 claude: sig+priority+ultrawork present"
+assert_eq 'sig,prio,uw|please refactor this.' "$(ups_fingerprint "$ox" "$UW_MARK")" "A16 P2 codex: sig+priority+ultrawork present"
+assert_eq "$(ups_fingerprint "$oc" "$UW_MARK")" "$(ups_fingerprint "$ox" "$UW_MARK")" "A16 P2 PARITY: claude additionalContext content == codex"
+assert_eq active "$mc" "A16 P2 claude: mode set active"
+assert_eq active "$mx" "A16 P2 codex: mode set active"
+
+# P3 — mid-sentence 'the DMC feature is nice' -> BOTH emit nothing; mode UNCHANGED (passive sentinel).
+dc=$(new_dir passive); oc=$(run_router claude "$dc" 'the DMC feature is nice'); mc=$(mode_of "$dc")
+dx=$(new_dir passive); ox=$(run_router codex  "$dx" 'the DMC feature is nice'); mx=$(mode_of "$dx")
+[ -z "$oc" ] && record PASS "A16 P3 claude: mid-sentence DMC emits nothing" || record FAIL "A16 P3 claude: expected empty emit, got [$oc]"
+[ -z "$ox" ] && record PASS "A16 P3 codex: mid-sentence DMC emits nothing"  || record FAIL "A16 P3 codex: expected empty emit, got [$ox]"
+assert_eq passive "$mc" "A16 P3 claude: mode UNCHANGED (no spurious write)"
+assert_eq passive "$mx" "A16 P3 codex: mode UNCHANGED (no spurious write)"
+
+# P4 — mixed-case 'stand down DMC-OFF' -> BOTH route off; NO signature (greeting is dmc-only).
+dc=$(new_dir); oc=$(run_router claude "$dc" 'stand down DMC-OFF'); mc=$(mode_of "$dc")
+dx=$(new_dir); ox=$(run_router codex  "$dx" 'stand down DMC-OFF'); mx=$(mode_of "$dx")
+assert_eq off "$mc" "A16 P4 claude: mode set off"
+assert_eq off "$mx" "A16 P4 codex: mode set off"
+printf '%s' "$oc" | grep -q 'mode set to OFF' && record PASS "A16 P4 claude: emit routes to OFF" || record FAIL "A16 P4 claude: OFF routing text absent"
+printf '%s' "$ox" | grep -q 'mode set to OFF' && record PASS "A16 P4 codex: emit routes to OFF"  || record FAIL "A16 P4 codex: OFF routing text absent"
+printf '%s' "$oc" | grep -q 'Okay, Let me do you Coding!' && record FAIL "A16 P4 claude: OFF route leaked the dmc signature" || record PASS "A16 P4 claude: OFF route carries NO signature"
+printf '%s' "$ox" | grep -q 'Okay, Let me do you Coding!' && record FAIL "A16 P4 codex: OFF route leaked the dmc signature"  || record PASS "A16 P4 codex: OFF route carries NO signature"
+assert_eq "$mc" "$mx" "A16 P4 PARITY: mode-file write equal across adapters (off)"
+
+# P5 — mixed-case 'design the schema DMC-PLAN' -> BOTH route dmc-plan-hard; mode UNCHANGED; clean task.
+dc=$(new_dir passive); oc=$(run_router claude "$dc" 'design the schema DMC-PLAN'); mc=$(mode_of "$dc")
+dx=$(new_dir passive); ox=$(run_router codex  "$dx" 'design the schema DMC-PLAN'); mx=$(mode_of "$dx")
+printf '%s' "$oc" | grep -q 'dmc-plan-hard' && record PASS "A16 P5 claude: routes to /dmc-plan-hard" || record FAIL "A16 P5 claude: dmc-plan-hard route absent"
+printf '%s' "$ox" | grep -q 'dmc-plan-hard' && record PASS "A16 P5 codex: routes to /dmc-plan-hard"  || record FAIL "A16 P5 codex: dmc-plan-hard route absent"
+assert_eq 'design the schema' "$(seg_after "$oc" "$PLAN_MARK")" "A16 P5 claude: clean task extraction (no trigger token)"
+assert_eq 'design the schema' "$(seg_after "$ox" "$PLAN_MARK")" "A16 P5 codex: clean task extraction (no trigger token)"
+assert_eq passive "$mc" "A16 P5 claude: mode UNCHANGED (plan route never writes mode)"
+assert_eq passive "$mx" "A16 P5 codex: mode UNCHANGED (plan route never writes mode)"
+printf '%s' "$oc" | grep -q 'Okay, Let me do you Coding!' && record FAIL "A16 P5 claude: plan route leaked the dmc signature" || record PASS "A16 P5 claude: plan route carries NO signature"
+printf '%s' "$ox" | grep -q 'Okay, Let me do you Coding!' && record FAIL "A16 P5 codex: plan route leaked the dmc signature"  || record PASS "A16 P5 codex: plan route carries NO signature"
+assert_eq "$(seg_after "$oc" "$PLAN_MARK")" "$(seg_after "$ox" "$PLAN_MARK")" "A16 P5 PARITY: routed task equal across adapters"
+
 # =============================================================================== B
 echo "== B. B2 fail-closed negative controls (a)-(d), active + armed =="
 E=$(mktmp); arm_fixture "$E" >/dev/null || { echo "FATAL: arm E" >&2; exit 2; }

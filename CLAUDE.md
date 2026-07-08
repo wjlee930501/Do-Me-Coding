@@ -28,11 +28,15 @@ plan → scope → execute → verify → evidence.
 
 `.harness/mode` controls enforcement: `active` (full), `passive` (deny tier only, gates stand down), `off` (catastrophic + secret-exposure deny only). Absent ⇒ `active`.
 
-Natural-activation triggers (suffix-only, exact; precedence dmc-off > dmc-plan > dmc):
+Natural-activation triggers (suffix-only, exact-token, case-insensitive; precedence dmc-off > dmc-plan > dmc):
 
 - a request ending with `dmc` → run `/dmc-ultrawork` (mode set `active`).
 - a request ending with `dmc-plan` → run `/dmc-plan-hard` (planning only).
 - a request ending with `dmc-off` → set mode `off`.
+
+DMC PRIORITY: when a DMC trigger fires, DMC routing is authoritative for that turn over any other
+orchestration layer (OMC/OMO/LazyCodex) whose hooks or keywords also fired — do not enter their
+modes. Detailed policy: `docs/OMC_COEXISTENCE.md`.
 
 Explicit switches: `/dmc-on [active|passive]`, `/dmc-off`, `/dmc-status`. For OMC in the same repo, see `docs/OMC_COEXISTENCE.md` (prefer a separate branch/worktree; do not assume OMC has a universal off switch).
 

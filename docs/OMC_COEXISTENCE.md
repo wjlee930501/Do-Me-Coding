@@ -21,9 +21,9 @@ own `.harness/mode` switch.
 - `<task> dmc-plan` → routes to `/dmc-plan-hard` (planning only; mode unchanged).
 - `<anything> dmc-off` → sets mode `off`.
 
-Triggers are **suffix-only and exact** (the token must end the prompt), so prose that merely
-mentions `dmc-off` mid-sentence does not fire. Switch explicitly with `/dmc-on`, `/dmc-off`,
-`/dmc-status`.
+Triggers are **suffix-only, exact-token, and case-insensitive** (the token must end the prompt,
+matched regardless of case), so prose that merely mentions `dmc-off` mid-sentence does not fire.
+Switch explicitly with `/dmc-on`, `/dmc-off`, `/dmc-status`.
 
 ## Running OMC in the same repo
 
@@ -62,3 +62,13 @@ Claude Code merges hook arrays, so DMC and OMC hooks both fire on shared events
 > `UserPromptSubmit` magic-keyword injection and its Stop hook fired repeatedly. Treat dual
 > `UserPromptSubmit` coexistence as real, and use `/oh-my-claudecode:cancel` (if present) to exit
 > OMC modes cleanly when finished.
+
+## Precedence when both fire
+
+DMC never disables other layers structurally — Claude Code merges hook arrays, so DMC and another
+layer's hooks both keep firing. But when the DMC suffix trigger fires, its emitted routing is
+authoritative for that turn: the model must follow DMC discipline and not enter OMC/OMO/LazyCodex
+modes for that turn. OMC is the observed real same-repo contender (see the audit callout above);
+OMO and LazyCodex are comparator patterns, not confirmed same-repo observations. This is
+instruction-level best-effort, not a runtime boundary — see `docs/DMC_V1_HONEST_SCOPE.md` for the
+disclosed caveat.

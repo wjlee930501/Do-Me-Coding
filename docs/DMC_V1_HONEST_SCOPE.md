@@ -67,6 +67,11 @@ a v1.1+ hardening candidate to narrow the grep to real credential shapes.
 Source of truth: `.harness/plans/dmc-v1-runtime-upgrade-handoff.md:346-420` (items 10-15). Each
 line is a disclosed, non-blocking residual carried to v1.1+.
 
+DMC-PRIORITY (v1.1 activation tuning): the DMC-priority-over-other-layers clause (`CLAUDE.md`,
+`docs/OMC_COEXISTENCE.md`) is instruction-level best-effort delivered via `UserPromptSubmit`
+additionalContext — NOT a runtime boundary; Claude Code merges hook arrays and DMC cannot
+suppress another plugin's hooks.
+
 ### M6 (item 12; verifier-confirmed, 4 flagged advisory)
 - (a) a broad `Grep` with no path can still read secret-file CONTENTS in a non-secret dir (pre-M6 residual, unchanged by M6).
 - (b) run-id-armed-without-lock window — edits between `run start` and scope-compile fall to the legacy path.

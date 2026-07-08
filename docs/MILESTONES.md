@@ -604,3 +604,45 @@ P5 change-radius benchmark, the CF14 option-(a) frozen-tool portability hygiene 
 `docs/DMC_V1_HONEST_SCOPE.md` and the master plan's own Deferred register. **This supersedes the prior trailing
 "Next:" pointer immediately above** (v0.6.6–v0.6.9 Governance Hardening, "decomposed and DMC-critic-APPROVED but
 not started") — that mission never shipped standalone; it folded into this same v1.1+ register instead.
+
+## v1.0.1 — Natural-Activation Tuning — CLOSED (2026-07-08)
+
+### Why this layer existed
+The v1.0 lowercase-only suffix triggers (`dmc` / `dmc-plan` / `dmc-off`) felt mechanical against mixed-case or
+non-English-punctuated prompts, and a co-installed orchestration layer (OMC) could fire its own hooks on the same
+turn with no structural way to suppress it. `.harness/plans/dmc-v1.1-activation-tuning.md` (Rev 2, task namespace
+DMC-T018.*) ratified three activation-UX fixes: case-insensitive triggers, an opening signature line on the `dmc`
+route, and an instruction-level DMC-priority clause.
+
+### What was implemented
+Case-insensitive suffix triggers landed in strict Claude/Codex lockstep — `.claude/hooks/dmc-router.sh` moved to
+`grep -Eqi` matchers, `adapters/codex/dmc-codex-userpromptsubmit.py` to `re.IGNORECASE`, and both sides'
+task-extraction strips went case-insensitive via portable char-class sed (`[Dd][Mm][Cc]`) and
+`flags=re.IGNORECASE` so a mixed-case trigger no longer leaks into the routed task string. The `dmc`/ultrawork
+route now opens every reply with the exact signature `Okay, Let me do you Coding!` (a deliberate Do-Me-Coding
+wordplay), reinforced unconditionally in `dmc-ultrawork/SKILL.md` for direct slash invocations. An
+instruction-level **DMC PRIORITY** clause asserts DMC's routing is authoritative over any other orchestration
+layer whose hooks also fired that turn, documented honestly as instruction-level (not a structural suppression)
+in `CLAUDE.md`, DMC.md, and a new `## Precedence when both fire` section in `docs/OMC_COEXISTENCE.md`. A NEW
+34-row CI-blocking cross-adapter parity section (A16) was added to the m65-suite, closing the prior zero-tripwire
+gap where nothing enforced router/shim parity for natural activation.
+
+### Verification & review posture
+Plan → non-authoring critic r1 REJECT (`.harness/evidence/dmc-v1.1-critic-r1.json`) on two empirically proven
+gaps — an unsatisfiable no-regression gate against the manual v011 harness, and a mixed-case task-token leak —
+folded into Rev 2 → critic r2 APPROVE, 0 blockers (`.harness/evidence/dmc-v1.1-critic-r2.json`) → human plan gate
+→ scoped, synchronous Opus/Sonnet build. `bin/dmc selftest m65-suite` cross-adapter parity file:
+`test-codex-shims.sh: 99 PASS / 0 FAIL`; the full release gate plus committed-replica and post-commit live
+`selftest --all` at the pinned 802/3/3 legacy baseline are recorded in
+`.harness/verification/dmc-v1.0.1-activation.md` at closure.
+
+### Safety posture
+Suffix-only and mid-sentence-never-fires stayed true throughout (anchor regex preserved under case-folding);
+DMC-priority is framed honestly as instruction-level best-effort in `docs/DMC_V1_HONEST_SCOPE.md`'s disclosed-
+residual register — Claude Code merges hook arrays from all installed plugins, so no structural suppression lever
+exists. All frozen surfaces (the 55-file mirror, the `hooks-v0.6.5` fixture, `bin/lib/dmc-release-gate.py`) stayed
+untouched; the known-baseline delta against the manual v011 harness (39/2 on unpatched HEAD) is documented, not
+"fixed," per the plan's Rev 2 fold.
+
+**Next:** the DMC constitution refresh (a same-day follow-up cycle); the v1.1+ deferred register from the v1.0
+entry above is unchanged by this patch.

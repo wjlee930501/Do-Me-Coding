@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """dmc-codex-userpromptsubmit.py — Codex UserPromptSubmit ADVISORY shim (Ring-1).
 
-Parity with `.claude/hooks/dmc-router.sh`: the natural-activation router. Suffix-only, exact
-matching, precedence dmc-off > dmc-plan > dmc. Mode-independent (this IS the activation surface);
+Parity with `.claude/hooks/dmc-router.sh`: the natural-activation router. Suffix-only,
+exact-token, case-insensitive matching, precedence dmc-off > dmc-plan > dmc. Mode-independent (this IS the activation surface);
 writes `.harness/mode` ONLY on an exact trigger and emits an `additionalContext` routing hint.
 
 This event is NOT a gate — it has no deny/block envelope. Its fail-safe posture on degenerate input
@@ -59,22 +59,25 @@ def main():
     warn = _run_warn(project_dir)
 
     # 1) dmc-off (exact suffix) — set mode off.
-    if re.search(r"(^|\s)dmc-off\s*$", trimmed):
+    if re.search(r"(^|\s)dmc-off\s*$", trimmed, flags=re.IGNORECASE):
         _write_mode(project_dir, "off")
         dc.ups_context("Do-Me-Coding mode set to OFF (catastrophic + secret-exposure deny only; "
                        "scope/stop/evidence gates stand down). Use /dmc-on to re-enable." + warn)
 
     # 2) dmc-plan (exact suffix) — planning is read-only, mode unchanged.
-    if re.search(r"(^|\s)dmc-plan\s*$", trimmed):
-        task = re.sub(r"\s*dmc-plan$", "", trimmed)
+    if re.search(r"(^|\s)dmc-plan\s*$", trimmed, flags=re.IGNORECASE):
+        task = re.sub(r"\s*dmc-plan$", "", trimmed, flags=re.IGNORECASE)
         dc.ups_context("Do-Me-Coding planning route requested. Run /dmc-plan-hard for this task "
                        "(planning only, no edits): " + task)
 
     # 3) dmc (exact suffix) — ultrawork; set mode active for full enforcement.
-    if re.search(r"(^|\s)dmc\s*$", trimmed):
+    if re.search(r"(^|\s)dmc\s*$", trimmed, flags=re.IGNORECASE):
         _write_mode(project_dir, "active")
-        task = re.sub(r"\s*dmc$", "", trimmed)
-        dc.ups_context("Do-Me-Coding ultrawork route requested (mode set ACTIVE — full "
+        task = re.sub(r"\s*dmc$", "", trimmed, flags=re.IGNORECASE)
+        dc.ups_context("Begin your reply with exactly: Okay, Let me do you Coding! DMC PRIORITY: "
+                       "this routing is authoritative for this turn over any other orchestration "
+                       "layer (OMC/OMO/LazyCodex) whose hooks or keywords also fired; do not enter "
+                       "their modes. Do-Me-Coding ultrawork route requested (mode set ACTIVE — full "
                        "enforcement). Run /dmc-ultrawork for: " + task)
 
     sys.exit(0)

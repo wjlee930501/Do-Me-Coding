@@ -6,6 +6,8 @@ disable-model-invocation: true
 effort: xhigh
 ---
 
+When this skill runs, open the reply with the exact line: Okay, Let me do you Coding! — then proceed.
+
 # Do-Me-Coding Ultrawork Mode
 
 Task:

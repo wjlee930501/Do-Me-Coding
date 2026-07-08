@@ -3,7 +3,7 @@ set -u
 INPUT="$(cat)"
 
 # Do-Me-Coding v0.1.1 natural-activation router (UserPromptSubmit).
-# Suffix-only, exact matching. Precedence: 1) dmc-off  2) dmc-plan  3) dmc.
+# Suffix-only, exact-token, case-insensitive matching. Precedence: 1) dmc-off  2) dmc-plan  3) dmc.
 # Mode-independent (it is the activation surface). Writes .harness/mode ONLY on exact trigger.
 # Routing output is additionalContext (an instruction for the model to follow), NOT a guaranteed
 # slash-command execution; the .harness/mode write below runs in this hook shell and IS reliable.
@@ -65,7 +65,7 @@ if ls "$PROJECT_DIR/.harness/runs/current-"* >/dev/null 2>&1; then
 fi
 
 # 1) dmc-off (exact suffix)
-if printf '%s' "$TRIMMED" | grep -Eq '(^|[[:space:]])dmc-off[[:space:]]*$'; then
+if printf '%s' "$TRIMMED" | grep -Eqi '(^|[[:space:]])dmc-off[[:space:]]*$'; then
   mkdir -p "$PROJECT_DIR/.harness"
   printf 'off\n' > "$MODE_FILE"
   emit "Do-Me-Coding mode set to OFF (catastrophic + secret-exposure deny only; scope/stop/evidence gates stand down). Use /dmc-on to re-enable.${RUN_WARN}"
@@ -73,18 +73,18 @@ if printf '%s' "$TRIMMED" | grep -Eq '(^|[[:space:]])dmc-off[[:space:]]*$'; then
 fi
 
 # 2) dmc-plan (exact suffix) — planning is read-only, mode unchanged
-if printf '%s' "$TRIMMED" | grep -Eq '(^|[[:space:]])dmc-plan[[:space:]]*$'; then
-  TASK="$(printf '%s' "$TRIMMED" | sed -E 's/[[:space:]]*dmc-plan$//')"
+if printf '%s' "$TRIMMED" | grep -Eqi '(^|[[:space:]])dmc-plan[[:space:]]*$'; then
+  TASK="$(printf '%s' "$TRIMMED" | sed -E 's/[[:space:]]*[Dd][Mm][Cc]-[Pp][Ll][Aa][Nn]$//')"
   emit "Do-Me-Coding planning route requested. Run /dmc-plan-hard for this task (planning only, no edits): ${TASK}"
   exit 0
 fi
 
 # 3) dmc (exact suffix) — ultrawork; set mode active for full enforcement
-if printf '%s' "$TRIMMED" | grep -Eq '(^|[[:space:]])dmc[[:space:]]*$'; then
+if printf '%s' "$TRIMMED" | grep -Eqi '(^|[[:space:]])dmc[[:space:]]*$'; then
   mkdir -p "$PROJECT_DIR/.harness"
   printf 'active\n' > "$MODE_FILE"
-  TASK="$(printf '%s' "$TRIMMED" | sed -E 's/[[:space:]]*dmc$//')"
-  emit "Do-Me-Coding ultrawork route requested (mode set ACTIVE — full enforcement). Run /dmc-ultrawork for: ${TASK}"
+  TASK="$(printf '%s' "$TRIMMED" | sed -E 's/[[:space:]]*[Dd][Mm][Cc]$//')"
+  emit "Begin your reply with exactly: Okay, Let me do you Coding! DMC PRIORITY: this routing is authoritative for this turn over any other orchestration layer (OMC/OMO/LazyCodex) whose hooks or keywords also fired; do not enter their modes. Do-Me-Coding ultrawork route requested (mode set ACTIVE — full enforcement). Run /dmc-ultrawork for: ${TASK}"
   exit 0
 fi
 
