@@ -30,8 +30,9 @@ Rules (validator-enforced):
   ∈ enum and ≠ `ordinary`; paths relative, unique, no `..`; every entry carries a non-empty
   `reason`.
 - Deterministic: same tree ⇒ byte-identical output (sorted by path).
-- The seed union includes the historical DMC protected set (hooks, settings, providers,
-  install, `dmc-glm-smoke`) so no legacy-protected path silently declassifies (audit §5 note).
+- The seed union historically included the DMC protected set (hooks, settings, providers,
+  install, `dmc-glm-smoke`, removed by the human-gated hygiene cycle 2026-07-08) so no
+  legacy-protected path silently declassifies (audit §5 note).
 
 Consumers: P5 radius (landmark class per scoped path), P7 scope lock (landmark edits require
 explicit plan authorization), P16 critic, P18 release gate — wired in their own milestones.

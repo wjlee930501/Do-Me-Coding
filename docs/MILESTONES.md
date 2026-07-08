@@ -714,3 +714,24 @@ entry above is unchanged by this patch.
   autonomous-local-commit on the dedicated branch); critic r1 APPROVE first-round (envelope ruled
   III.2(3)-compatible; 36/36 case-glob↔regex byte-parity empirically verified); run
   `dmc-run-c670495342e1`; LOCAL commit only — push/CI/main-FF reserved to the morning human gates.
+
+## v1.0.3 — generator & classification hardening — CLOSED (2026-07-09)
+
+- **§7 native emission:** the companion-docs paragraph is now emitted natively by the generator
+  (`bin/lib/dmc-agents-md.py`), PRESENCE-GATED on the three companion docs (`AUTONOMY.md`,
+  `docs/CONTEXT_MAP.md`, `docs/DMC_CONSTITUTION.md`) so host-generated output gains nothing absent
+  them — closing the dangling-reference discipline gap; the 3×-reproduced regen-loss class and its
+  hand-re-add standing rule RETIRE. Module selftest 24→26 with a host-shape negative row.
+- **`.codex/` classification:** `bin/lib/dmc-repo-intel.py` now classifies `.codex/config.toml`
+  and `.codex/hooks.json` as enforcement in repo-intel (landmarks 187→189; selftest 11→13 incl.
+  both-file L1g rows); future scope.locks touching `.codex/` REFUSE without explicit landmark
+  authorization — end-to-end drill proven.
+- **Registered deferral closed:** the `.harness/schemas/landmarks.schema.md` seed-union reword
+  registered at the stray-hygiene closure (docs/MILESTONES.md:662) is EXECUTED, closing that
+  v1.1+ deferral.
+- **AGENTS.md regen:** regenerated via `dmc agents-md` — §4 gains the two `.codex/` rows and §5's
+  enumeration gains both paths; §7 reproduces the committed companion-docs paragraph
+  byte-identically (native emission, no hand-fix needed).
+- **Chain:** overnight envelope; critic r1 REJECT (a host dangling-reference catch) → Rev 2 folded
+  in the presence-gate → critic r2 APPROVE; scope-locked, synchronous execution under run
+  `dmc-run-c9a159039747`; LOCAL commit only, morning gates pending.

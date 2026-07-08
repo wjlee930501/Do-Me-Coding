@@ -84,6 +84,12 @@ SECRET_PATTERNS = [
 # DMC enforcement bindings — editable only through an approved plan scope (CLAUDE.md, DMC.md).
 DMC_BINDINGS = ["`.claude/`", "`.agents/`", "`.codex/`", "`bin/dmc`", "`bin/lib/`", "`.harness/`"]
 
+# Companion context docs — the section-7 discoverability pointer is emitted ONLY when ALL THREE of
+# these exist as files at the scanned root (atomic all-or-nothing). None of the three ships with an
+# install, so on every host the pointer is omitted (no dangling references — the generator's
+# facts-driven charter); the DMC repo, the only tree carrying them, gets the native paragraph.
+COMPANION_DOCS = ["AUTONOMY.md", "docs/CONTEXT_MAP.md", "docs/DMC_CONSTITUTION.md"]
+
 # Validator refusal heuristics: guessed-looking filler that must have been `Unknown` instead.
 # `Unknown` (literal) is ALLOWED and is the sanctioned non-derivable marker. Documented in
 # .harness/schemas/agents-md.schema.md and enforced by validate_doc().
@@ -144,6 +150,13 @@ def categorize_command(command, source):
     if "build" in s:
         return "build"
     return None
+
+
+def companion_docs_present(root):
+    """True iff EVERY companion context doc (COMPANION_DOCS) exists as a file at `root` — atomic
+    all-or-nothing. A repo-derived fact (never a guess): gates the section-7 pointer paragraph so a
+    host lacking these docs emits no dangling references."""
+    return all(os.path.isfile(os.path.join(root, rel)) for rel in COMPANION_DOCS)
 
 
 def derive_facts(root):
@@ -226,6 +239,7 @@ def derive_facts(root):
         "protected_landmarks": protected_landmarks,
         "risk": risk,
         "host_verify": host_verify,
+        "companion_docs": companion_docs_present(root),
     }, unknowns
 
 
@@ -299,8 +313,20 @@ def render_sections(facts, unknowns):
         "- Billing: %s" % facts["risk"]["Billing"],
     ])
 
-    out += _section(7, "DMC operating rules", [
-        "Core loop: plan -> scope -> execute -> verify -> evidence.",
+    section7_body = ["Core loop: plan -> scope -> execute -> verify -> evidence."]
+    if facts["companion_docs"]:
+        # Discoverability pointer — emitted ONLY when all three companion docs exist at the scanned
+        # root (facts["companion_docs"]). The 4 lines below are reproduced BYTE-FOR-BYTE from the
+        # committed AGENTS.md so a DMC-repo regen is a zero-section-7-hunk; the surrounding blank
+        # lines match the committed layout exactly.
+        section7_body += [
+            "",
+            "Companion context docs (discoverability): `AUTONOMY.md` (autonomy charter — levels /",
+            "stop-conditions), `docs/CONTEXT_MAP.md` (context-file map: what loads when, single-source",
+            "rules), and `docs/DMC_CONSTITUTION.md` (repo-maintenance governance — READ BEFORE any substantial",
+            "change; amendment rules within).",
+        ]
+    section7_body += [
         "",
         "Non-negotiable rules:",
         "",
@@ -317,7 +343,8 @@ def render_sections(facts, unknowns):
         "- Subagents are explicit. Invoke a role through its Codex subagent definition (an "
         "`[agents.NAME]` config entry); Codex never spawns subagents automatically. Roles are "
         "capability classes (`orchestration/roles.json`), never model names.",
-    ])
+    ]
+    out += _section(7, "DMC operating rules", section7_body)
 
     out += _section(8, "Verification commands", [
         "- Host build/test verification: %s" % facts["host_verify"],
@@ -635,6 +662,21 @@ def selftest():
         # --- Unknown rule: no guessed business logic leaked in for the empty repo ---
         t.ok("U1 empty fixture never invents a purpose (purpose is Unknown)",
              "Purpose: Unknown" in empty_doc)
+
+        # --- section-7 companion-docs pointer: presence-gated, atomic all-or-nothing ---
+        #     Positive: a fixture carrying all three companion docs (content-free stubs) emits the
+        #     discoverability paragraph. Negative: the empty fixture (same base repo, no docs) omits
+        #     it entirely — the host-shape proof, since no install ships those docs (critic r1 B1).
+        cdocs = os.path.join(tmp, "companion")
+        os.makedirs(cdocs)
+        _make_empty_repo(cdocs)
+        for rel in COMPANION_DOCS:
+            _write(os.path.join(cdocs, rel), "")
+        cdocs_doc, _ = generate(cdocs)
+        t.ok("C1 fixture with all three companion docs emits the section-7 pointer paragraph",
+             "Companion context docs" in cdocs_doc)
+        t.ok("C2 fixture lacking the companion docs omits the section-7 pointer (host-shape proof)",
+             "Companion context docs" not in empty_doc)
 
         # --- validator negative controls ---
         # (a) missing section
