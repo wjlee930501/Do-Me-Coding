@@ -131,10 +131,23 @@ non-degrading flag RAISED and RECORDED in `release-readiness.json` `flags[]`, ne
 exactly the machine-verified mechanism the plan discloses (frozen composer design: FLAG never
 degrades the verdict). `dmc stop-gate quick` → STOP-PASS (run SUSPENDED).
 
-## Closure lines (appended at each closure step)
+## Closure lines (final, 2026-07-08)
 
-- Commit gate: PENDING (human).
-- Committed-replica `selftest --all`: PENDING.
-- Post-commit live `selftest --all` (legacy 802/3/3 EXACT expected): PENDING.
-- CI on pushed HEAD: PENDING.
-- main fast-forward: PENDING.
+- Commit gate: wjlee approved the two-commit structure → `901d7d5` (the 10 scope files, staged set
+  == allowlist 1:1) + `a8a9652` (governance records: plan, critic r1–r4, verifier report, this
+  file). Working tree porcelain-clean after both (the new gitignore patterns absorb all per-run
+  residue).
+- Committed-replica `selftest --all` (fresh clone of `a8a9652`, `PYTHONPYCACHEPREFIX` redirect):
+  `aggregate: tools=49 PASS=802 FAIL=3 N/A=3` — **legacy 802/3/3 EXACT**, `SELFTEST-ALL RESULT:
+  PASS`, exit 0. Notably the replica reproduced the full dev baseline with NO clone-environment
+  delta (the v0.3.2 AC4 artifact did not manifest in this clone).
+- Post-commit live dev-tree `selftest --all`: `aggregate: tools=49 PASS=802 FAIL=3 N/A=3` —
+  **legacy 802/3/3 EXACT**, PASS, exit 0. The 3 FAILs are byte-for-byte the pinned set
+  (v0.1.3×1, v0.2.3×1, v0.3.2×1) and N/A=3 the known set (v0.2.4×1, v0.3.3×2) — CF1 honored,
+  nothing new, nothing masked. AC6 MET.
+- CI on pushed HEAD `a8a9652`: Actions run `28947086870` — **conclusion=success** (all blocking
+  steps green). AC8 (CI) MET.
+- main fast-forward: FF-safety pre-checked (`origin/main` ancestor of HEAD) → `git push origin
+  claude/dmc-v1-runtime-upgrade-c5uch1:main` fast-forwarded `046090f..a8a9652`; origin/main ==
+  local main == branch HEAD == `a8a9652`. AC8 (main FF) MET.
+- Run `dmc-run-8f34d637a6f2`: SUSPENDED, pointer cleared (established closure posture).

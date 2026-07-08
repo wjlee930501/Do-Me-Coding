@@ -1,9 +1,57 @@
 # HANDOFF — dmc-v1-runtime-upgrade (session → session)
 
-Date: 2026-07-08 (rev 10 — **POST-v1.0 SESSION: v1.0.1 + THE CONSTITUTION shipped; read this
-block FIRST, then the constitution, then rev 9 below.**)
+Date: 2026-07-08 (rev 11 — **STRAY-FILE HYGIENE (B8 closure) shipped at `a8a9652`; read this
+block, the constitution, then rev 10 below.**)
 
-## Rev 10 — session end state (2026-07-08, post-v1.0)
+## Rev 11 — session end state (2026-07-08, hygiene session)
+
+**Shipped: the B8 "separately-approved cleanup milestone"** (`901d7d5` scope + `a8a9652`
+governance records; main == branch == `a8a9652`, CI `28947086870` success, replica AND live
+`selftest --all` BOTH legacy **802/3/3 EXACT** — the replica showed no clone delta this time).
+Removed: 4 `_DMC_*.md` + `do-me-coding-v0.1-scaffold.zip` + `dmc-glm-smoke` (v0.2.1 live smoke
+runner, NOT v0.1-bootstrap); companion `bin/lib/dmc-repo-intel.py` edit (classify_landmark
+special-case dropped :278, L1f → negative control asserting ABSENCE :614-615, landmarks 11/0);
+AGENTS.md regenerated (the AC6 §7-pointer-loss regression REPRODUCED again and was caught by the
+in-task guard — treat "regen AGENTS.md ⇒ re-add §7 companion pointers + v0.4.7 re-run" as a
+standing rule); `.gitignore` + `.harness/evidence/dmc-run-*.md` + `.harness/runs/dmc-run-*/`
+(moot zip line dropped) — per-run residue no longer surfaces in git status; 3 orphan pre-M4 run
+notes deleted (D4); MILESTONES closure entry appended. No version bump (D5) — identity stays
+v1.0.
+
+Cycle record (full Art. III loop): plan `.harness/plans/dmc-stray-hygiene.md` Rev 3 + ratified
+mid-run class-(h) addendum · critic r1 REJECT → r2 REJECT → r3 APPROVE (`563d3f63…`) → r4 APPROVE
+(hash re-bind to `4bbeeb20…` after the addendum) · human gates D1–D6 + class (h) + 2-commit +
+push/FF · 10-entry landmark-authorized scope.lock, run `dmc-run-8f34d637a6f2` (SUSPENDED, pointer
+cleared) · independent verifier PASS (188-hit residual accounting, classes (a)–(h) exact) ·
+**`dmc gate release --full` PASS first run** — 8 PASS + non-degrading `RGATE-LANDMARK-FLAG`
+(recorded, never cleared) with the D6-ratified `DMC_GATE_PROTECTED` override (dmc-glm-smoke line
+dropped, 9 kept verbatim).
+
+**NEW operational learnings (beyond rev 10's invariants, all machine-verified this session):**
+(a) the landmark-flag sub-gate (`dmc-release-gate.py:617-636`) reads NO scope.lock grant and
+cannot be "pre-cleared" — M10's "pre-cleared the FLAG" phrasing is WRONG per the machine; the
+FLAG rises and stays, harmlessly (FLAG never degrades the verdict). (b) `cmd_resume` does NOT
+rewrite the run pointer — re-arm = resume + `printf '<run-id>' > .harness/runs/current-run-id`.
+(c) The approvals appender/validator force run.json's ARMING-time subject binding
+(no-foreign-subject rule) — a lawful mid-run plan addendum yields a benign two-hash state
+(arming hash in the machine green set, final hash in the critic lane) that must be disclosed in
+evidence. (d) Green-set artifacts are hand-authored m9kit shapes validated by their v0.6.x tools
+(`gate`/`trace`/`answer` exit 0) + `dmc-evidence-ledger mint` + `dmc-approvals append --auth-id`;
+zsh does NOT word-split unquoted vars — inline the args. (e) Mid-run governance writes
+(plan addendum, critic verdicts, verifier report) are DENIED by design under an armed run —
+the lawful lane is suspend + pointer-clear (disarm) → write → resume + pointer-restore,
+disclosed verbatim in evidence (two windows this session, both with quoted denial texts).
+
+**Registered deferral (NEW, v1.1+):** `.harness/schemas/landmarks.schema.md:34` still words the
+protected-union seed as including `dmc-glm-smoke` — live II.5 contract surface, deliberately NOT
+edited (own Art. III cycle needed); one-line reword registered in the MILESTONES hygiene entry.
+
+**Next session candidates (user-gated, unchanged otherwise):** (a) 브랜딩 (DEFERRED by the user);
+(b) 발전 방향과 트리거 논의 (discussion, when the user convenes); (c) the v1.1+ deferred register —
+approval authentication, CF14 option-(a) frozen-tool portability, D1 md5 hardening
+(dmc-v0.2-verify.sh:15-17), worker-bridge expansion, P5 benchmark, the landmarks.schema.md:34
+reword (NEW), and the constitution future-amendment candidates recorded at rev 10. Stray-file
+hygiene is now CLOSED (this rev).
 
 **READ `docs/DMC_CONSTITUTION.md` BEFORE ANY SUBSTANTIAL CHANGE — it is ratified LAW (8 Articles
 + Amendment Log), and Article VIII binds YOU regardless of your model/capability tier:** the
