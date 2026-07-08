@@ -1,0 +1,61 @@
+{
+  "schema": "dmc.critic-verdict.v1",
+  "work_id": "dmc-v1.0.3-generator-classify",
+  "plan_hash": "47a7ed8074ad4e4aff151de8982ebbb4f488ed1256909b439273266456e91832",
+  "repo_hash": "510f421a9ab1385fb02c56cac7453c8e2b91bf06",
+  "target_ref": ".harness/plans/dmc-v1.0.3-generator-classify.md",
+  "verdict": "REJECT",
+  "lenses": [
+    "correctness",
+    "scope",
+    "security",
+    "governance-process",
+    "universality"
+  ],
+  "criteria_checked": [
+    {
+      "criterion_ref": "GOV-ENVELOPE-III.2.3",
+      "result": "met",
+      "note": "The overnight envelope ruling from the v1.0.2 r1 adjudication carries over: this cycle is named in the ratified menu, approver recorded in the plan, dedicated non-main branch, critic-conditional approval, push/CI/FF withheld to morning human gates. The gate posture itself is APPROVE-compatible; the rejection below is a plan-content defect, not a gate defect."
+    },
+    {
+      "criterion_ref": "GOV-II5-SCHEMA-REWORD",
+      "result": "met",
+      "note": "II.5 ruling: LAWFUL. landmarks.schema.md is canonical, not a mirror (MIRRORS set verified = plan/run/verification exactly; no root LANDMARKS_SCHEMA.md exists). II.5 demands the Article III cycle for schema amendment; this plan IS that cycle (valid plan + fresh non-authoring critic + human envelope gate naming the reword item + landmark-authorized scope.lock for the contract-class file + verifier + replica/live + local commit with morning human gates). The reword is descriptive prose only; validator rules are shape/enum and unaffected. The registered deferral wording at docs/MILESTONES.md:662 verified verbatim; the current stale bullet at schema lines 33-34 verified."
+    },
+    {
+      "criterion_ref": "AC1",
+      "result": "unmet",
+      "note": "Root-cause goal is right; the specified MECHANISM is defective as written — see blocker B1. The renderer mechanics themselves check out: _section maps list elements to output lines 1:1 with no re-wrapping, so DMC-repo byte-identity (zero section-7 hunk) is achievable with the correct 4-element split."
+    },
+    {
+      "criterion_ref": "AC2",
+      "result": "met",
+      "note": "The .codex classification change is sound: the repo tracks exactly .codex/config.toml + .codex/hooks.json; current landmark scan has 187 entries with zero .codex rows; no consumer assumes a fixed landmark count or exact section-4/5 content (agents-md fixture suite checks section presence and Unknown rendering only; m6/m7/m9 suites use hand-built static landmark fixtures; release-gate ST_LANDMARKS is a static dict); L1f asserts key ABSENCE and survives; the scope-lock check at dmc-scope-lock.py:231 REFUSES a declared non-ordinary class lacking authorization; the landmark-flag sub-gate gains FLAG coverage for future .codex diffs, which is non-degrading by the v1.0.1/v1.0.2 precedent."
+    },
+    {
+      "criterion_ref": "AC3",
+      "result": "met",
+      "note": "Reword executes the registered deferral exactly as prescribed; the reworded bullet carries no /codex/i token, so no honesty-lexeme exposure on that line; schemas-mirror selftest unaffected (file outside the mirror set)."
+    },
+    {
+      "criterion_ref": "AC4",
+      "result": "met",
+      "note": "No-regression claims verified reachable: mirror-check compares bin/lib/dmc-v0.* copies only (neither edited module is v0.x-prefixed); the frozen 802/3/3 legacy count comes from the v0.x tool set, not module selftests (v1.0.2 precedent: +44 suite rows, 802 EXACT held); landmarks selftest 11-to-12 is count-consistent with the 11 current rows."
+    },
+    {
+      "criterion_ref": "AC5",
+      "result": "met",
+      "note": "NO-G4-override claim verified against the gate runner: G4 matches per-pathspec via git status --porcelain -- <p>; none of the five diff paths matches any DEFAULT_PROTECTED entry. Landmark FLAG expected on bin/lib (enforcement class) + schema (contract) + MILESTONES (release) paths; scope.lock must carry landmark_authorized true for them."
+    }
+  ],
+  "blockers": [
+    {
+      "id": "B1",
+      "statement": "Proposed Change 1 as written makes the SHIPPED generator emit the companion-docs paragraph UNCONDITIONALLY on every repo it runs against. bin/lib/dmc-agents-md.py ships to hosts (dmc-install.sh:295 ships every bin/lib file), while NONE of the three referenced docs ships (SUPPORT_DOCS = the three HOST_REPO/OMC docs only; ROOT_DOCS has no AUTONOMY.md, no docs/CONTEXT_MAP.md, no docs/DMC_CONSTITUTION.md). Every host-generated AGENTS.md would therefore point at three files that do not exist in that host repo — contradicting the generated document's own charter line (repository-derived facts, never a guess), the INSTALL_MANIFEST dangling-reference discipline, and the Constitution Preamble's recorded decision that a host-shipping constitution breadcrumb is a FUTURE-AMENDMENT candidate deliberately not shipped. No machine check catches it: the m8 dangling scan covers adapters/skills/agents/DMC.md/CLAUDE.md only (bin/lib excluded), linkcheck scans skills+agents+3 delegation pointer docs only, and test-agents-md.sh never inspects section-7 body — a zero-tripwire behavior change on a shipped tool. REQUIRED CHANGE: gate the paragraph emission on the target repo actually containing the referenced companion docs (facts-driven presence check at the scanned root, emitting the identical 4 lines when present), or an equivalent repo-scoped mechanism; keep the zero-section-7-hunk byte-identity AC for the DMC repo; ADD a negative proof that a non-DMC fixture repo's generated doc omits the paragraph (which requires either amending the test-agents-md.sh no-edit row in the scope table or a module-selftest row).",
+      "evidence_ref": ".claude/install/dmc-install.sh:51,295; INSTALL_MANIFEST.md:295-308; tests/fixtures/m8/test-manifest-drift.sh:101-103; bin/lib/dmc-orchestration-linkcheck.py:59-63,219-227; docs/DMC_CONSTITUTION.md Preamble; bin/lib/dmc-agents-md.py render header"
+    }
+  ],
+  "advisory": true,
+  "context_provenance": "fresh"
+}

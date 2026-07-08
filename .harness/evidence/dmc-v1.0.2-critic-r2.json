@@ -1,0 +1,21 @@
+{
+  "schema": "dmc.critic-verdict.v1",
+  "work_id": "dmc-v1.0.2-router-anchor",
+  "plan_hash": "79ef1124ed5a0538531196b0ce4f3e8882e1c3a4901c878cc15adffdc8f5000c",
+  "repo_hash": "d846f0a6076d34cfc972dad32bf706504fe87315",
+  "target_ref": "worktree-diff@d846f0a6 r2 build sign-off (uncommitted; 3 files M: .claude/hooks/dmc-router.sh, tests/fixtures/m6.5/test-codex-shims.sh, docs/MILESTONES.md)",
+  "verdict": "APPROVE",
+  "lenses": ["correctness", "scope", "security", "lockstep-parity", "evidence"],
+  "criteria_checked": [
+    {"criterion_ref": "SCOPE-DIFF", "result": "met", "note": "git status shows exactly the 3 plan-scoped tracked modifications; no-edit surfaces untouched (shim, v011-verify, frozen hooks-v0.6.5 fixture, DMC.md/CLAUDE.md all absent from the diff); plan sha256 unchanged since r1; HEAD unchanged (build uncommitted — this verdict covers the working tree)."},
+    {"criterion_ref": "AC1", "result": "met", "note": "Router diff independently re-read line-by-line: matches plan spec (a)-(f) exactly — parameter-expansion whole-string trim, single tr lowercase, three case blocks in dmc-off>dmc-plan>dmc precedence each with a bare token-only arm (critic-r1 advisory 1 implemented), fixed-length task strips (8/3 chars) + re-trim, one added header line. My own 36-case live battery driving the NEW router bytes vs the real shim on identical prompts: 36/36 equal (route+task+mode triple), including the defect-negative repro (interior line-terminal token emits nothing, no mode write on either adapter), token-only prompts, tab/newline/CR/VT/FF boundaries, mixed case, precedence, and no-boundary negatives."},
+    {"criterion_ref": "AC2", "result": "met", "note": "Byte-stability verified at hex level: the env-var-parse json_get line is byte-identical to HEAD (od -c compare) and the v011 invariant grep row passes live; emit strings appear only as diff context (zero +/- emit lines). NOTE for future critics: an initial NO-MATCH on that literal was a false alarm caused by MY tool-shell grep being shimmed to ugrep 7.5.0, which mishandles a mid-pattern dollar in BRE — grep -F, a clean bash -c with system grep, and the v011 harness itself all confirm the line intact. Not a repo defect."},
+    {"criterion_ref": "AC2-v011", "result": "met", "note": "v011-verify run live by me: aggregate 39/2; all 5 router-invariant rows green (dmc->ultrawork, dmc-plan->planning, passthrough, mid-sentence negative, env-var parse); the 2 FAILs are the SAME 2 known non-router rows (stop block row; 6-skills row); never gated ALL-PASS."},
+    {"criterion_ref": "AC1-suite", "result": "met", "note": "A16 extension re-read row-by-row: purely additive +88 lines, 7 sub-blocks (P-ML1..4, P-TO1..3), exactly 44 assertions counted (6+6+6+6+6+8+6); P-ML3 carries the explicit symmetric parity assertions on has_context_of and mode-file state (critic-r1 advisory 2 implemented); fresh per-prompt sandboxes per adapter; sentinel seeding on the mode-unchanged rows. Suite run twice by me: 143 PASS / 0 FAIL both runs, real-repo porcelain-untouched row green. The executor's JSON-escaping finding independently confirmed: both adapters emit the embedded newline as the same two-character escape, so plain string compares are parity-valid."},
+    {"criterion_ref": "AC-MILESTONES", "result": "met", "note": "MILESTONES entry: append-only (+22 lines, 0 removals, appended at file end), factually consistent with everything re-verified here (defect, mechanics, 99->143/0, 39/2 baseline, envelope provenance, run id, morning-gate pending). Honesty-lexeme check over the added lines: the single line matching the adapter-name pattern carries no forbidden whole-word marker."},
+    {"criterion_ref": "GOV-SEQUENCE", "result": "met", "note": "Run suspended and disarmed (run dir present, no current-* pointer), so this write and the sign-off are lawful; the remaining chain items are correctly SEQUENCED AFTER this sign-off per plan T003 and III.2 stages 8-9: green-set mint, full gate with the pre-ratified minimal G4 override, committed-replica AND live selftest --all 802/3/3 EXACT, then ONE local commit with explicit-path staging; push/CI/main-FF stay morning human gates."}
+  ],
+  "blockers": [],
+  "advisory": true,
+  "context_provenance": "fresh"
+}

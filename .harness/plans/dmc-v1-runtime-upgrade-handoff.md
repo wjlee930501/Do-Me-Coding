@@ -1,5 +1,60 @@
 # HANDOFF — dmc-v1-runtime-upgrade (session → session)
 
+Date: 2026-07-09 (rev 13 — **OVERNIGHT ENVELOPE CYCLES v1.0.2→v1.0.4 COMPLETE as LOCAL commits on
+`claude/dmc-v102-v104-overnight`; MORNING GATES PENDING (push/CI/main-FF). Read this block first.**)
+
+## Rev 13 — overnight autonomy session (2026-07-09, same session as rev 11/12)
+
+**The envelope**: wjlee ratified, pre-sleep via AskUserQuestion, three cycles at AUTONOMY.md
+`autonomous-local-commit` on the dedicated branch — critic APPROVE mandatory (else SKIP),
+independent verifier + replica/live 802/3/3 mandatory per cycle, the router cycle's
+`.claude/hooks` edit pre-ratified with the minimal G4 override, PUSH/CI/main-FF reserved to the
+morning human gates. The v1.0.2 critic r1 ruled the envelope Constitution III.2(3)-compatible
+(critic-conditional pre-approval completed by the morning gates). Bypass permission mode was
+enabled by the user mid-run for orchestrator Bash; DMC Ring-0/Ring-1 kept enforcing independently
+(multiple live denials, all honored and recorded per cycle).
+
+**Cycle results (each: plan → critic → scoped sync executors → verifier → build sign-off →
+green set → full gate → LOCAL commit → replica+live 802/3/3):**
+1. **v1.0.2 `510f421`** — router whole-prompt suffix anchor: the line-oriented grep/sed defect
+   (interior line-terminal token routed pasted multi-line prompts — observed live twice) fixed
+   with whole-string POSIX mechanics; emit strings/mode writes/env-var parse byte-unchanged;
+   Codex shim untouched (already correct — parity RESTORED); A16 suite 99→143/0 (7 multi-line +
+   token-only sub-blocks, both adapters); v011 39/2 invariants green; gate PASS with the minimal
+   G4 override (.claude/hooks line dropped only).
+2. **v1.0.3 `267a65b`** — generator & classification hardening: §7 companion-docs paragraph now
+   emitted NATIVELY, PRESENCE-GATED on the three docs (critic r1 REJECT caught that bin/lib/*
+   ships while the docs do not — unconditional emission would have shipped dangling references
+   with zero tripwire); full-document byte-identity proven; the 3×-reproduced regen-loss class +
+   its hand-re-add standing rule RETIRE; module selftest 24→26 (host-shape negative row).
+   `.codex/` → enforcement landmark end-to-end (map 187→189; landmarks selftest 11→13; scope-lock
+   REFUSES unauthorized `.codex` grants — drill proven). Registered landmarks.schema.md seed-union
+   reword EXECUTED (that v1.1+ deferral closes). Gate PASS, no override needed.
+3. **v1.0.4 `5eea17b`** — Codex interop & coexistence docs (docs-only, D5 no-promotion held):
+   SHIPPED OMC_COEXISTENCE gains the `## Codex coexistence` section (layer-merge facts; dated
+   pinned Observed callouts naming OMX/omo; the foreign-layer `.codex/config.toml` write; the
+   trust asymmetry App 26.623.61825 vs cli 0.132.0; precedence extended; exactly ONE non-bundled
+   breadcrumb ref — dangling law held); CODEX_ADAPTER Option-B addendum + inline dated closure
+   tag on the stale field-names bullet; HONEST_SCOPE IV.3 append (+5/-0, observed-on-cli record +
+   App-gap entry + item-10(e) closure sub-note). Gate PASS (FLAG on MILESTONES only).
+
+**MORNING GATES (the ONLY remaining steps — ask wjlee):** (1) push
+`claude/dmc-v102-v104-overnight`; (2) CI green; (3) fast-forward the milestone branch
+`claude/dmc-v1-runtime-upgrade-c5uch1` and `main` to the overnight HEAD (all three cycles are
+linear on top of `d846f0a` == current main); (4) delete or keep the overnight branch. Full
+advisory chain for the gate: v1.0.2 (r1 APPROVE+envelope ruling, r2 build APPROVE), v1.0.3
+(r1 REJECT→r2 APPROVE, r3 build APPROVE), v1.0.4 (r1 APPROVE with three rulings, r2 build
+APPROVE); verifier PASS ×3; per-cycle evidence
+`.harness/evidence/dmc-v1.0.{2,3,4}-build-20260709.md`.
+
+**NEW/UPDATED register (v1.1+):** constitution HONEST_SCOPE line-pins need refresh
+(`:103`→`:104`, `:122-129`→`:127-134`; recorded in the v1.0.4 MILESTONES entry) — fold into the
+next constitution amendment; the observed-on-cli posture upgrade remains a registered future
+gate; landmarks.schema.md reword is now CLOSED (was registered at hygiene); the router multi-line
+anchor defect is now CLOSED (was registered at Option-B).
+
+(rev 12 below — Codex App Option-B execution record.)
+
 Date: 2026-07-09 (rev 12 — **CODEX APP OPTION-B EXECUTED at `34effc7`+`f10b089`; the M6.5
 unprovables are now OBSERVED on cli 0.132.0; read this block, the constitution, then rev 11.**)
 

@@ -1,0 +1,22 @@
+{
+  "schema": "dmc.critic-verdict.v1",
+  "work_id": "dmc-v1.0.2-router-anchor",
+  "plan_hash": "79ef1124ed5a0538531196b0ce4f3e8882e1c3a4901c878cc15adffdc8f5000c",
+  "repo_hash": "d846f0a6076d34cfc972dad32bf706504fe87315",
+  "target_ref": ".harness/plans/dmc-v1.0.2-router-anchor.md",
+  "verdict": "APPROVE",
+  "lenses": ["correctness", "scope", "security", "governance-process", "lockstep-parity"],
+  "criteria_checked": [
+    {"criterion_ref": "GOV-ENVELOPE-III.2.3", "result": "met", "note": "Overnight envelope satisfies Constitution III.2 stage (3) read with AUTONOMY.md autonomous-local-commit: AskUserQuestion human gate recorded IN the plan (approver wjlee named, cycle scope ratified in advance), explicitly-scoped approved plan on a dedicated non-main branch. The critic stage is NOT skipped/reordered-away: it runs fresh and can block by SKIP; the human approval is explicitly critic-conditional (APPROVE else SKIP). Push/CI/main-FF withheld to a morning human gate = the post-critic human checkpoint. Reversible local commit only. APPROVE-compatible; no stage weakened under VII.2/VIII.2."},
+    {"criterion_ref": "AC1", "result": "met", "note": "Defect closed + parity restored, machine-checkable. Live-reproduced: current router emits the ultrawork route AND writes mode active with a corrupted multi-line task on an interior line-terminal token; the Python UPS shim correctly emits nothing on the same input. Proposed whole-string case-glob mechanics reproduce the shim regex byte-for-byte across 36 edge classes on the target host (bash 3.2.57): token-only, leading/trailing whitespace, tab/newline/CR/VT/FF boundaries, mixed case, precedence dmc-off>dmc-plan>dmc, multi-line interior vs suffix, no-boundary negatives (xdmc/dmcx)."},
+    {"criterion_ref": "AC2", "result": "met", "note": "Single-line byte-stability holds: v011-verify baseline reproduced at 39/2 now with all 5 router-invariant rows green (dmc->ultrawork, dmc-plan->planning, passthrough, mid-sentence negative, env-var-parse literal present); the 2 FAILs are the known non-router pair (active stop block; 6 skills present). TASK-strip parity confirmed on odd whitespace incl. blank-line and mixed-case suffixes. Emit strings + json_get preserved by design."},
+    {"criterion_ref": "AC3", "result": "met", "note": "No suite/frozen regression path: no repo file greps/hashes router CONTENT. doctor references the router by filename (existence only, line 75); the task-intake classifier matches the token in a task string (line 30); installers copy by path. Frozen hooks-v0.6.5 fixture + unwired m6 comparator untouched; m8 hashes only .codex/config.toml."},
+    {"criterion_ref": "AC4", "result": "met", "note": "Full-gate G4 mechanics consistent with V.1-V.3 and the v1.0.1 precedent: DMC_GATE_PROTECTED is a legitimate override; the diff trips G4 because the protected default list includes the hooks dir; the pre-ratified override drops ONLY that one line and keeps all other protected entries verbatim; the non-suppressible landmark-flag rises, is recorded, never cleared. Authorization chain present: landmark-authorized scope.lock + human plan gate + fresh critic/verifier."},
+    {"criterion_ref": "AC5", "result": "met", "note": "Frozen baseline + local-only commit: committed-replica AND live selftest --all legacy 802/3/3 EXACT mandated; one commit on the dedicated branch; NO push; push/CI/main-FF recorded PENDING-BY-ENVELOPE for the morning human gate (AUTONOMY.md: push and closure never autonomous)."},
+    {"criterion_ref": "GOV-LOCKSTEP-VIII.3e", "result": "met", "note": "One-sided file edit (router only, the shim untouched) is LAWFUL under VIII.3(e)/III.3 because it RESTORES parity rather than breaking it: the shim already has correct whole-string semantics and is the parity TARGET; the restored parity is machine-proven by the new A16 P-ML rows driving BOTH adapters on identical multi-line prompts with content-equality assertions; no tier claimed for either side."},
+    {"criterion_ref": "GOV-DIRTY-TREE", "result": "met", "note": "AUTONOMY.md dirty-tree stop condition NOT triggered: the untracked artifacts (run machinery under .harness/**, plus this plan and verdict) are untracked, not tracked-modified, and .harness/** is the VIII.3(d)-exempt run/governance surface; branch is not main; bounds declared. Operational guardrail flagged so a git add -A cannot sweep them into the scoped commit."}
+  ],
+  "blockers": [],
+  "advisory": true,
+  "context_provenance": "fresh"
+}
