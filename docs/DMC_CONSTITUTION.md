@@ -164,8 +164,8 @@ discipline of V.2 governs that act.
 ## Article VI — Document Precedence
 
 VI.1 — This constitution is supreme on GOVERNANCE and PROCESS ONLY: amendment rules, precedence,
-the frozen-surface enumeration (Article II), and the change procedure (Article III)
-(`.harness/plans/dmc-constitution.md:156-159`).
+the frozen-surface enumeration (Article II), the change procedure (Article III), and the maintainer
+duties and inviolable loop (Article VIII) (`.harness/plans/dmc-constitution.md:156-159`).
 
 VI.2 — On any enforcement or behavior FACT, the machine source of truth wins over ALL prose,
 INCLUDING this document (`docs/DMC_V1_ENFORCEMENT_MATRIX.md:9-11`).
@@ -192,8 +192,9 @@ ratification (`.harness/plans/dmc-constitution.md:164-168`).
 
 VII.2 — No amendment may weaken Article II (the immutable surfaces), the secret-protection floor
 (II.8, `DMC.md:90-104`), THIS clause together with Article VII's entrenchment itself, Article VI's
-precedence rules (`.harness/plans/dmc-constitution.md:159-163`), or Article III's human-gate and
-non-authoring critic/verifier requirements (`DMC.md:26-41`; `docs/DMC_V1_RELEASE_CHECKLIST.md:42`).
+precedence rules (`.harness/plans/dmc-constitution.md:159-163`), Article III's human-gate and
+non-authoring critic/verifier requirements (`DMC.md:26-41`; `docs/DMC_V1_RELEASE_CHECKLIST.md:42`), or
+Article VIII (maintainer duties and the inviolable loop).
 An amendment whose EFFECT is to enable any of those weakenings in a later step is itself a weakening
 under this clause.
 
@@ -204,8 +205,64 @@ VII.4 — Every amendment MUST re-run the whole-word honesty-lexeme check (the f
 `bin/lib/dmc-doctor.py:86-88`) over the amended document before its commit gate; the grep output is
 attached as an evidence artifact at that commit gate.
 
+## Article VIII — Maintainer Duties & the Inviolable Loop
+
+VIII.1 — CAPABILITY-INDEPENDENCE. This article binds every maintainer of this repository — human or
+model of ANY tier, including a session weaker than the current orchestrator — and grants a
+less-capable maintainer NO relaxed path. Capability doubt TIGHTENS the duty rather than loosening
+it: the weaker the maintainer, the smaller the permitted step and the sooner the escalation
+(`DMC.md:16-24`; Article III; Preamble `:15-18`).
+
+VIII.2 — THE INVIOLABLE LOOP (본질). The canonical loop plan → critic → scope → execute → verify →
+evidence IS the essence of DMC — the 6-stage form of Article III.1 (`:88-90`) and DMC.md's Default
+Loop, Critic Review stage included (`DMC.md:26-41`); the common 5-stage shorthand is a shorthand
+ONLY and NEVER licenses dropping the non-authoring critic stage. No maintenance and no enhancement
+may remove, reorder, bypass, weaken, or "temporarily suspend" a stage; speed, simplicity, urgency,
+and a capability limit are NEVER valid justifications for skipping one (`DMC.md:18-21`;
+Article III.1 `:88-90`).
+
+VIII.3 — ANTI-PATCHWORK (땜질 원천 봉쇄). The following are forbidden AS FIXES — exploratory,
+scouting, or spike work that produces plans and analysis rather than shipped edits is not "a fix":
+(a) UNAUTHORIZED or UNDISCLOSED symptom suppression or masking of a red check — generalizing CF1 and
+the never-mask discipline (Article III.4 `:104-108`; II.2 `:57-59`;
+`.harness/plans/dmc-v1-runtime-upgrade-handoff.md:334-335`; CF14/II.4
+`docs/DMC_V1_HONEST_SCOPE.md:122-129`) — WITH explicit deference to Article V's bounded escape
+hatches: a V.2/V.3 authorized override under a landmark-authorized scope.lock plus a human gate plus
+a critic/verifier chain, the V.6 designed mode hatch, and the disclosed III.4 advisory-replay
+carve-out plus V.5 known-baseline handling all remain lawful; what is forbidden is masking WITHOUT
+that authorization-and-disclosure chain;
+(b) any fix landed without a diagnosed root cause recorded in the plan (Article III.1–III.2
+`:88-99`);
+(c) any edit outside an approved scope.lock (Article III.2 stage (4); `DMC.md:19`);
+(d) a "temporary" hack landed without a registered follow-up — an unregistered TODO in
+repo-committed shipped or source code or in a governing doc is a violation, while `.harness/**` run
+machinery, scratchpads, and exploratory analysis are exempt (IV.3 disclosure ledger
+`docs/DMC_V1_HONEST_SCOPE.md:65-68`);
+(e) a one-sided edit to a lockstep surface — the Claude hook and its Codex shim counterpart, and the
+3-copy redaction set — carrying the Article III.3 lockstep-parity obligation into maintenance, with
+no tier claimed for either side (`docs/DMC_V1_HONEST_SCOPE.md:29-30`);
+(f) a drive-by change folded into an unrelated scope (Article III.2 stage (5) single-owner and
+diff⊆scope discipline).
+
+VIII.4 — ESCALATION DUTY (weaker-model rule). When a maintainer cannot complete ANY stage — diagnose
+the fault, author a valid plan, or verify the result — the REQUIRED action is to STOP and surface the
+situation to the human gate with an honest statement of the unknown; shipping a partial, unverified,
+or best-guess result is a violation, and "no verification, no done" binds HARDER as capability
+decreases. The AUTONOMY.md stop-conditions (`AUTONOMY.md:43-58`, schema
+`.harness/schemas/autonomy.schema.md`) are BINDING here (`DMC.md:18`; Article III.2 stage (3);
+Preamble `:15-18`).
+
+VIII.5 — ENHANCEMENT (고도화) DISCIPLINE. Additions and upgrades follow the SAME cycle as fixes; a new
+capability must state which loop invariants it preserves, and a refactor must prove behavior
+preservation where a machine suite exists — tests and suites run before and after (II.1 mirror
+`:52-55`; II.2 `802/3/3` `:57-59`) — while a docs-only governance change uses the `--all`-SKIP
+precedent with a recorded rationale, and byte-frozen surfaces are excluded because refactoring them
+is forbidden outright. No enhancement may reduce an existing surface's enforcement tier; a tier
+downgrade is Article II / IV human-gated territory (IV.1 `:112-114`; II.3 and II.4).
+
 ### Amendment Log
 
 | # | Date | Ratifying commit | Summary |
 |---|---|---|---|
 | 1 | 2026-07-08 | this commit | Founding text — Articles I–VII |
+| 2 | 2026-07-08 | this commit | Article VIII — capability-independent maintainer duties, the inviolable 6-stage loop, anti-patchwork, escalation & enhancement discipline; VII.2 protected set + VI.1 enumeration extended to Art. VIII |
