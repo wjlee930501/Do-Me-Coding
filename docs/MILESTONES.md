@@ -646,3 +646,20 @@ untouched; the known-baseline delta against the manual v011 harness (39/2 on unp
 
 **Next:** the DMC constitution refresh (a same-day follow-up cycle); the v1.1+ deferred register from the v1.0
 entry above is unchanged by this patch.
+
+## Stray-file hygiene execution (B8 closure) — CLOSED (2026-07-08)
+
+- **What shipped:** the six repo-hygiene strays reserved by audit-blocker B8 — the four `_DMC_*.md` bootstrap
+  docs, `do-me-coding-v0.1-scaffold.zip`, and the retired v0.2.1 `dmc-glm-smoke` live smoke runner — were removed
+  under a separately-approved hygiene cycle, closing B8's deferred cleanup.
+- **Companion edits:** `bin/lib/dmc-repo-intel.py` dropped the `dmc-glm-smoke` `classify_landmark` special-case
+  (L1f converted to a negative control asserting its absence); `AGENTS.md` regenerated via `dmc agents-md`; the
+  DMC repo's own `.gitignore` extended with the two `dmc-run-*` per-run auto-log patterns (the now-moot scaffold
+  zip line dropped); 3 orphan pre-M4 run notes deleted locally per policy.
+- **Identity:** no version bump — DMC identity stays v1.0.
+- **Verification & review posture:** plan `.harness/plans/dmc-stray-hygiene.md`; non-authoring critic chain r1
+  REJECT → r2 REJECT → r3 APPROVE; scope-locked, synchronous execution under run `dmc-run-8f34d637a6f2`.
+- **Registered deferral (v1.1+):** `.harness/schemas/landmarks.schema.md:34` still words the seed union as
+  including `dmc-glm-smoke` — a live II.5 contract surface deliberately NOT edited in this cycle (schema
+  amendments take their own Article III cycle); one-line reword ("historically included …, removed by the
+  human-gated hygiene cycle 2026-07-08") registered here for the v1.1+ deferred register.

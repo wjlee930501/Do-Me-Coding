@@ -1,7 +1,6 @@
 
 # Do-Me-Coding local import artifacts
 *.before-dmc
-do-me-coding-v0.1-scaffold.zip
 
 # macOS
 .DS_Store
@@ -15,6 +14,10 @@ do-me-coding-v0.1-scaffold.zip
 
 # Do-Me-Coding transient manual evidence fallback
 .harness/evidence/manual-*.md
+
+# Do-Me-Coding per-run auto-logs (local-only by policy)
+.harness/evidence/dmc-run-*.md
+.harness/runs/dmc-run-*/
 
 # OMC runtime state
 .omc/

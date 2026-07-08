@@ -275,7 +275,7 @@ def classify_landmark(rel):
     if (rel.startswith(".claude/hooks/") or rel == ".claude/settings.json"
             or rel.startswith(".github/workflows/") or rel.startswith("adapters/")
             or rel.startswith(".claude/install/") or rel == "bin/dmc"
-            or rel.startswith("bin/lib/") or rel == "dmc-glm-smoke"):
+            or rel.startswith("bin/lib/")):
         return "enforcement", "enforcement-surface heuristic / dmc-protected-union"
     if (base.endswith(".schema.md") or base.endswith("_SCHEMA.md")
             or rel.startswith(".claude/workers/providers/")
@@ -611,8 +611,8 @@ def selftest_landmarks():
          cls.get(".harness/schemas/trace-linkage.schema.md") == "contract")
     t.ok("L1e self-scan: MILESTONES is release",
          cls.get("docs/MILESTONES.md") == "release")
-    t.ok("L1f self-scan: dmc-glm-smoke in protected union",
-         cls.get("dmc-glm-smoke") == "enforcement")
+    t.ok("L1f self-scan: dmc-glm-smoke correctly absent",
+         "dmc-glm-smoke" not in cls)
     tmp = tempfile.mkdtemp(prefix="dmc-lm-")
     try:
         os.makedirs(os.path.join(tmp, ".claude", "hooks"))
