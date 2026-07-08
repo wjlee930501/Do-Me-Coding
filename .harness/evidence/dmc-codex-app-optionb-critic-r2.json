@@ -1,0 +1,70 @@
+{
+  "schema": "dmc.critic-verdict.v1",
+  "work_id": "dmc-codex-app-optionb",
+  "plan_hash": "f8264307aa6686a9e1d5d3269a891e92653ce06fc3edcd2d59514734b3a62ebf",
+  "repo_hash": "3f9620308cbc7d353e9a9cd533aad76d34798545",
+  "target_ref": ".harness/plans/dmc-codex-app-optionb.md",
+  "verdict": "REJECT",
+  "lenses": ["correctness", "scope", "security"],
+  "criteria_checked": [
+    {
+      "criterion_ref": "r1-B1 resolution (arming-state premise) via pointer-free clone",
+      "result": "met",
+      "note": "Structurally resolved. A git clone of committed HEAD contains NO current-run-id, mode file, or dmc-run-* dirs (all gitignored, never committed), so the clone is born unarmed; the pre-handoff assertion covers cp-style fallbacks. AC6's corroboration is correctly re-baselined to the CLONE's manual-*.md (valid: unarmed+active PostToolUse writes manual-<ts>.md). The new Finding records the machine-verified suspend/arming() trace accurately. The real repo never hosts an App session."
+    },
+    {
+      "criterion_ref": "r1-B2 resolution (circular safety claim) + commit-before-expose ordering",
+      "result": "unmet",
+      "note": "The honesty fix is right ('no DMC mechanism inside the clone is relied on for protection') and gate #1 ordering is sound — git clone copies only committed content, so nothing uncommitted is ever exposed. BUT the isolation claim is incomplete as specced: blocker R2-B1 — the clone retains a live write-back channel into the real repo via its origin remote and hardlinked object store. With R2-B1 fixed, the two-gate ordering has no remaining hole. Minor: gate #2 should explicitly include the plan file + critic verdict artifacts (currently untracked) in the docs commit."
+    },
+    {
+      "criterion_ref": "Clone-prep 'disclosed disarmed window' — properly scoped/disclosed?",
+      "result": "unmet",
+      "note": "The disclosure LANE is acceptable (out-of-repo fixture op, sequence verbatim in evidence), but the plan never names the disarm MECHANISM, and the naive one provably does not work: BOTH adapters key arming on pointer+lock PRESENCE (.claude/hooks/pre-tool-guard.sh:138-148, .claude/hooks/scope-guard.sh:61-76, adapters/codex/dmc_codex_common.py:153-174), so 'dmc run suspend' does NOT stand down Block D — under armed+active every T003/T005 out-of-repo Bash op (clone, wire clone hooks.json, delete clone) is bash-radius-adjudicated. See blocker R2-B3. Pre-existing gap worth a Finding note (NOT a drive-by fix, VIII.3(f)): several hook deny messages advise suspending the run as the step-aside, which the presence-keyed predicate makes ineffective."
+    },
+    {
+      "criterion_ref": "New AC set satisfiability (gate-#1 ordering AC, clone-state AC, .codex byte-unchanged AC, porcelain-clean AC)",
+      "result": "met",
+      "note": "Machine-checked: git status --porcelain today = 2 lines (the plan + critic r1 verdict, both committed at gate #2); the .harness run/evidence noise is confirmed ignored (git check-ignore -> .gitignore:19-20). 'git diff <pre-cycle-sha> -- .codex/' empty is trivially satisfiable (.codex no longer edited; Relevant Files marks it no). The gate-#1 AC is verifiable via git log order + recorded clone HEAD sha. One wording defect in the clone-state AC: a fresh clone has NO .harness/mode file (gitignored => absent => active); asserting '.harness/mode = active' literally invites prep to CREATE the file, degrading prompt (e)'s router corroboration from file-CREATION (unambiguous) to mtime-only. Assert 'absent-or-active' and deliberately leave it absent — advisory."
+    },
+    {
+      "criterion_ref": "Runbook probe safety under the plan's own expected no-dispatch outcome",
+      "result": "unmet",
+      "note": "Blocker R2-B2: prompt (b) `printenv` is execution-UNSAFE precisely in the outcome the plan itself calls plausible (hooks silently no-op, #21639/#17532). The clone config (committed .codex/config.toml:18-19) is sandbox_mode=workspace-write + approval_policy=on-request — the command runs without a per-command approval stop. Rev 1 carried an execution-harmless rm-based deny probe (Rev 1 line 62); Rev 2 dropped it but kept `printenv`."
+    },
+    {
+      "criterion_ref": "IV.2 honesty-lexeme discipline over Rev 2 prose (/codex/i lines, doctor whole-word set)",
+      "result": "met",
+      "note": "Mechanical scan returns NO hits: no /codex/i line carries a whole-word marker from the bin/lib/dmc-doctor.py:86-88 set. The r1 advisory (reference the set by path, never re-list tokens) is folded correctly at plan lines 105-107, 167-168, 252-253."
+    },
+    {
+      "criterion_ref": "r1 advisories folded (allowlisted key names in committed evidence; markers stay in clone; single-owner moot; repo-intel gap Finding retained)",
+      "result": "met",
+      "note": "All folded as stated. Scope shrinks to 3 repo files with correct landmark classes: probe (enforcement, landmark-auth), AGENTS.md (regen), MILESTONES (release, landmark-auth); no .harness/evidence grants (G2/G3 catch-22 respected). Residual advisory: the probe's marker path is cwd-relative; prefer script-relative (__file__-anchored, like dmc_codex_common._script_root) — still clone-contained since the script IS the clone's copy, and robust to an unknown App hook-exec cwd. Also note in the AC6 verdict-table wording that 'no marker + no shim side effects' can mean hook-exec FAILURE (a relative python3 command from a foreign cwd), not only no-dispatch. And the synthetic drill shares markers.jsonl with the live turn — record a pre-handoff marker line-count baseline so drill lines never confound the live table."
+    },
+    {
+      "criterion_ref": "Option-B consent constraints preserved in Rev 2 (never DMC-initiated, own gate+scope, no bypass flag, Local session, abort rule)",
+      "result": "met",
+      "note": "Preserved. D2 consent is the task authorization; user-run on the clone; the bypass flag remains forbidden; Local session pinned; abort rule now honest (isolation is the safety property). Clone trust entry disclosed as removable; real-repo trust stays a separate optional step. Clone deletion honors the Ring-0 absolute-path floor via relative-path removal (verified against the Block-A regex: a relative target matches none of the catastrophic-root forms — the floor is not bypassed, the command form is simply outside its pattern)."
+    }
+  ],
+  "blockers": [
+    {
+      "id": "R2-B1-clone-writeback-channel",
+      "statement": "Sever the clone's write-back channels into the real repo and assert severance pre-handoff. As specced, a local git clone to ~/projects/DMC-codex-app-probe leaves (a) the clone's origin remote pointing at the REAL repo — a rogue App agent can push into the real repo's refs (receive.denyCurrentBranch protects ONLY the checked-out branch; pushes to other branches, force-style ref updates, and ref DELETIONS of non-current branches are accepted by default), and (b) a hardlinked .git/objects store (default for local-path clones) sharing inodes with the real repo's object store. This reopens the exact risk class the clone was adopted to close and contradicts the plan's own 'no protection is assumed from any DMC mechanism inside the clone' posture. Fix: clone with --no-hardlinks, then remove the origin remote inside the clone; add 'clone git remote -v EMPTY' + '--no-hardlinks used' to the pre-handoff state-assertions AC. (Cloning from the GitHub URL instead does NOT fix it: ambient credentials would let a rogue agent push to the shared remote.)",
+      "evidence_ref": "plan lines 179-188, 216-219, 239-242, 268; git-clone local-transport hardlink default + receive.denyCurrentBranch semantics"
+    },
+    {
+      "id": "R2-B2-printenv-execution-unsafe",
+      "statement": "Replace runbook prompt (b) `printenv` with an execution-harmless deny probe. The plan itself declares 'hooks silently no-op' an EXPECTED, plausible outcome (#21639/#17532) — in exactly that outcome `printenv` EXECUTES and dumps the user's full shell environment (the command class the repo's own Block-A floor treats as secret-exposing; II.8 lineage) into an OpenAI-bound App session; the clone's committed config (sandbox_mode=workspace-write, approval_policy=on-request) provides no per-command approval stop. A deny probe must be safe in BOTH branches (denied OR executed). Rev 1's rm-based probe on a nonexistent tmp path (Rev 1 plan line 62 carries the exact form) qualifies: it matches the Block-A floor because its target begins with a slash, and its execution on a nonexistent path is a no-op; the git-apply probe (c) already qualifies. Keep two execution-harmless deny probes; drop `printenv`.",
+      "evidence_ref": ".codex/config.toml:18-19; adapters/codex/dmc_codex_common.py:266-290 (_FLOORS Block A); plan lines 56-61, 210, 249"
+    },
+    {
+      "id": "R2-B3-disarm-mechanism-unnamed",
+      "statement": "Name and disclose the disarmed-window MECHANISM in the plan (T003 and T005), with restoration and recording. Machine-verified: suspending the run does not disarm — both adapters' guards key on current-run-id + scope.lock.json PRESENCE, not run status (.claude/hooks/pre-tool-guard.sh:138-148, .claude/hooks/scope-guard.sh:61-76, adapters/codex/dmc_codex_common.py:153-174; no lifecycle verb removes the pointer). Under armed+active, every out-of-repo fixture op (git clone, editing the clone's hooks.json, deleting the clone) is Block-D-adjudicated and liable to deny/ask mid-window, forcing an undisclosed improvisation — the r1-B1 lesson applied to the orchestrator side. Lawful named options: (a) .harness/mode -> passive for the window (V.6 designed hatch — Block A/B floors hold; not a V.2 evasion since no pending verdict is being dodged), restored to active immediately after, both writes recorded in evidence; or (b) run the window with NO run pointer present (between runs) and assert that state. Pick one, write it into T003/T005 and the state-assertions AC.",
+      "evidence_ref": "plan lines 141, 179, 187-188, 294-299, 306-310; bin/lib/dmc-run-lifecycle.py:432-441; critic r1 blocker B1 trace"
+    }
+  ],
+  "advisory": true,
+  "context_provenance": "fresh"
+}

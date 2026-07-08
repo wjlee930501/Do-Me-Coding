@@ -1,0 +1,65 @@
+{
+  "schema": "dmc.critic-verdict.v1",
+  "work_id": "dmc-codex-app-optionb",
+  "plan_hash": "c36c8d30120379ae82429448a93f4ce2b1724d7b48e7cf54ffb46897aff439d3",
+  "repo_hash": "3f9620308cbc7d353e9a9cd533aad76d34798545",
+  "target_ref": ".harness/plans/dmc-codex-app-optionb.md",
+  "verdict": "NEEDS_CLARIFICATION",
+  "lenses": ["correctness", "scope", "security"],
+  "criteria_checked": [
+    {
+      "criterion_ref": "AC1 (probe committed, stdlib-only, names-only, silent, exit 0, absent from CODEX_ADAPTERS)",
+      "result": "met",
+      "note": "Design is sound: value-blind names-only closes the M6.5 tool_input-field-name gap without value exposure. Residual: AC4 transcribes OBSERVED tool_input KEY names into the cycle evidence file, which is a committed named-evidence surface (not the gitignored dmc-run-*.md). A pathological dynamic-key tool could surface a user-named token there. Concrete risk NIL for the 5 scripted Bash/Read prompts (fixed schema keys command/file_path). Advisory: allowlist recognized structural keys, or transcribe only recognized keys into committed evidence, to harden against dynamic-key tools."
+    },
+    {
+      "criterion_ref": "AC2 (no suite regression; CI model-name grep passes over adapters/)",
+      "result": "met",
+      "note": "Additive file; classify_landmark(adapters/) => enforcement (bin/lib/dmc-repo-intel.py:276) confirmed. CI grep pattern codex-[0-9]|gpt-[0-9] (.github/workflows/dmc-ci.yml:130) is NOT matched by filename dmc-codex-dispatch-probe.py (codex-d, not codex-<digit>). Ensure the probe SOURCE prose carries no codex-<digit>/gpt-<digit> literal."
+    },
+    {
+      "criterion_ref": "AC4 (Option-B test executed; per-event verdict table; 'no dispatch observed' is a valid outcome)",
+      "result": "unmet",
+      "note": "BLOCKER-1. The plan's stated test state 'active + NO armed run' (line 59) is not established and is likely false during T004: the build needs a scope.lock (Article III stage 4-5), and neither dmc run suspend nor any lifecycle verb removes current-run-id or <rid>/scope.lock.json (dmc-run-lifecycle.py cmd_suspend flips only run.json status). The Codex arming() predicate (dmc_codex_common.py:153-174) keys off pointer+lock presence, NOT run.json status => a SUSPENDED orchestrator run still reads ARMED. Under armed, PostToolUse (dmc-codex-posttooluse.py:39,90) writes evidence to .harness/evidence/<orchestrator-run-id>.md, NOT manual-*.md, so AC4's 'manual-*.md appended' corroboration yields a FALSE 'PostToolUse did not dispatch' reading; and the App's echo-hello PostToolUse runs dmc postbash-diff against the orchestrator's scope/snapshot, able to emit decision:block + a sticky BLOCKED marker on the orchestrator's run from a foreign session. Deny probes (printenv/git-apply) are arming-independent floors, so the primary deny signal survives; the instrumentation and premise do not."
+    },
+    {
+      "criterion_ref": "AC5 (shipped .codex/hooks.json byte-unchanged at commit; test-window edit reverted)",
+      "result": "met",
+      "note": "Lawful. Net-zero grant + revert-before-commit is coherent under III.2 (diff subset-of scope: empty diff at commit trivially holds) and does not trip VIII.3(c) (edit is IN-scope) or VIII.3(f) (hooks.json wiring is the central purpose, not a drive-by). markers.jsonl and manual-*.md are gitignored (.gitignore:16,20) so git status --porcelain stays clean of them. Sequencing is correct: T005 reverts BEFORE the commit gate / postbash working-tree inspection. Scope note: .codex/hooks.json classifies ORDINARY (classify_landmark has no .codex/ rule); the probe (enforcement) and docs/MILESTONES.md (release) DO need landmark_authorized in the compiled scope.lock. Single-owner: hooks.json is touched by T003 (edit) and T005 (revert) sequentially under one grant — assign a single owner across both steps."
+    },
+    {
+      "criterion_ref": "Security lens: Option-B consent framing vs spike-stop constraints (never DMC-initiated; own gate + own scope; no bypass flag; Local session; abort rule)",
+      "result": "met",
+      "note": "Correct. T004 is USER-RUN (line 22-23, 266-271), a new human gate (this plan) with its own scope, --dangerously-bypass-hook-trust forbidden (line 42), Local App session (line 57,181), abort rule (line 195). Matches spike-stop.md:39-42,68-70. Strength."
+    },
+    {
+      "criterion_ref": "Safety of in-place live App session on a tree carrying uncommitted built work",
+      "result": "unmet",
+      "note": "BLOCKER-2. Risk-table mitigation 'mode=active keeps Bash floors' (line 240) is CIRCULAR: those floors exist only if the Codex shims DISPATCH — the exact unproven property under test. If hooks do not fire, the App (whose model is not scope-locked by any proven mechanism) has ZERO DMC guardrails while the working tree carries uncommitted, un-backed-up work (probe script + hooks.json wiring + AGENTS.md regen). Recommend a throwaway clone (see final recommendation) OR back up / stash-commit the built work before T004 and restate the mitigation honestly."
+    },
+    {
+      "criterion_ref": "IV.2 honesty-lexeme discipline over the plan prose on /codex/i lines",
+      "result": "met",
+      "note": "Whole-word official-set scan (enforced/enforce/fires/firing/runtime-enforced/active/guaranteed) over /codex/i lines returns only line 95, which RE-LISTS the forbidden markers as quoted tokens while stating they are 'avoided on Codex-scoped prose lines' — a meta-mention, not a claim about Codex behavior; the honest (advisory) direction. Machine gate (dmc-doctor.py:86-88) scans doctor OUTPUT, not .harness/plans/. Advisory: for zero-doubt IV.2 hygiene in the committed plan, reference the set by path (bin/lib/dmc-doctor.py:86-88) instead of re-listing the tokens."
+    },
+    {
+      "criterion_ref": "Probe marker dir cannot be confused for a run",
+      "result": "met",
+      "note": "Confirmed. .harness/runs/dmc-run-codexprobe/ is gitignored (.gitignore:20). Run resolvers key off current-run-id (never names the probe dir) and _resolve/_require_run_dir fail closed on a dir without run.json (dmc-run-lifecycle.py:361-367,419-429). Inert."
+    }
+  ],
+  "blockers": [
+    {
+      "id": "B1-arming-state-premise",
+      "statement": "Specify and VERIFY the exact arming state (current-run-id + <rid>/scope.lock.json present or absent) that will hold during the user App test (T004). The plan asserts 'active + NO armed run' (line 59) but the build requires an armed scope.lock and no lifecycle verb removes the pointer or scope.lock (suspend only flips run.json status; Codex arming() at dmc_codex_common.py:153-174 keys off pointer+lock presence, not status). Either (a) genuinely establish no-armed-run and document HOW the pointer/lock are cleared, keeping AC4's manual-*.md corroboration valid, or (b) re-baseline the shim-behavior analysis (lines 59-70) and AC4 for armed+active — under which PostToolUse writes to .harness/evidence/<orchestrator-run-id>.md (not manual-*.md) and runs dmc postbash-diff against the orchestrator's scope, risking a cross-session decision:block + sticky BLOCKED marker on the orchestrator's run.",
+      "evidence_ref": "bin/lib/dmc-run-lifecycle.py:432-441 (cmd_suspend); adapters/codex/dmc_codex_common.py:153-174 (arming); adapters/codex/dmc-codex-posttooluse.py:39,60,90-118; plan lines 59-70,268,289"
+    },
+    {
+      "id": "B2-inplace-safety-circular",
+      "statement": "Remove the circular safety claim and isolate the test. 'mode=active keeps Bash floors' (risk table line 240) presupposes shim dispatch, which is the unproven property the test exists to measure; if hooks do not fire the App has no DMC guardrails over a working tree holding uncommitted built work. Either run T004 on a throwaway clone of the working tree (recommended) or commit/stash-backup the built work before T004 and restate the mitigation honestly (no App-side protection if hooks do not fire; only scripted read-only prompts + human abort + git recoverability of COMMITTED state).",
+      "evidence_ref": "plan lines 195,240; spike-findings.md:144-147 (spike used an isolated scratch CODEX_HOME + scratch project, never the real repo)"
+    }
+  ],
+  "advisory": true,
+  "context_provenance": "fresh"
+}

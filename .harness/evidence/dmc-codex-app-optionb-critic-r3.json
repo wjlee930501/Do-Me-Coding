@@ -1,0 +1,54 @@
+{
+  "schema": "dmc.critic-verdict.v1",
+  "work_id": "dmc-codex-app-optionb",
+  "plan_hash": "4df8b49136c5961174aaac77e2c72855d2c7d876893ef529d751a81159874b2d",
+  "repo_hash": "3f9620308cbc7d353e9a9cd533aad76d34798545",
+  "target_ref": ".harness/plans/dmc-codex-app-optionb.md",
+  "verdict": "APPROVE",
+  "lenses": ["correctness", "scope", "security"],
+  "criteria_checked": [
+    {
+      "criterion_ref": "R2-B1 fold (clone write-back channels severed)",
+      "result": "met",
+      "note": "Verified in plan text: Finding lines 79-86 records both channels (origin push to non-current branches incl. deletion; hardlinked objects) and rejects URL-cloning (ambient credentials); Proposed Changes lines 217-219 use --no-hardlinks + remote removal; AC5 lines 284-288 asserts remote EMPTY + no-hardlinks recorded verbatim; Risk row line 318. Complete."
+    },
+    {
+      "criterion_ref": "R2-B2 fold (execution-unsafe probe replaced)",
+      "result": "met",
+      "note": "The env-dumping probe is gone from every OPERATIVE surface; runbook (b) is now the rm-based probe on a nonexistent tmp dir (line 253) — floor-matched (target begins with a slash, Block-A regex verified) and a no-op if executed; the git-apply probe (c) unchanged. The both-branches safety rule is stated as a Finding (lines 96-102) and in the runbook preamble (lines 249-251); Risk row line 319. The two remaining textual mentions (Rev header line 6; Finding line 100) are documentation OF the drop, on non-codex-matching lines, never instructions — acceptable; keep them out of runbook/MILESTONES operative prose."
+    },
+    {
+      "criterion_ref": "R2-B3 fold (disarm-window mechanism named) — MACHINE-VERIFIED EXECUTABLE",
+      "result": "met",
+      "note": "Mechanism named in Finding lines 87-93, Proposed Changes 215-217, T003 345-351, assertions row 379. Precedent cite is ACCURATE: .harness/evidence/dmc-stray-hygiene-build-20260708.md:51-70 records disarm windows #1/#2 with the identical sequence, including the cmd_resume-does-not-rewrite-the-pointer fact that necessitates the printf re-arm. Empirical Ring-0 classification (this review): the disarm command 'rm -f .harness/runs/current-run-id' classifies ALLOW rc=0 (BASH-L1-NO-WRITE) so the window has no chicken-and-egg under an armed run; the printf restore classifies OUT-OF-SCOPE rc=4 IF armed, but executes at a moment the repo is UNARMED (pointer absent, Block D not invoked) — so the ORDER is load-bearing and the plan/precedent order satisfies it."
+    },
+    {
+      "criterion_ref": "r2 advisories folded (mode-ABSENT assertion; markers line-count baseline; __file__-anchored marker path; AC6 null wording; gate-#2 governance list; registered-gaps Finding)",
+      "result": "met",
+      "note": "All six verified in text: lines 105-107 + 222-224 + 286-287 (mode absent, left absent, router corroboration = file creation); 224-225 + 288 (baseline count); 196-198 (__file__ anchor, two levels up = repo/clone root); 295-297 ('no dispatch observed (or hook execution failed)' verbatim); T005 362-364 (MILESTONES + plan + critic verdicts + verification report + cycle evidence); 146-151 (registered pre-existing gaps, flowing into MILESTONES via T005)."
+    },
+    {
+      "criterion_ref": "IV.2 honesty-lexeme discipline over Rev 3 (/codex/i lines, doctor whole-word set)",
+      "result": "met",
+      "note": "Mechanical scan: NO hits — no /codex/i line carries a whole-word marker from the bin/lib/dmc-doctor.py:86-88 set; the set stays referenced by path."
+    },
+    {
+      "criterion_ref": "Plan validity + scope viability + AC satisfiability",
+      "result": "met",
+      "note": "dmc validate plan => VALID (dmc.plan-instance.v1). Scope = 3 repo files with correct landmark classes (probe enforcement landmark-auth; AGENTS.md regen; MILESTONES release landmark-auth); no .harness/evidence grants; clone is out-of-repo, correctly n/a. All ACs satisfiable as machine-checked in r2 (porcelain reality, .codex untouched, gate ordering) plus the new AC5 assertions (remote EMPTY, no-hardlinks, mode ABSENT, baseline count) which are all directly assertable/recordable."
+    },
+    {
+      "criterion_ref": "Option-B consent + spike-stop constraints (unchanged from r2 review)",
+      "result": "met",
+      "note": "Preserved verbatim-or-stronger: user-run, never DMC-initiated, own gate + own scope (D2), bypass flag forbidden, Local session, honest abort rule (isolation is the safety property), clone trust removable, real-repo trust independent/optional, no promotion in any outcome (D5)."
+    },
+    {
+      "criterion_ref": "Incidental live-fire corroboration (security lens)",
+      "result": "met",
+      "note": "During this three-round review the Claude-side floors denied the critic's own commands three times (r2 verdict heredoc carrying floor-matching literals; r3 scan batch carrying a space-preceded env-probe word) and the review honored each denial by rephrasing, never weakening. Together with the two Ring-0 classifier runs, this is live evidence the floor tier the runbook relies on for the ORCHESTRATOR side behaves as documented — worth citing in cycle evidence alongside the hygiene precedent's identical incident log (dmc-stray-hygiene-build-20260708.md:72-75)."
+    }
+  ],
+  "blockers": [],
+  "advisory": true,
+  "context_provenance": "fresh"
+}

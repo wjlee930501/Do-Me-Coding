@@ -663,3 +663,32 @@ entry above is unchanged by this patch.
   including `dmc-glm-smoke` — a live II.5 contract surface deliberately NOT edited in this cycle (schema
   amendments take their own Article III cycle); one-line reword ("historically included …, removed by the
   human-gated hygiene cycle 2026-07-08") registered here for the v1.1+ deferred register.
+
+## Codex App enablement + Option-B live-turn dispatch test — CLOSED (2026-07-09)
+
+- **What shipped:** `adapters/codex/dmc-codex-dispatch-probe.py` (a repo-internal names-only
+  diagnostic, NOT shipped — absent from `CODEX_ADAPTERS`) plus an `AGENTS.md` landmark regen,
+  commit `34effc7`; probe wiring existed ONLY in a throwaway clone, and the shipped `.codex/`
+  templates stayed byte-unchanged all cycle.
+- **Option-B execution:** the M6.5-reserved one-time human-run consented live turns (wjlee), on an
+  isolated clone (`--no-hardlinks`, remote severed, pointer-free) — an App turn and a CLI contrast
+  turn.
+- **Result:** at cli 0.132.0 with `/hooks` trust granted, all five wired lifecycle events
+  DISPATCHED and both envelope classes were HONORED (deny surfaced + blocked the rm-based probe
+  twice with zero execution; the dmc-suffix routing context was applied verbatim incl. the
+  signature greeting; the mode-file side effect appeared); the full envelope key-name schema was
+  captured, closing the M6.5 field-name gap. At App build 26.623.61825 the Hooks panel does not
+  surface project-level hooks — no trust affordance ⇒ hooks skipped ⇒ zero dispatch (machine
+  nulls + user + App-log corroborated); Ring-2 (`AGENTS.md` guidance) WAS respected by the App
+  session.
+- **Posture:** NO promotion (D5) — every documented tier claim stands unchanged; this entry
+  records observations only.
+- **Registered candidates (v1.1+):** a Claude router multi-line suffix-anchor defect (a
+  line-terminal trigger token in pasted multi-line prompts routes the whole message); the App
+  hook-trust affordance gap (document CLI-side `/hooks` as the trust path; re-test future App
+  builds); a Codex-side coexistence doc incl. the observed foreign-layer clone-config mutation;
+  the deny-message "suspend" step-aside wording; `.codex/`'s ordinary classification in repo-intel.
+- **Chain:** plan Rev 3; critic r1 NEEDS_CLARIFICATION → r2 REJECT → r3 APPROVE; independent
+  verifier PARTIAL → corrections-applied (three factual count/omission defects in the first
+  evidence version, corrected with provenance); run `dmc-run-ce3c5ba0d8d7`; evidence
+  `.harness/evidence/dmc-codex-app-optionb-20260709.md`.
