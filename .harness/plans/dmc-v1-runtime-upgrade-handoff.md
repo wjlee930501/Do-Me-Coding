@@ -1,6 +1,73 @@
 # HANDOFF — dmc-v1-runtime-upgrade (session → session)
 
-Date: 2026-07-08 (rev 9 — **DMC v1.0 COMPLETE: M10 shipped + CLOSED + MERGED at `772cd83`;
+Date: 2026-07-08 (rev 10 — **POST-v1.0 SESSION: v1.0.1 + THE CONSTITUTION shipped; read this
+block FIRST, then the constitution, then rev 9 below.**)
+
+## Rev 10 — session end state (2026-07-08, post-v1.0)
+
+**READ `docs/DMC_CONSTITUTION.md` BEFORE ANY SUBSTANTIAL CHANGE — it is ratified LAW (8 Articles
++ Amendment Log), and Article VIII binds YOU regardless of your model/capability tier:** the
+canonical 6-stage loop (plan → critic → scope → execute → verify → evidence) is the inviolable
+essence; anti-patchwork (no unauthorized/undisclosed masking, no fix without a diagnosed root
+cause, no edit outside scope.lock, no unregistered TODO on shipped surfaces, no one-sided
+lockstep edit, no drive-by); ESCALATION DUTY — if you cannot complete any stage, STOP and surface
+to the human gate ("no verification, no done" binds harder as capability decreases); AUTONOMY.md
+stop-conditions are BINDING. Amendments only via the full Art. VII procedure (cycle + human
+ratification + lexeme-grep evidence).
+
+Shipped this session, in order (each: plan → critic rotation → human gate → scoped run →
+independent verifier → commit gate → CI green → main FF):
+1. **v1.0.1 — Natural-Activation Tuning** (`f819fa3`): case-INsensitive suffix triggers
+   ("…해줘. DMC" fires) in Claude router ↔ Codex shim LOCKSTEP (matchers + task-extraction strips,
+   BSD-portable char-class sed + re.IGNORECASE); the exact signature `Okay, Let me do you Coding!`
+   opens dmc/ultrawork activations (SKILL.md line is UNCONDITIONAL); instruction-level DMC
+   PRIORITY over OMC/OMO/LazyCodex (emit + CLAUDE.md + OMC_COEXISTENCE "Precedence when both
+   fire"; HONEST_SCOPE §4 caveat: best-effort, not a runtime boundary); NEW A16 34-row
+   CI-blocking UPS cross-adapter parity section (test-codex-shims 99/0). Full release gate PASS
+   9/9 — first-ever full gate over an authorized hook change: v0.2.6 G4 initially FAILED
+   (protected-path `.claude/hooks`), re-gated via the tool's own documented `DMC_GATE_PROTECTED`
+   override (9/10 entries kept) — the GUARDRAIL (landmark-authorized scope.lock + human gate +
+   critic/verifier chain required; landmark-flag non-suppressible) is now constitutional law
+   (Art. V). v011-verify baseline = 39/2 (2 pre-existing non-router FAILs — gate on the 5
+   invariant rows, NEVER "ALL PASS"). test-rollback's router row is red by design (unwired
+   pre-M6 drift detector).
+2. **Founding Constitution** (`ccffc38`): docs/DMC_CONSTITUTION.md Articles I–VII; adversarial
+   law review (critic r3) found the two-step entrenchment bypass → VII.2 is now SELF-ENTRENCHING
+   with an effect-clause (r4 confirmed: 4 fresh bypass constructions all fail visibly).
+   Repo-internal (never referenced from shipped surfaces — dangling-ref rule); discoverable via
+   AGENTS.md §7 + docs/CONTEXT_MAP.md.
+3. **Amendment No. 2 — Article VIII** (`3803f67`): maintainer duties & the inviolable loop (the
+   user's directive: bind sub-Fable-5 maintainers; block 땜질 at the source). First real Art. VII
+   amendment: plan critic caught the critic-less 5-stage loop trap + the Art. V masking
+   contradiction pre-build; VII.4 lexeme evidence captured verbatim in
+   `.harness/verification/dmc-constitution-amend2.md`.
+
+Also this session (pre-tuning): the pre-M10 audit remediation closure + M10/v1.0 completion are
+rev 9's record (below). Version convention (wjlee-ratified): **max vX.Y.Z** (two dots); v1.0.1
+was chosen over v1.1 for the tuning (patch label); the constitution ships as docs-only commits
+with NO version bump.
+
+**Next session candidates (user-gated, in the user's words):** (a) 브랜딩 — README/SVG/GitHub
+Pages (DEFERRED by the user; plan sketch: README + docs/assets SVGs + Pages via /docs — needs its
+own plan/gate); (b) 발전 방향과 트리거 논의 (the user wants a discussion, not a build); (c) the
+v1.1+ deferred register (HONEST_SCOPE + MILESTONES Next: approval authentication, CF14 option-(a)
+frozen-tool portability [needs GitHub-runner repro], D1 md5 hardening [dmc-v0.2-verify.sh:15-17 is
+the security-relevant site], worker-bridge expansion, P5 benchmark, stray-file hygiene EXECUTION
+[proposal ready in .harness/evidence/dmc-v1-m10-build-20260708.md, needs its own approval]).
+Constitution future-amendment candidates (recorded in critic r4 + the verifier report):
+repeal-is-an-amendment wording, "human gates (stages 3 and 9)" plural, host-shipping
+discoverability breadcrumb, Amendment Log h3→h2.
+
+**Operational invariants for the next orchestrator (proven this session, most now constitutional):**
+subagents run mode "auto", executors SYNCHRONOUS; Fable 5 orchestrates, Opus 4.8/Sonnet 5
+implement (NEVER change the session default model); armed runs deny redirect-bearing Bash +
+out-of-repo writes (LP-style probes run DISARMED: suspend + `rm -f .harness/runs/current-run-id`;
+resume re-arms); NEVER grant `.harness/evidence` paths in scope.lock (G2↔G3 catch-22); the C1
+secret-read guard substring-matches key/cert operands (avoid `.keys(`/`.pem` literals in Bash
+command strings with read-verbs); release-readiness is write-once (os.remove to re-gate, record
+the FAIL sequence in evidence); commit messages must not contain secret-file literals.
+
+(rev 9 — **DMC v1.0 COMPLETE: M10 shipped + CLOSED + MERGED at `772cd83`;
 main == branch unified; CI GREEN (run 28916581848); live `selftest --all` 802/3/3 EXACT;
 `dmc gate release --full --run-id dmc-run-bef12a3d3345` PASS 9/9.** M10 deliverables: v1.0
 identity across 11 docs (VC2 12→0), docs/DMC_V1_{ENFORCEMENT_MATRIX,HONEST_SCOPE,
