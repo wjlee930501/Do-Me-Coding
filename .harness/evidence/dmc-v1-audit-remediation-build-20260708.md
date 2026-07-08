@@ -61,8 +61,24 @@ tree (M9 closure pattern) — recorded at closure below.
 
 ## Live post-commit `selftest --all` (frozen-baseline proof of record)
 
-_To be recorded after the human commit gate + push (M9 pattern: the real dev tree reproduces 802/3/3
-EXACT; the /tmp clone does not, per the artifact above)._
+Commit `6d571a8`, live dev tree: `aggregate: tools=49 PASS=802 FAIL=3 N/A=3` — **legacy 802/3/3 EXACT**;
+`SELFTEST-ALL RESULT: PASS`. This confirms the frozen baseline is intact and the `/tmp` clone's 801/4
+was purely the v0.3.2 AC4 clone-environment artifact (delta vs pristine clone = 0), NOT a regression.
+
+## G1 completion — uninstaller agent-removal symmetry (post-CI fix, commit follows)
+
+The commit-`6d571a8` CI run (28909722048) went RED at the newly-blocking `dmc selftest m8-suite` step —
+exactly the gate F7 promoted. Root cause: G1 was INCOMPLETE. `dmc-install.sh:314` ships six agents via
+`act()`, but `act()` does not `record_created`, so agents are absent from the install receipt and are
+removed ONLY by the uninstaller's fixed-name list `dmc-uninstall.sh:66`, which listed five and omitted
+`release-auditor` → `.claude/agents/release-auditor.md` left behind → install-roundtrip 75/8 + idempotency
+15/2 FAIL (reproduced locally AND on the runner). This was a scoping miss in the Rev 2 plan (uninstaller
+not in scope.lock) and a verification GAP (m8-suite was checked as manifest-drift-only, never the full
+suite). Fix: one token added to `dmc-uninstall.sh:66` under a fresh minimal scoped run
+`dmc-run-9344c548f5a7` (plan `.harness/plans/dmc-v1-audit-remediation-g1fix.md`, human-gated 2026-07-08).
+Re-verification (FULL m8-suite this time): install-roundtrip 83/0, idempotency 17/0, doctor-negcontrols
+16/0, manifest-drift 10/0 (126/0 total); release-auditor.md leftover = NONE; default selftest 0 FAIL;
+mirror-check green. CI-green re-confirmation on the follow-up commit is the closing criterion.
 
 ## Advisories carried (non-blocking)
 

@@ -63,7 +63,7 @@ say "Remove DMC-installed .claude surface (host product untouched):"
 for h in pre-tool-guard scope-guard stop-verify-gate evidence-log dmc-router secret-guard worker-context-guard; do rm_ ".claude/hooks/$h.sh"; done
 rm_ ".claude/hooks/worker-result-check.py"; rm_ ".claude/hooks/lib/secret-paths.sh"
 for s in dmc-critic dmc-init-deep dmc-on dmc-off dmc-plan-hard dmc-start-work dmc-status dmc-ultrawork dmc-verify-hard dmc-worker-plan dmc-worker-dispatch dmc-worker-import dmc-worker-review dmc-worker-status dmc-worker-cancel; do rm_ ".claude/skills/$s"; done
-for a in critic executor explorer planner verifier; do rm_ ".claude/agents/$a.md"; done
+for a in critic executor explorer planner release-auditor verifier; do rm_ ".claude/agents/$a.md"; done
 rm_ ".claude/workers/providers/glm-api"
 for d in DMC.md PLAN_SCHEMA.md RUN_SCHEMA.md VERIFICATION_SCHEMA.md WORKER_TASK_SCHEMA.md WORKER_RESULT_SCHEMA.md WORKER_REVIEW_SCHEMA.md docs/OMC_COEXISTENCE.md docs/HOST_REPO_ARTIFACT_POLICY.md docs/HOST_REPO_ADAPTATION_POLICY.md .harness/mode; do rm_ "$d"; done
 
