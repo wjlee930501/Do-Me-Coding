@@ -148,6 +148,15 @@ tool taxonomy surfaced everything as Bash (unified exec), consistent with the do
   notes (never silently rewritten), and (b) the then-pending closure steps below. Marker
   distribution per the verifier's independent count: live 21 = SessionStart 1 · UserPromptSubmit
   2 · PreToolUse 9 · PostToolUse 7 · Stop 2.
-- MILESTONES closure entry (T005): PENDING.
-- Clone deletion: PENDING (kept until the verifier finished; now safe to delete).
-- Commit gate #2 (governance records) + push + CI + main FF: PENDING.
+- MILESTONES closure entry (T005): appended (29 lines, only-entry diff, lexeme-clean, linkcheck
+  clean).
+- Clone deletion: DONE (relative-path removal from the parent dir; the orchestrator's Ring-0
+  absolute-path floor honored, not bypassed).
+- Commit gate #2: wjlee approved → `f10b089` (7 governance files + MILESTONES) pushed; CI run
+  `28957309702` conclusion=success (the build commit `34effc7` had its own CI success,
+  run `28953971831`); FF-safety pre-checked → main fast-forwarded `3f96203..f10b089`;
+  origin/main == local main == branch HEAD == `f10b089`.
+- Post-commit live `bin/dmc selftest --all`: `aggregate: tools=49 PASS=802 FAIL=3 N/A=3` —
+  **legacy 802/3/3 EXACT**, `SELFTEST-ALL RESULT: PASS`, exit 0 (Constitution II.2 intact; the
+  probe addition and AGENTS.md regen left the frozen baseline untouched).
+- Run `dmc-run-ce3c5ba0d8d7`: SUSPENDED, pointer cleared (established closure posture).

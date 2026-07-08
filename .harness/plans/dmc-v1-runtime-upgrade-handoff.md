@@ -1,7 +1,54 @@
 # HANDOFF — dmc-v1-runtime-upgrade (session → session)
 
-Date: 2026-07-08 (rev 11 — **STRAY-FILE HYGIENE (B8 closure) shipped at `a8a9652`; read this
-block, the constitution, then rev 10 below.**)
+Date: 2026-07-09 (rev 12 — **CODEX APP OPTION-B EXECUTED at `34effc7`+`f10b089`; the M6.5
+unprovables are now OBSERVED on cli 0.132.0; read this block, the constitution, then rev 11.**)
+
+## Rev 12 — session end state (2026-07-09, Codex App Option-B cycle; same session as rev 11)
+
+**Shipped + observed: the Option-B live-turn verification the M6.5 stop artifact reserved.**
+main == branch == `f10b089`, both CI runs success, live `--all` legacy **802/3/3 EXACT**.
+Built (commit `34effc7`): `adapters/codex/dmc-codex-dispatch-probe.py` — repo-internal,
+names-only, silent diagnostic (NOT in `CODEX_ADAPTERS`, never shipped) + AGENTS.md regen (the §7
+pointer-loss regression reproduced a THIRD time; standing rule held). Governance (`f10b089`):
+plan + critic r1–r3 + verifier report + results evidence + MILESTONES entry.
+
+**RESULTS (recorded observations; D5 NO-PROMOTION ratified — every tier claim in
+ENFORCEMENT_MATRIX / HONEST_SCOPE / doctor stands unchanged):**
+- cli 0.132.0, isolated clone, /hooks trust granted: ALL FIVE wired lifecycle events DISPATCHED
+  (probe markers 21 live lines) and BOTH envelope classes HONORED — the rm-based deny probe was
+  blocked twice with zero execution and the shim's deny text surfaced; the dmc-suffix routing
+  context was applied verbatim (signature greeting opened the reply; SKILL.md followed); the
+  router's mode-file side effect appeared. Full envelope key-name schema captured (names only) —
+  the M6.5 "tool_input field names TBD-STILL" gap is CLOSED: top-level
+  `cwd/hook_event_name/model/permission_mode/session_id/transcript_path(+turn_id)` +
+  `tool_input{command}/tool_name/tool_use_id(+tool_response)` + `prompt` +
+  `stop_hook_active/last_assistant_message` + `source`; Edit|Write and Read|Grep|Glob matcher
+  groups received ZERO events (everything surfaced as Bash / unified exec).
+- Codex App 26.623.61825: ZERO dispatch — ROOT CAUSE: the App's Settings→Hooks panel does NOT
+  surface project-level `.codex/hooks.json` (only global/plugin hooks), so hook trust cannot be
+  granted from the App; untrusted project hooks are skipped by design. Ring-2 (AGENTS.md
+  guidance) WAS respected by the App session (it self-restrained from a protected surface).
+  PRACTICAL: trust granted once via the CLI /hooks TUI is recorded in `~/.codex` shared state —
+  after that, wired hooks are live for cli sessions; re-test future App builds.
+- Isolation design proved its worth: `git clone --no-hardlinks` + `git remote remove origin`
+  (critic r2 caught the write-back channels); a foreign layer (LazyCodex/OMO) MUTATED the
+  clone's `.codex/config.toml` mid-session — real repo byte-unchanged (machine-verified).
+- Verifier: PARTIAL → three factual defects in the first evidence version corrected WITH
+  provenance (PostToolUse 7 not 8; hooks.state 13 entries + header; the clone-config mutation
+  omission). Honest-correction discipline held.
+
+**NEW v1.1+ register entries (recorded in the MILESTONES entry):** (a) Claude router multi-line
+suffix-anchor defect — a line-terminal trigger token inside a PASTED multi-line prompt routes the
+whole message (observed twice live in the orchestrating session); (b) App hook-trust affordance
+gap (document CLI /hooks as the trust path; re-test future App builds); (c) Codex-side
+coexistence doc (OMX/OMO never named in-repo; AGENTS.md carries no DMC-priority clause — the
+CLAUDE.md clause is invisible to Codex sessions; incl. the observed foreign-layer config
+mutation); (d) deny-message "suspend the run" step-aside wording (suspend alone does not disarm —
+presence-keyed guards BOTH sides); (e) `.codex/` classifies ordinary in repo-intel.
+PROMOTION CANDIDATE (own future cycle, results now support it): shims → an "observed-on-cli"
+posture upgrade in HONEST_SCOPE/matrix/doctor wording, still never claiming the App surface.
+
+(rev 11 below — stray-file hygiene B8 closure at `901d7d5`+`a8a9652`+`3f96203`.)
 
 ## Rev 11 — session end state (2026-07-08, hygiene session)
 
