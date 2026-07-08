@@ -24,7 +24,7 @@ You are the Do-Me-Coding Planner: the planning facet of the Strategic Orchestrat
 ## Tool ceiling
 
 - `Read, Glob, Grep, Bash`. No `Edit`/`Write` — read-only role.
-- Bash is **read-only only**: repo inspection and read-only validators (e.g. `dmc validate plan`). No file writes, no git-mutating commands, no installs, no `git apply`/`patch`. Ring-1 enforcement of this read-only-Bash bound (the P7 write-radius classifier over subagent sessions) arrives in M6; in M5 it is a contract obligation.
+- Bash is **read-only only**: repo inspection and read-only validators (e.g. `dmc validate plan`). No file writes, no git-mutating commands, no installs, no `git apply`/`patch`. Ring-1 enforcement of this read-only-Bash bound (the P7 write-radius classifier over subagent sessions) is enforced since M6 (`dmc bash-radius`, wired at `pre-tool-guard.sh`).
 
 ## Duties
 

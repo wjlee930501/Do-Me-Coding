@@ -74,9 +74,31 @@ if printf '%s' "$CMD_ONE_LINE" | grep -Eiq 'sudo[[:space:]]+rm[[:space:]]+-rf|gi
   deny "Do-Me-Coding blocked a high-risk destructive command. Create an approved plan and request explicit human approval."
 fi
 
-# Block A — secret exposure (treated as catastrophic; enforced in ALL modes including off)
-if printf '%s' "$CMD_ONE_LINE" | grep -Eiq '(^|[;&|[:space:]])(printenv|cat[[:space:]]+\.env|cat[[:space:]]+.*\.env|cat[[:space:]]+~/.ssh|cat[[:space:]]+~/.aws)'; then
+# Block A — secret exposure (treated as catastrophic; enforced in ALL modes including off).
+# `printenv` dumps the whole environment, so it needs no operand. For file-reading / exfil verbs we
+# require an actual SECRET OPERAND to appear in the command; ordinary reads with a read-verb but no
+# secret operand (grep foo src/x.py, cp a.txt b.txt, head README.md, sed -i.bak s/a/b/ build.log)
+# are NOT blocked. The .env.example / .env.sample / .env.template scaffolding files are NOT secrets.
+if printf '%s' "$CMD_ONE_LINE" | grep -Eiq '(^|[;&|[:space:]])printenv([^A-Za-z0-9_-]|$)'; then
   deny "Do-Me-Coding blocked a command that may expose secrets. Use targeted, redacted inspection instead."
+fi
+PTG_SECRET_VERB='(^|[;&|[:space:]])(cat|head|tail|less|more|xxd|od|strings|base64|nl|sort|uniq|awk|sed|grep|rg|cp|install|dd|tee)[[:space:]]'
+# Entry operand set: any bare .env, any dotted .env.* (incl. the allow-scaffolding — exempted below),
+# or an ssh/aws/pem/key/private-key file token.
+PTG_SECRET_OPERAND='(\.env([^A-Za-z0-9._-]|$)|\.env\.|\.ssh|\.aws|\.pem|\.key|id_rsa|id_ed25519)'
+# "Other than an allowed .env.example" operand set — a bare .env (not a dotted suffix) or ssh/aws/pem/key.
+PTG_SECRET_NONENV='(\.env([^A-Za-z0-9._-]|$)|\.ssh|\.aws|\.pem|\.key|id_rsa|id_ed25519)'
+PTG_ENV_ALLOW='\.env\.(example|sample|template)([^A-Za-z0-9._-]|$)'
+if printf '%s' "$CMD_ONE_LINE" | grep -Eiq "$PTG_SECRET_VERB" \
+   && printf '%s' "$CMD_ONE_LINE" | grep -Eiq "$PTG_SECRET_OPERAND"; then
+  # Exempt ONLY when the sole secret operand is an allowed .env.example/.sample/.template file and no
+  # other secret operand (bare .env / .ssh / .aws / .pem / .key / id_rsa / id_ed25519) is present.
+  if printf '%s' "$CMD_ONE_LINE" | grep -Eiq "$PTG_ENV_ALLOW" \
+     && ! printf '%s' "$CMD_ONE_LINE" | grep -Eiq "$PTG_SECRET_NONENV"; then
+    :
+  else
+    deny "Do-Me-Coding blocked a command that may expose secrets. Use targeted, redacted inspection instead."
+  fi
 fi
 
 # Block A — catastrophic database (enforced in ALL modes)

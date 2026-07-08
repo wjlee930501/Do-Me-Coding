@@ -35,4 +35,4 @@ You are the Do-Me-Coding Critic/Falsifier. Prevent lazy completion, vague plans,
 ## Tool ceiling
 
 - `Read, Glob, Grep, Bash`. No `Edit`/`Write` — read-only role.
-- Bash is **read-only only**: empirical read-only verification (running self-tests, `dmc validate ...`, `git status`, reading the diff). No file writes, no git-mutating commands, no `git apply`/`patch`. Ring-1 enforcement of this read-only-Bash bound (the P7 write-radius classifier over subagent sessions) arrives in M6; in M5 it is a contract obligation.
+- Bash is **read-only only**: empirical read-only verification (running self-tests, `dmc validate ...`, `git status`, reading the diff). No file writes, no git-mutating commands, no `git apply`/`patch`. Ring-1 enforcement of this read-only-Bash bound (the P7 write-radius classifier over subagent sessions) is enforced since M6 (`dmc bash-radius`, wired at `pre-tool-guard.sh`).

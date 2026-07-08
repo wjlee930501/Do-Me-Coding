@@ -38,7 +38,7 @@ HOOKS="pre-tool-guard.sh scope-guard.sh stop-verify-gate.sh evidence-log.sh dmc-
 HOOK_EXTRA="worker-result-check.py"
 HOOK_LIB="secret-paths.sh"
 SKILLS="dmc-critic dmc-init-deep dmc-on dmc-off dmc-plan-hard dmc-start-work dmc-status dmc-ultrawork dmc-verify-hard dmc-worker-plan dmc-worker-dispatch dmc-worker-import dmc-worker-review dmc-worker-status dmc-worker-cancel"
-AGENTS="critic.md executor.md explorer.md planner.md verifier.md"
+AGENTS="critic.md executor.md explorer.md planner.md release-auditor.md verifier.md"
 
 # Codex adapter (--host codex|both) — M6.5 surface; the DMC-internal README is deliberately NOT shipped.
 CODEX_ADAPTERS="dmc_codex_common.py dmc-codex-pretooluse.py dmc-codex-posttooluse.py dmc-codex-userpromptsubmit.py dmc-codex-stop.py"

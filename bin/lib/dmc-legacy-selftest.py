@@ -401,7 +401,9 @@ def selftest_all():
 def main():
     ap = argparse.ArgumentParser(prog="dmc-legacy-selftest")
     ap.add_argument("command", choices=["selftest-all", "mirror", "rollback-test"])
-    ap.add_argument("--check", action="store_true")
+    ap.add_argument("--check", action="store_true")  # explicit alias of the default mirror
+    # behavior; used by `dmc mirror-check` (bin/dmc:431). The default path (no flag) already
+    # performs the same check, so --check is accepted but not separately branched on.
     ap.add_argument("--self-test", action="store_true")
     a = ap.parse_args()
 

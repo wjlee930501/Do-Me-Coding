@@ -7,8 +7,7 @@ model): the adapter is a thin translation layer that turns Codex hook events int
 lives in the adapter. "Codex as HOST" (this doc) is strictly separate from "Codex as WORKER"
 (the worker bridge — proposal-only, unchanged; `DMC.md` §Worker Bridge).
 
-This is architecture guidance for the gated M6.5 milestone, not an implementation and not an
-enforcement surface. Nothing here is built until the M6.5 plan clears its own critic + human gate.
+Status: IMPLEMENTED (M6.5, Option A advisory shims) — see `adapters/codex/README.md`.
 
 > **Facts verified 2026-07-06 against official docs (developers.openai.com/codex, raw-HTML
 > checked); Codex evolves fast — EVERY fact below must be re-proven by the M6.5 local-CLI spike

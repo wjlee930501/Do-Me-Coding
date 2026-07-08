@@ -72,7 +72,6 @@ jobs:
           shopt -s nullglob
           files=(
             .claude/hooks/*.sh
-            adapters/codex/*.sh
             bin/lib/*.sh
             tests/fixtures/m6/*.sh
             tests/fixtures/m6.5/*.sh
@@ -128,7 +127,7 @@ jobs:
           # the detector-carrying module (dmc-roles.py MODEL_NAME_RE + seeded negative
           # controls) are more robust than line-number exclusions, which rot on edit.
           if grep -RInE 'claude-(opus|sonnet|haiku|fable|mythos)|gpt-[0-9]|codex-[0-9]' \
-              bin adapters .claude/install orchestration .claude/agents \
+              bin adapters .claude/install orchestration .claude/agents .harness/schemas \
               --exclude=models.json --exclude=dmc-roles.py; then
             echo "model-name grep FAIL: forbidden model-name literal found outside orchestration/models.json" >&2
             exit 1
@@ -165,6 +164,18 @@ jobs:
           test -f .codex/hooks.json
           git ls-files --error-unmatch .codex/config.toml .codex/hooks.json
           echo "Codex wiring presence: PASS"
+
+      - name: dmc selftest m6-suite (M6 rollback/restore fixtures)
+        run: bin/dmc selftest m6-suite
+
+      - name: dmc selftest m65-suite (M6.5 fixtures)
+        run: bin/dmc selftest m65-suite
+
+      - name: dmc selftest m7-suite (M7 fixtures)
+        run: bin/dmc selftest m7-suite
+
+      - name: dmc selftest m8-suite (M8 fixtures)
+        run: bin/dmc selftest m8-suite
 
       - name: Porcelain MID-sandwich (blocking suites left the checkout byte-identical)
         run: |

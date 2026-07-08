@@ -177,22 +177,38 @@ def arming(project_dir):
 # ------------------------------------------------------------------- redaction
 
 def redact(text):
-    """The IDENTICAL redaction transform as `.claude/hooks/evidence-log.sh` redact() (B3):
+    """The IDENTICAL redaction transform as `.claude/hooks/evidence-log.sh` redact() (B3),
+    hand-copied BYTE-EQUIVALENT here and in tests/fixtures/m6.5/_m65common.sh
+    evidence_log_redact() — all three MUST stay in lockstep (redaction-parity, C3 test):
       sed -E 's/(sk-[A-Za-z0-9_-]{8,})/[REDACTED_API_KEY]/g;
-              s/(password|secret|token|api[_-]?key)=([^[:space:]]+)/\\1=[REDACTED]/gi'
-    First rule is case-SENSITIVE (matches `sk-` only); the second is case-insensitive and preserves
-    the matched key word's original case, exactly as the sed `/gi` + backref does.
+              s/(password|secret|token|api[_-]?key)=([^[:space:]]+)/\\1=[REDACTED]/gi;
+              s/AKIA[0-9A-Z]{16}/[REDACTED_AWS_KEY]/g;
+              s/eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+/[REDACTED_JWT]/g;
+              s/xox[baprs]-[A-Za-z0-9-]+/[REDACTED_SLACK_TOKEN]/g;
+              s/gh[opsu]_[A-Za-z0-9]+/[REDACTED_GH_TOKEN]/g;
+              s/ya29\\.[A-Za-z0-9_-]+/[REDACTED_GOOGLE_TOKEN]/g;
+              s/-----BEGIN[^-]*PRIVATE KEY-----/[REDACTED_PRIVATE_KEY]/g;
+              s/(Authorization|Bearer)[ :]+[^[:space:]]+/[REDACTED_AUTH]/gi'
+    The `sk-`, AKIA, JWT, Slack, GitHub, Google and PRIVATE KEY rules are case-SENSITIVE; the
+    `key=VALUE` and Authorization/Bearer rules are case-insensitive (sed `/gi`, Python re.IGNORECASE).
+    Python `[^\\s]` == POSIX `[^[:space:]]` for ASCII, so the two dialects mask identical spans.
 
     A5 precision (recorded at the human gate): this transform is scoped to COMMAND / CONTENT
-    payloads — `sk-…` API keys and `password|secret|token|api_key=VALUE` forms. A secret embedded in
-    a bare file PATH (no `key=` form) is NOT caught here by design; that case is covered by the
-    path-only secret DENY (`is_secret_path`), which refuses the operation before any path reaches a
-    log. So the absolute no-raw-secret guarantee is: redact() over payloads + path-only deny over
-    paths — never opening a secret file's contents in either lane.
+    payloads. A secret embedded in a bare file PATH (no `key=` form) is NOT caught here by design;
+    that case is covered by the path-only secret DENY (`is_secret_path`), which refuses the operation
+    before any path reaches a log. So the absolute no-raw-secret guarantee is: redact() over payloads
+    + path-only deny over paths — never opening a secret file's contents in either lane.
     """
     text = re.sub(r"(sk-[A-Za-z0-9_-]{8,})", "[REDACTED_API_KEY]", text)
     text = re.sub(r"(password|secret|token|api[_-]?key)=([^\s]+)",
                   lambda m: m.group(1) + "=[REDACTED]", text, flags=re.IGNORECASE)
+    text = re.sub(r"AKIA[0-9A-Z]{16}", "[REDACTED_AWS_KEY]", text)
+    text = re.sub(r"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+", "[REDACTED_JWT]", text)
+    text = re.sub(r"xox[baprs]-[A-Za-z0-9-]+", "[REDACTED_SLACK_TOKEN]", text)
+    text = re.sub(r"gh[opsu]_[A-Za-z0-9]+", "[REDACTED_GH_TOKEN]", text)
+    text = re.sub(r"ya29\.[A-Za-z0-9_-]+", "[REDACTED_GOOGLE_TOKEN]", text)
+    text = re.sub(r"-----BEGIN[^-]*PRIVATE KEY-----", "[REDACTED_PRIVATE_KEY]", text)
+    text = re.sub(r"(Authorization|Bearer)[ :]+[^\s]+", "[REDACTED_AUTH]", text, flags=re.IGNORECASE)
     return text
 
 

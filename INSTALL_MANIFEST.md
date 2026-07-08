@@ -133,6 +133,7 @@ Dangling-reference rule); DMC-internal provenance references are deliberately no
 - `executor.md`
 - `explorer.md`
 - `planner.md`
+- `release-auditor.md`
 - `verifier.md`
 
 ### Provider adapters → `.claude/workers/providers/`  (entire tree, copied recursively; mock-first — no live/network call in build/CI)

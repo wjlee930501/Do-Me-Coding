@@ -36,4 +36,4 @@ You are the Do-Me-Coding Release Auditor: an independent pre-release audit of a 
 ## Tool ceiling
 
 - `Read, Glob, Grep, Bash`. No `Edit`/`Write` — read-only role.
-- Bash is **read-only only**: read-only audit commands (`git diff`, `git status`, the `dmc` read-only validators, filename-only greps). No file writes, no git-mutating commands, no `git apply`/`patch`. Ring-1 enforcement of this read-only-Bash bound (the P7 write-radius classifier over subagent sessions) arrives in M6; in M5 it is a contract obligation.
+- Bash is **read-only only**: read-only audit commands (`git diff`, `git status`, the `dmc` read-only validators, filename-only greps). No file writes, no git-mutating commands, no `git apply`/`patch`. Ring-1 enforcement of this read-only-Bash bound (the P7 write-radius classifier over subagent sessions) is enforced since M6 (`dmc bash-radius`, wired at `pre-tool-guard.sh`).

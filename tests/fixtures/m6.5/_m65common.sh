@@ -205,5 +205,5 @@ copy_shims() {
 
 # The canonical evidence-log.sh redact() transform, invoked directly for the B3 redaction-parity check.
 evidence_log_redact() {
-  sed -E 's/(sk-[A-Za-z0-9_-]{8,})/[REDACTED_API_KEY]/g; s/(password|secret|token|api[_-]?key)=([^[:space:]]+)/\1=[REDACTED]/gi'
+  sed -E 's/(sk-[A-Za-z0-9_-]{8,})/[REDACTED_API_KEY]/g; s/(password|secret|token|api[_-]?key)=([^[:space:]]+)/\1=[REDACTED]/gi; s/AKIA[0-9A-Z]{16}/[REDACTED_AWS_KEY]/g; s/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/[REDACTED_JWT]/g; s/xox[baprs]-[A-Za-z0-9-]+/[REDACTED_SLACK_TOKEN]/g; s/gh[opsu]_[A-Za-z0-9]+/[REDACTED_GH_TOKEN]/g; s/ya29\.[A-Za-z0-9_-]+/[REDACTED_GOOGLE_TOKEN]/g; s/-----BEGIN[^-]*PRIVATE KEY-----/[REDACTED_PRIVATE_KEY]/g; s/(Authorization|Bearer)[ :]+[^[:space:]]+/[REDACTED_AUTH]/gi'
 }

@@ -1,4 +1,4 @@
-# DMC Agent Handoff (v0.2.5)
+# DMC Agent Handoff
 
 A one-page quick-card for resuming the DMC milestone loop safely. Read this with `DMC_OPERATOR_HANDBOOK.md`.
 

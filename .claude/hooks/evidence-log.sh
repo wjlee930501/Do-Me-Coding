@@ -66,7 +66,10 @@ EVIDENCE_FILE="$PROJECT_DIR/.harness/evidence/$RUN_ID.md"
 TIMESTAMP="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
 redact() {
-  sed -E 's/(sk-[A-Za-z0-9_-]{8,})/[REDACTED_API_KEY]/g; s/(password|secret|token|api[_-]?key)=([^[:space:]]+)/\1=[REDACTED]/gi'
+  # Mask common secret shapes. This sed transform is hand-copied BYTE-EQUIVALENT in
+  # adapters/codex/dmc_codex_common.py redact() and tests/fixtures/m6.5/_m65common.sh
+  # evidence_log_redact() — keep all three in lockstep (redaction-parity, C3 test).
+  sed -E 's/(sk-[A-Za-z0-9_-]{8,})/[REDACTED_API_KEY]/g; s/(password|secret|token|api[_-]?key)=([^[:space:]]+)/\1=[REDACTED]/gi; s/AKIA[0-9A-Z]{16}/[REDACTED_AWS_KEY]/g; s/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/[REDACTED_JWT]/g; s/xox[baprs]-[A-Za-z0-9-]+/[REDACTED_SLACK_TOKEN]/g; s/gh[opsu]_[A-Za-z0-9]+/[REDACTED_GH_TOKEN]/g; s/ya29\.[A-Za-z0-9_-]+/[REDACTED_GOOGLE_TOKEN]/g; s/-----BEGIN[^-]*PRIVATE KEY-----/[REDACTED_PRIVATE_KEY]/g; s/(Authorization|Bearer)[ :]+[^[:space:]]+/[REDACTED_AUTH]/gi'
 }
 
 COMMAND="$(json_get 'tool_input.command' | redact | cut -c 1-500)"
@@ -131,6 +134,16 @@ if [ "$TOOL_NAME" = "Bash" ] && [ -f "$RUN_ID_FILE" ]; then
         # shellcheck disable=SC2086
         "$EL_DMC" run block --root "$PROJECT_DIR" --reason "$EL_REASON" ${EL_PATHS:+--paths $EL_PATHS} --created-by dmc-postbash-diff >/dev/null 2>&1 || true
         fb="Do-Me-Coding post-Bash guard: an out-of-scope change was recorded and run '$EL_RUN_ID' is now BLOCKED ($EL_REASON${EL_PATHS:+ — paths:$EL_PATHS}). Revert the stray change; completion is held until you resolve it with dmc run unblock."
+        fb_json="$(printf '%s' "$fb" | json_string)"
+        printf '{"decision":"block","reason":%s}\n' "$fb_json"
+        exit 0
+      elif [ "$EL_RC" -ne 0 ]; then
+        # Fail-closed: the detector exited ∉ {0,4} (crash/timeout/unexpected status). We cannot
+        # confirm the Bash change stayed in scope, so we do NOT pass silently — record a sticky
+        # BLOCKED marker (same dmc CLI path as the -eq 4 case) so the stop gate still holds.
+        EL_FCR="post-Bash out-of-scope detector returned status $EL_RC (crash/timeout); failing closed"
+        "$EL_DMC" run block --root "$PROJECT_DIR" --reason "$EL_FCR" --created-by dmc-postbash-diff >/dev/null 2>&1 || true
+        fb="Do-Me-Coding post-Bash guard failed closed: the diff detector returned status $EL_RC and could not confirm scope, so run '$EL_RUN_ID' is now BLOCKED. Investigate and resolve with dmc run unblock before completing."
         fb_json="$(printf '%s' "$fb" | json_string)"
         printf '{"decision":"block","reason":%s}\n' "$fb_json"
         exit 0

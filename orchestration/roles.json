@@ -25,7 +25,7 @@
     {
       "id": "strategic-orchestrator",
       "role": "Strategic Orchestrator",
-      "session_binding": "the main session (not a subagent)",
+      "session_binding": "the main session (not a subagent); read-only facets (explorer, planner) may bind to its inspection/planning surface without mutation capability",
       "capability_class": "frontier-long-horizon",
       "may_mutate": false,
       "mutation_constraint": "never mutates directly; effects edits only by delegating to the Implementer (executor) path, which mutates under a scope.lock",

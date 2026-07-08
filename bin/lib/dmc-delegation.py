@@ -151,6 +151,8 @@ def is_secret_path(path):
         return True
     if base in {".npmrc", ".netrc", ".pgpass", "credentials.json"}:
         return True
+    if "service-account" in base and base.endswith(".json"):
+        return True
     if "secret" in base and re.search(r"\.(json|ya?ml|env)$", base):
         return True
     if ".ssh" in parts or ".gnupg" in parts:
@@ -393,6 +395,12 @@ def resolve_scope_lock_ref(root, run_id, ref):
     """
     if not isinstance(ref, str) or not ref:
         return None
+    # Path-traversal guard (B2, defense-in-depth): reject a ref whose path form carries a
+    # parent-directory ('..') SEGMENT BEFORE any os.path.join(root, ref), so a relative ref can
+    # never escape `root`. Segment-based, not substring: a filename like '..foo.json' is fine.
+    # Reject ONLY '..' segments — an absolute, '..'-free ref (A3/A7/A8) still resolves below.
+    if ".." in ref.replace(os.sep, "/").split("/"):
+        return None
     looks_like_path = ("/" in ref) or ref.endswith(".json")
     if looks_like_path:
         return ref if os.path.isabs(ref) else os.path.join(root, ref)
@@ -459,7 +467,10 @@ def append_delegation_record(root, run_id, record_path, registry_path=None):
     # scope.lock.json whose run_id binds to THIS --run.
     if obj.get("may_mutate") is True:
         lock_path = resolve_scope_lock_ref(root, run_id, obj.get("scope_lock_ref"))
-        if not lock_path or not os.path.isfile(lock_path):
+        if lock_path is None:
+            return False, ["DELEG-SCOPE-LOCK-TRAVERSAL: may_mutate:true scope_lock_ref path form "
+                           "contains a parent-directory ('..') traversal segment (value-blind)"]
+        if not os.path.isfile(lock_path):
             return False, ["DELEG-SCOPE-LOCK-UNRESOLVED: may_mutate:true scope_lock_ref does not "
                            "resolve to an existing file"]
         lock_obj, reason = _load_json_path_safe(lock_path)
@@ -760,6 +771,20 @@ def selftest():
     t.ok("N23 secret-shaped path filter",
          is_secret_path("orchestration/.env") and is_secret_path("x/id_rsa")
          and not is_secret_path("orchestration/roles.json"))
+
+    # N23b: service-account*.json refused by is_secret_path (B1 — the 11th sibling branch, verbatim
+    # from bin/lib/dmc-approvals.py, that this tool was the sole one of 11 missing).
+    t.ok("N23b service-account json refused by is_secret_path (B1)",
+         is_secret_path("deploy/my-service-account.json")
+         and is_secret_path("service-account.json")
+         and not is_secret_path("orchestration/roles.json"))
+
+    # B2: a scope_lock_ref whose path form carries a '..' SEGMENT is rejected (returns None) BEFORE
+    # the join, while a '..'-free absolute ref still resolves — path-only, no filesystem access.
+    t.ok("B2 scope_lock_ref '..' traversal rejected; absolute ref still resolves",
+         resolve_scope_lock_ref(root, "r", "../evil.lock.json") is None
+         and resolve_scope_lock_ref(root, "r", "a/../b.json") is None
+         and resolve_scope_lock_ref(root, "r", "/abs/scope.lock.json") == "/abs/scope.lock.json")
 
     # ---- M7 runtime-records pipeline: append / check (DMC-T012.3) ----
     # Hermetic: an entirely synthetic repo root under TemporaryDirectory() with its own

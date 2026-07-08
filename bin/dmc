@@ -334,6 +334,7 @@ case "$cmd" in
           *) tool="dmc-$tool.sh" ;;
         esac
         [ -f "$HERE/lib/$tool" ] || { echo "dmc legacy: unknown tool: $sub (see 'dmc legacy list')" >&2; exit 2; }
+        cd "$(cd "$HERE/.." && pwd)"
         exec bash "$HERE/lib/$tool" "$@"
         ;;
     esac
