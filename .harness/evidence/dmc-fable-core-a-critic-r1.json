@@ -1,0 +1,24 @@
+{
+  "schema": "dmc.critic-verdict.v1",
+  "work_id": "dmc-fable-core-a-succession",
+  "plan_hash": "fb1ee8c0d192b446f6a83f131d8dac97c6b16ae287ea1295c824f77cbff911c4",
+  "repo_hash": "440a1b2527e70fca92265bc9b32ff2d9002701eb6df5a20b68b151d7bee18d83",
+  "target_ref": ".harness/plans/dmc-fable-core-a-succession.md",
+  "verdict": "NEEDS_CLARIFICATION",
+  "lenses": ["correctness", "scope", "security"],
+  "criteria_checked": [
+    {"criterion_ref": "clarity", "result": "met", "note": "Change is decision-complete: exact banner string, exact section title, exact insertion anchors (handoff between 'Fail-closed checklist' L44 and 'Anti-token-max reminder' L49 — both confirmed present and adjacent). Minor: memo anchor 'directly after the intro line' is a 2-physical-line wrapped paragraph (L3-4); banner lands after L4."},
+    {"criterion_ref": "verification", "result": "unmet", "note": "BLOCKER-1: AC2/Verification-row-2 grep is case-sensitive `grep 'fresh'` but the specified body text (Proposed Changes 'a') writes 'FRESH-CONTEXT' uppercase with no lowercase 'fresh' token — a faithful implementation returns 0 and spuriously FAILS the fail-closed verifier. Also 'contains ONLY + hunks' is imprecise: a pure-insertion git diff includes space-prefixed context lines; restate as 'no `-` lines except the file header'."},
+    {"criterion_ref": "context", "result": "met", "note": "All grounded facts re-verified 2026-07-09: memo UNTRACKED (git status `??`), AGENTS.md = 24,126 B (not 32,490), stale claims confirmed at memo L7-10 and risk #6 L60, v1.0.5 shas 1cdb357/cbcfb2f exist + MILESTONES L763 records 32,490→24,126 B, run status = RUN-NO-ACTIVE, branch = claude/dmc-fable-core, verdict validate|gate present, Art. VIII escalation duty at Constitution VIII.1/VIII.4 verbatim."},
+    {"criterion_ref": "real_file_references", "result": "met", "note": "Both edit targets exist. scope-guard.sh:154-163 evidence/verification exemption confirmed (exits 0). roles.json critic-falsifier = fresh-context/may_mutate:false. No phantom paths."},
+    {"criterion_ref": "business_logic_assumptions", "result": "met", "note": "Envelope ratification recorded this session; 'docs-only cannot move selftest' holds — bin/dmc selftest passes now (schemas 15/0, legacy 4/0) and selftest's linkcheck is --self-test embedded fixtures, not the real tree."},
+    {"criterion_ref": "scope_control", "result": "met", "note": "2-file mutation scope well-pinned; records paths scope-exempt. ADVISORY: working tree has a pre-existing unrelated ` M .codex/config.toml` — plan must instruct targeted `git add <paths>` (never -A). The name-only==2-files AC catches it but the executor is not warned."},
+    {"criterion_ref": "data_security_migration_env_risks", "result": "met", "note": "Docs-only, no secrets, no migration. Memo is trackable (git check-ignore: NOT ignored). No hidden coupling from tracking .harness/plans: linkcheck scans only 3 pointer docs + 24 files (NOT plans), selftest/CI (dmc-ci.yml) do not enumerate plans. The handoff IS a linkchecked pointer doc, so the new section's dmc-verb/schema-path/role-binding refs are gated by the required `bin/dmc linkcheck` — a genuine strength of the plan."},
+    {"criterion_ref": "rollback_path", "result": "met", "note": "LOCAL-only commits on dedicated branch claude/dmc-fable-core, no push — trivially reversible via git. Inherent but not explicitly stated in the plan."}
+  ],
+  "blockers": [
+    {"id": "B1-grep-case", "statement": "AC2 and Verification-Commands row 2 use case-sensitive `grep 'fresh'`, but the section body specified in Proposed Changes writes only 'FRESH-CONTEXT' (uppercase). A verbatim implementation fails its own acceptance grep, spuriously tripping the fail-closed verifier. Resolve by either specifying `grep -i 'fresh'` or requiring a lowercase 'fresh' token in the body.", "evidence_ref": ".harness/plans/dmc-fable-core-a-succession.md L116,133-134,184"}
+  ],
+  "advisory": true,
+  "context_provenance": "fresh"
+}
