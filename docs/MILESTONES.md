@@ -759,3 +759,44 @@ entry above is unchanged by this patch.
 - **Chain:** overnight envelope (third and final cycle); critic r1 APPROVE first round
   (dangling-law + promotion-line + IV.3 rulings); run `dmc-run-9885068dc4d9`; LOCAL commit only,
   morning gates pending.
+
+## v1.0.5 — AGENTS.md generator compaction — CLOSED (2026-07-09)
+
+- **What/where (two generator edits + two guards, all in `bin/lib/dmc-agents-md.py`):**
+  - **A1 dedup §5:** the §5 "Protected surfaces" render re-inlined the full protected-class
+    landmark path list a SECOND time (~8.5 KB comma-joined blob, already tagged "(see section 4)").
+    Replaced with a COMPACT cross-reference — the "(see section 4)" pointer plus a per-class count
+    (`N enforcement / M contract / K release landmarks.`). §5's secret-pattern bullets + bindings
+    line are untouched, so §5 stays non-empty and VALID.
+  - **A2 inventory-last reorder:** emission order is now **[1,2,3,6,7,8,9,10,4,5]** — §4
+    (Architecture landmarks) and §5 (Protected surfaces) relocate to the tail, after §10. Every
+    section keeps its pinned numeric label + title; only §4/§5 move (1,2,3,6,7,8,9,10 stay
+    contiguous & in numeric order). The behavioral rules (§7) and stop conditions (§9) now sit
+    physically before the big inventory, so a host truncating past its byte cap drops the inventory
+    tail, not the rules. Validator is order-independent (`split_sections` keys by number) → VALID.
+  - **Count-parity guard (PC1):** a new module selftest parses §5's rendered per-class counts and
+    compares them to counts re-derived straight from the RENDERED §4 landmark list (not from the
+    same `facts` object) — a wrong/off-by-one compacted §5 count can no longer pass. Module
+    selftest 26 → 27.
+  - **Fixture order-independence (critic r1 B1, BLOCKING):** every physical-order-dependent
+    negative control was rewritten to locate its target section by that section's OWN heading and
+    the next EMITTED heading (`_section_span`/`HEADING_RE` offsets, last-emitted → slice to EOF),
+    never a hardcoded `## N.` successor — `dmc-agents-md.py` V1 (delete §6), V4 (blank §9), E4
+    (isolate §10), and `tests/fixtures/m6.5/test-agents-md.sh` awk §6-delete + awk §10-aggregation.
+    Each control still FAILS on its intended defect; no assertion weakened.
+- **Artifact regen:** committed `AGENTS.md` regenerated via `dmc agents-md` — 32,490 B → **24,126 B**
+  (~8.4 KB reclaimed, now ≥8 KB under the 32,768 Codex cap); `agents-md --stdout` byte-identical to
+  the committed file; §7 (offset 653) and §9 (1965) now precede §4 (3094); `--validate` VALID; AC6
+  companion-docs pointer (`AUTONOMY.md` + `docs/CONTEXT_MAP.md`) survives —
+  `dmc-v0.4.7-context-audit.sh --self-test` 7/0.
+- **Bucket-A rationale:** deterministic artifact compaction only — NO enforcement/gate/floor/
+  `when-gates-fire`/schema change. The generator is not among the 49 legacy tools nor in the
+  release-gate DEFAULT_PROTECTED set, so no `DMC_GATE_PROTECTED` override; a non-degrading landmark
+  FLAG on the enforcement-class generator path is expected. Suites green: agents-md module 27/0,
+  m65-suite (codex-shims 143/0 · skills-mirror 19/0 · agents-md 35/0), fast `selftest` all-green,
+  `mirror-check` PASS (generator not in the pinned 55-file mirror set), `linkcheck` clean.
+- **Chain:** authorized this session by wjlee (AskUserQuestion — lightweighting synthesis, "A1 + A2
+  함께"); critic r1 REJECT (B1: A2 breaks physical-order-dependent negative controls) → Rev 2
+  (inventory-last reframing + in-scope fixture rewrite + subset→count parity + dropped the
+  over-claimed DEFAULT_PROTECTED override) → critic r2 APPROVE; run `dmc-run-02ba039531cf`; scope
+  locked to the 4 files; LOCAL commit only. **push/CI/main-FF: human gate.**

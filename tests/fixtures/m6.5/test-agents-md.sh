@@ -140,8 +140,9 @@ assert_contains "empty: test command renders literally Unknown" "$EMPTY/AGENTS.m
 awk '/^## 4\./{f=1;next} /^## 5\./{f=0} f' "$EMPTY/AGENTS.md" | grep -qF -- "- Unknown" \
   && record PASS "empty: architecture landmarks render literally Unknown" \
   || record FAIL "empty: landmarks did not render Unknown"
-# the Unknowns list (section 10) aggregates the non-derivable fields.
-awk '/^## 10\./{f=1} f' "$EMPTY/AGENTS.md" | grep -qF "package manager" \
+# the Unknowns list (section 10) aggregates the non-derivable fields. Isolate §10 by its own
+# heading and the next EMITTED heading (not §10-terminal), so the check survives section reordering.
+awk '/^## [0-9]+\. /{f=($0 ~ /^## 10\. /)} f' "$EMPTY/AGENTS.md" | grep -qF "package manager" \
   && record PASS "empty: section-10 Unknowns list aggregates the package-manager gap" \
   || record FAIL "empty: section-10 Unknowns list did not aggregate"
 assert_contains "empty: purpose is never invented (Unknown)" "$EMPTY/AGENTS.md" "Purpose: Unknown"
@@ -177,9 +178,10 @@ assert_validate_green "big: oversized doc still validates green" "$BIG/AGENTS.md
 
 # ---- validator negative controls ----------------------------------------------
 echo "  -- validator negative controls --"
-# (a) a section deleted -> REFUSED.
+# (a) a section deleted -> REFUSED. Delete §6 by its own heading and the next EMITTED heading
+# (whatever number follows), not a hardcoded §7 successor, so the control survives reordering.
 CUT="$TMP/cut-AGENTS.md"
-awk '/^## 6\./{skip=1} /^## 7\./{skip=0} !skip' "$NODE/AGENTS.md" > "$CUT"
+awk '/^## [0-9]+\. /{skip=($0 ~ /^## 6\. /)} !skip' "$NODE/AGENTS.md" > "$CUT"
 "$DMC" agents-md --validate "$CUT" >/dev/null 2>&1
 CUT_RC=$?
 [ "$CUT_RC" -eq 3 ] && record PASS "negctl: validator REFUSES a doc with section 6 deleted (exit 3)" \
