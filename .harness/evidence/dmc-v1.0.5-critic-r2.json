@@ -1,0 +1,55 @@
+{
+  "schema": "dmc.critic-verdict.v1",
+  "work_id": "dmc-v1.0.5-agentsmd-compaction",
+  "plan_hash": "213ad35827ca1f8e20a2d39618dd36a27820c74b1a7b546a1924083fa968bd46",
+  "repo_hash": "5d345b59750ee6fe7a84c51dad638f74cb14f2b7",
+  "target_ref": ".harness/plans/dmc-v1.0.5-agentsmd-compaction.md",
+  "verdict": "APPROVE",
+  "lenses": [
+    "correctness",
+    "scope",
+    "security",
+    "governance-process",
+    "regression-completeness"
+  ],
+  "criteria_checked": [
+    {
+      "criterion_ref": "B1-resolution",
+      "result": "met",
+      "note": "r1 B1 is RESOLVED and empirically verified GREEN. Rev 2's inventory-last order [1,2,3,6,7,8,9,10,4,5] PRESERVES the exact \u00a76->\u00a77 and \u00a79->\u00a710 physical adjacencies that V1 (:683) and V4 (:697-698) depend on, so under this order V1 correctly deletes \u00a76 (-> REFUSED missing 6), V4 empties ONLY \u00a79 keeping all 10 sections (the r1 collateral-delete of \u00a74/\u00a75/\u00a76/\u00a78 is GONE), and test-agents-md.sh:182 (\u00a76->\u00a77 awk) still deletes \u00a76 -> validate REFUSES. Simulated all fixtures over a real generated doc reordered to [1,2,3,6,7,8,9,10,4,5]: V1 PASS, V4 PASS (sections present [1..10]), sh:182 PASS. The in-scope rewrite to emitted-order-independent construction (T001) is a correct, harmless hardening on top. B1 does not recur."
+    },
+    {
+      "criterion_ref": "a-all-boundary-fixtures-enumerated",
+      "result": "unmet",
+      "note": "NON-BLOCKING GAP. The plan's rewrite scope names V1/V4/awk:182, but the reorder's ACTUAL changed adjacencies are \u00a73->\u00a76 (was \u00a73->\u00a74) and \u00a710->\u00a74 (was \u00a710-terminal) \u2014 and TWO order-dependent fixtures keyed on \u00a710-being-terminal are NOT in the plan's rewrite list and are wrongly certified 'order-independent' by the plan's Finding (lines 92-94, which lists E1/E3 but omits E4): (1) E4 module selftest dmc-agents-md.py:658 `'package manager' in empty_doc.split('## 10.')[-1]`; (2) test-agents-md.sh:144 `awk '/^## 10\\./{f=1} f' | grep 'package manager'`. Under inventory-last their slice now spans [4,5,10] instead of just \u00a710. BOTH still PASS (empirically confirmed) because 'package manager' appears ONLY in \u00a710's body for the empty fixture (\u00a74='- Unknown', \u00a75=secret bullets/bindings, neither contains the token) \u2014 so they still isolate \u00a710 in practice and module selftest stays 0 FAIL. Non-blocking (no AC fails, goal achieved), but the plan's completeness claim is inaccurate. RECOMMEND folding E4 and sh:144 into the same emitted-order-independent rewrite (bound the \u00a710 slice by \u00a710's own heading -> next-emitted-heading, per the plan's own stated principle) and correcting the Finding. Advisory, not a gate."
+    },
+    {
+      "criterion_ref": "b-rewrite-soundness",
+      "result": "met",
+      "note": "The stated rewrite ('locate a section by its own heading + the immediately-following EMITTED heading via split_sections/HEADING_RE offsets, never a hardcoded ## N. successor') is sound and implementable and keeps each negative control testing its INTENDED defect (V1 -> missing \u00a76; V4 -> empty \u00a79; awk -> missing \u00a76), not a no-op: deleting/emptying a section by its own [heading, next-emitted-heading) span is exactly the defect each control needs. IMPLEMENTATION NOTE (non-blocking): a shared helper must handle the LAST-emitted-section case (no following heading -> run to EOF); under inventory-last \u00a75 is last, but none of V1/V4/awk target \u00a75, so the three named controls are safe. If E4/sh:144 are folded in (recommended above), the \u00a710 lookup returns \u00a74 as the next emitted heading \u2014 bound the slice there."
+    },
+    {
+      "criterion_ref": "c-count-parity-guard",
+      "result": "met",
+      "note": "The count-parity guard is correctly de-tautologized. \u00a75's protected set is a filtered subset of \u00a74 BY CONSTRUCTION (:215-218), so the r1 subset check was a tautology; a per-class COUNT equality (rendered \u00a75 counts == derived \u00a74 per-class counts) instead validates the RENDER. Well-defined: each landmark carries exactly one class, so enforcement/contract/release counts partition the union with no overlap. NON-BLOCKING IMPLEMENTATION NOTE: the guard must PARSE the RENDERED \u00a75 string (e.g. regex the emitted 'N enforcement / M contract / K release') and compare to a freshly-derived \u00a74 per-class count \u2014 if it instead recomputes BOTH sides from facts['landmarks'] it re-tautologizes and guards nothing. The compact \u00a75 render also newly requires per-class counts (currently only the union set `protected_landmarks` exists) \u2014 that derivation is in-scope in the \u00a75 render edit."
+    },
+    {
+      "criterion_ref": "d-positional-consumer-scope-gap",
+      "result": "met",
+      "note": "No RUNTIME consumer or gate keys on \u00a74/\u00a75 POSITION. Confirmed (r1 + re-grep): repo-intel.py:213 (filename tuple), context-budgeter:49,155 (filename + static lines:60 estimate), doctor.py:225 (os.path.isfile), v0.1.3-verify.sh:47 (existence), context-audit AC6 (content GREP for AUTONOMY.md/CONTEXT_MAP.md in \u00a77 \u2014 position-independent), context-audit AC4 (wc -l bloat bound 400 \u2014 position-independent; post-dedup ~286 lines). No tool HASHES AGENTS.md or checks section ORDER. The only position-dependent constructs are the two TEST fixtures E4/sh:144 (criterion a). \u00a74->\u00a75 adjacency is preserved (both relocate together, order [...,4,5]) so test-agents-md.sh:140-142 (\u00a74..\u00a75 awk) is unaffected \u2014 verified PASS."
+    },
+    {
+      "criterion_ref": "AC-goal-and-offsets",
+      "result": "met",
+      "note": "Goal achieved and ACs machine-checkable: \u00a77<\u00a74 and \u00a79<\u00a74 hold under inventory-last (simulated offsets \u00a77=629, \u00a79=1630, \u00a74=2848). Byte margin: removing the confirmed 8,489 B \u00a75 blob (AGENTS.md:226) takes 32,490 -> ~24,001 B < 28,672. VALID (validator order-independent, dict-keyed by number). 802/3/3 unaffected (generator not among the 49 dmc-v0.* legacy tools; mirror-check set is dmc-v0.* only). DEFAULT_PROTECTED override correctly dropped (generator not in the set); non-degrading landmark FLAG still expected. Bucket-A holds (no floor/gate/when-gates-fire/schema)."
+    },
+    {
+      "criterion_ref": "ADV-s5-truncation-exposure",
+      "result": "na",
+      "note": "ADVISORY (non-blocking). Inventory-last places \u00a75 (Protected surfaces / secret-pattern reminder) DEAD LAST, after the unbounded \u00a74 inventory. On a host where \u00a74 alone exceeds project_doc_max_bytes, \u00a75 is the FIRST casualty of host truncation. This degrades only a defense-in-depth DOC reminder, NOT the enforcement floor (real secret protection is secret-guard.sh / pre-tool-guard.sh / instruction-level CLAUDE.md+DMC.md, never AGENTS.md \u00a75), and the generator still emits its oversize_warning. For THIS repo (post-dedup ~24 KB < 32,768) no truncation occurs. CONSIDER ordering \u00a75 BEFORE \u00a74 (e.g. [1,2,3,5,6,7,8,9,10,4]) so the secret reminder survives truncation while still satisfying \u00a77<\u00a74/\u00a79<\u00a74 \u2014 or accept and document. Also NOTE two stale 'subset-parity' references the Rev 2 body did not update: Relevant Files row (plan line 108) and Verification Commands row (line 234) still say 'subset-parity' where the guard is now COUNT-parity. Cosmetic."
+    }
+  ],
+  "blockers": [],
+  "advisory": true,
+  "context_provenance": "fresh"
+}

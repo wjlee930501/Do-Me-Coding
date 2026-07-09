@@ -1,0 +1,71 @@
+{
+  "schema": "dmc.critic-verdict.v1",
+  "work_id": "dmc-v1.0.5-agentsmd-compaction",
+  "plan_hash": "f704b8dc42ff4f0346416cfda8eadd649a4de93b6d8aa8c70712858691f44885",
+  "repo_hash": "5d345b59750ee6fe7a84c51dad638f74cb14f2b7",
+  "target_ref": ".harness/plans/dmc-v1.0.5-agentsmd-compaction.md",
+  "verdict": "REJECT",
+  "lenses": [
+    "correctness",
+    "scope",
+    "security",
+    "governance-process",
+    "regression-completeness"
+  ],
+  "criteria_checked": [
+    {
+      "criterion_ref": "G1-order-independence",
+      "result": "met",
+      "note": "CONFIRMED order-independent for VALIDATION: split_sections (:399-426) builds a dict keyed by section number; validate_doc (:444-469) iterates SECTIONS by number and looks up by key \u2014 physical position is irrelevant. A2 reorder keeping numeric labels (## 7./## 9.) PASSES `agents-md --validate`. RENUMBERING would be rejected by the title-to-number pin (SECTIONS :60-71). Plan correct on the validator."
+    },
+    {
+      "criterion_ref": "G1-selftest-order-assumption",
+      "result": "unmet",
+      "note": "REFUTED for the module SELFTEST. The plan's finding that generator selftests are 'all order-independent' overlooks the negative-control FIXTURE regexes INSIDE selftest(): V1 (:683) and V4 (:697-698) hardcode physical \u00a76\u2192\u00a77 and \u00a79\u2192\u00a710 adjacency. Empirically reproduced (see B1). This is the load-bearing defect."
+    },
+    {
+      "criterion_ref": "G2-AC6-companion-pointer",
+      "result": "met",
+      "note": "CONFIRMED: dmc-v0.4.7-context-audit.sh:52 greps AGENTS.md for 'AUTONOMY.md' AND 'CONTEXT_MAP.md'; both strings live in \u00a77's companion-docs paragraph (generator :322-327), gated on companion_docs_present(root) (all three of AUTONOMY.md/docs/CONTEXT_MAP.md/docs/DMC_CONSTITUTION.md at root). A2 moves \u00a77's POSITION but not its bytes, so AC6 survives \u2014 PROVIDED regeneration runs at repo root so the gated paragraph renders (advisory A-adv4). AC6 criterion + audit run cover a miss."
+    },
+    {
+      "criterion_ref": "G3-no-content-consumer",
+      "result": "met",
+      "note": "CONFIRMED: no consumer parses \u00a74/\u00a75 CONTENT. repo-intel.py:213 lists AGENTS.md in a filename tuple (scan/existence); context-budgeter:49,155 treats it as project-memory with a static lines:60 estimate (filename only); doctor.py:225 os.path.isfile; v0.1.3-verify.sh:47 existence. The only content readers are AC6's \u00a77 grep (protected) and context-audit AC4 `wc -l` bloat bound (400) \u2014 post-dedup AGENTS.md stays ~286 lines (the 8,489 B blob is ONE line) < 400. No tool HASHES AGENTS.md. Dedup+reorder are consumer-safe."
+    },
+    {
+      "criterion_ref": "G4-default-protected",
+      "result": "met",
+      "note": "CONFIRMED bin/lib/dmc-agents-md.py is NOT in the gate's DEFAULT_PROTECTED (dmc-v0.2.6-gate-check-runner.sh:22-31 = 10 worker/provider/hooks/schema paths; grep count 0). So NO DMC_GATE_PROTECTED override is needed \u2014 the plan's conditional resolves to 'no override' (advisory A-adv2). The plan HEDGES ('if that path is in DEFAULT_PROTECTED') so it does not over-claim. The enforcement-class landmark-FLAG is a SEPARATE non-suppressible mechanism and will still rise as the plan expects."
+    },
+    {
+      "criterion_ref": "G5-subset-parity-guard-sufficiency",
+      "result": "unmet",
+      "note": "The proposed \u00a75\u2286\u00a74 subset guard is a TAUTOLOGY, not a sufficient guard. protected_landmarks (\u00a75) is DERIVED as a filtered subset of \u00a74 landmarks at :215-218, so \u00a75\u2286\u00a74 is true by construction and can only fail if the derivation is refactored \u2014 it does NOT guard the RENDER dedup (:303-306), which is where the plan's change lives. Separately: the dedup CANNOT silently drop a protected surface regardless of the guard, because every \u00a75 path remains in \u00a74 with its class label. Recommend a COUNT-parity guard (rendered \u00a75 per-class counts == derived per-class counts of \u00a74 enforcement/contract/release) to actually catch an off-by-one / mislabeled count. Advisory A-adv1 \u2014 the change is safe either way; not a blocker."
+    },
+    {
+      "criterion_ref": "G6-constitution-802-buckets",
+      "result": "met",
+      "note": "CONFIRMED II.2 802/3/3 is NOT perturbed: dmc-legacy-selftest.py PINNED_BASELINE {tools:49, pass:802, fail:3, na:3} covers ONLY the 49 pre-v1.0 dmc-v0.* tools (NOFLAG_TOOLS+SELFTEST_TOOLS+PY_CORES); dmc-agents-md.py is an M6.5 native module, NOT in that set \u2014 so adding a module-selftest assertion does NOT bump 802, and editing the file does NOT break mirror-check (55-file dmc-v0.* byte-equality set). AC '802/3/3 EXACT' is achievable and non-contradictory. Bucket-A holds: change touches only the generator render/emit-order + a selftest assertion + regenerated artifact + MILESTONES \u2014 no floor/gate/when-gates-fire/schema. IV.2 lexeme discipline not in play: \u00a77 Codex-lexeme prose is moved, not edited (bytes unchanged). No frozen hash of AGENTS.md exists (m8 hashes .codex/config.toml)."
+    },
+    {
+      "criterion_ref": "G7-scope-completeness",
+      "result": "unmet",
+      "note": "FILE scope is adequate (the V1/V4 fix lives inside dmc-agents-md.py, already listed editable), but WORK scope is INCOMPLETE: Proposed Changes and Execution Tasks (DMC-T001..T003) enumerate only the \u00a75 dedup, the reorder, and a NEW subset-parity assertion \u2014 they do NOT include the MANDATORY fix of the existing V1/V4 negative-control regexes that A2 breaks. The plan's Risk row 'Physical reorder trips a selftest assuming numeric file order \u2192 validator is order-independent' MISDIAGNOSES the failure locus (the break is in the test's own fixture-construction regexes, not the validator). This under-specification is B1."
+    },
+    {
+      "criterion_ref": "G8-ACs-objective",
+      "result": "met",
+      "note": "ACs are objective and machine-checkable (byte margin <28672 [32,490\u2192~24,001 after removing the confirmed 8,489 B blob on AGENTS.md:226]; grep -b \u00a77<\u00a74 & \u00a79<\u00a74; --validate VALID; AC6 grep+audit; artifact==stdout byte-identity; selftest --all 802/3/3 EXACT). The ACs are in fact STRONG ENOUGH to CATCH B1: 'module selftest 0 FAIL' and 'm6.5 agents-md suite green' would both FAIL at build under the current plan \u2014 meaning the defect is not silent, but the plan would either stall on its own AC or force an undisclosed V1/V4 edit (Constitution VIII anti-patchwork). Fix the plan, not the AC."
+    }
+  ],
+  "blockers": [
+    {
+      "id": "B1",
+      "statement": "A2 (emit \u00a77/\u00a79 physically above \u00a74) breaks the module selftest's V1 negative-control at bin/lib/dmc-agents-md.py:683. That fixture builds its 'missing section 6' case via re.sub(r'## 6\\. Migration.*?(?=## 7\\.)', '', node_doc, flags=re.S), which deletes \u00a76 by lazily expanding to the NEXT '## 7.' \u2014 assuming \u00a77 is physically DOWNSTREAM of \u00a76. After the reorder \u00a77 sits above \u00a74 (hence above \u00a76): no '## 7.' follows '## 6.', the substitution matches NOTHING, cut==node_doc, cut_ok becomes True, and t.ok('V1 ...', (not cut_ok) and any('missing required section 6'...)) evaluates FALSE \u2192 `agents-md --self-test` exits 1 (FAIL). Empirically reproduced with the EXACT regex over reordered order [1,2,3,7,9,4,5,6,8,10]: V1 removed \u00a76? False (current order: True). No physical order can satisfy BOTH the AC (\u00a77<\u00a74, and \u00a74<\u00a76 is preserved) AND V1's \u00a77-after-\u00a76 assumption, so the fix is mandatory, not orderable-around. Collaterally, V4 (:697-698) re.sub(r'(## 9\\. Stop conditions\\n\\n).*?(\\n## 10\\.)', ...) now spans and DELETES \u00a74/\u00a75/\u00a76/\u00a78 (reordered emptied doc retains only [1,2,3,7,9,10]); it happens to still pass its weak (not-ok + some-'is empty') assertion but no longer tests what it claims. test-agents-md.sh:182 (awk \u00a76\u2192\u00a77 delete) is likewise order-dependent and survives only by exit-code luck. FIX (add to Proposed Changes + a dedicated Execution Task, in-scope in dmc-agents-md.py + test-agents-md.sh): rewrite the V1/V4 negative-control fixtures to be physical-order-independent \u2014 construct the 'missing/empty section' case by locating the target section's OWN heading and the immediately-following numeric heading in the ACTUAL emitted order (via split_sections/HEADING_RE offsets), never by hardcoding the '## 7.'/'## 10.' successor; then re-run `python3 bin/lib/dmc-agents-md.py --self-test` and `dmc selftest m65-suite` under the reordered emission and confirm 0 FAIL. Re-plan and re-submit for a fresh critic pass.",
+      "evidence_ref": "bin/lib/dmc-agents-md.py:683,697-698 ; tests/fixtures/m6.5/test-agents-md.sh:182 ; empirical repro: reordered order [1,2,3,7,9,4,5,6,8,10] \u2192 V1 removes \u00a76 = False, V4 leaves sections [1,2,3,7,9,10]"
+    }
+  ],
+  "advisory": true,
+  "context_provenance": "fresh"
+}
