@@ -975,3 +975,65 @@ session's A→D-core→C→B run order.)_
   (`.harness/evidence/dmc-fable-core-c-critic-r1.json`); run `dmc-run-ea8cac7f910b` armed with
   scope.lock over the in-scope files; independent verifier + `--full` gate pending. **push/CI/main-FF:
   human gate.**
+
+## v1.1.3 — run-start scope arming — LOCAL (2026-07-10)
+
+- **The defect (verifier-discovered, compensated 4×):** `bin/dmc run start` minted a run (run.json +
+  snapshot.txt + pointer) but never compiled the scope.lock — no `bin/dmc` verb exposed the
+  `dmc-scope-lock.py --compile` step. Because the hooks define ARMED := pointer present AND that run's
+  `scope.lock.json` exists, a started-but-lockless run ran with L1 scope enforcement STOOD DOWN while
+  looking armed. Cycle A's independent verifier root-caused it; all four fable-core cycles armed by
+  hand (compile → validate → deny/allow probes) as a manual compensation. This cycle automates that
+  procedure into one fail-closed command, without touching the run-lifecycle core.
+- **What ships (E1–E4):**
+  - **E1 — `bin/dmc run start --scope-input FILE` (dispatch-level composition).** The `run` verb's
+    shared `exec python3 "$RCORE" "$sub"` group is SPLIT: `start` becomes a CAPTURED (non-exec) call
+    whose stdout/stderr flow through untouched, so control returns for the compose; every other run
+    subcommand keeps `exec` verbatim. The dispatcher extracts `--scope-input` (removed before
+    delegation), notes `--plan`/`--root` (left in, default root `.`), and — on a zero RCORE exit WITH
+    `--scope-input` — reads the pointer, then `dmc-scope-lock.py --compile … --root <root> --out
+    <root>/.harness/runs/<id>/scope.lock.json` and `--validate`. Both zero ⇒ prints `ARMED: <lock>
+    (validated)`. The compiler tool path is absolute via the existing `$HERE` pattern
+    (`SCOPELOCKLIB="$HERE/lib/dmc-scope-lock.py"`); `dmc-run-lifecycle.py` and `dmc-scope-lock.py`
+    stay byte-untouched.
+  - **Fail-closed teardown.** If compile OR validate fails, the half-armed state is torn down
+    deterministically — `run suspend --root <root>` FIRST (the pointer must still exist for suspend to
+    resolve the run), THEN pointer removal — and the command exits 3 with `REFUSED-ARMING: <reason>`
+    on stderr. A run that looks started but carries no validated lock never survives.
+  - **E2 — honest unarmed warning.** `run start` WITHOUT `--scope-input` stays byte-compatible with
+    every existing caller/fixture (success-path stdout + exit identical to a direct RCORE start) but
+    now prints ONE stderr line `WARNING: run started UNARMED — no scope.lock; L1 scope enforcement
+    stands down (pass --scope-input FILE to arm)`. Success-path only: on any non-zero RCORE exit
+    (the refuse paths) bin/dmc adds NOTHING to either stream (byte-identity on both).
+  - **E3 — SKILL.md truth repair.** `.claude/skills/dmc-start-work/SKILL.md` step 3 dropped the false
+    "mints and arms the run-id and locked scope" claim (true today ONLY via the new form): the
+    canonical command is now `bin/dmc run start --plan <plan> --scope-input <scope-input.json>`, the
+    scope-input JSON shape is documented with an example, and a fail-closed **no accepted file scope,
+    no edit** rule was added (before ANY edit, verify `.harness/runs/<id>/scope.lock.json` exists AND
+    `dmc-scope-lock.py --validate` ACCEPTs, else STOP). The `.agents/skills` Codex mirror was edited in
+    lockstep — `bin/dmc skills-mirror` reports clean.
+  - **E4 — standalone test + this entry.** New `tests/install/test-run-start-arming.sh` (hermetic
+    mktemp fixtures, `--root` isolation, NOT wired into selftest — install-wrapper precedent).
+- **Verification (implementer lane; independent verifier + release gate pending T003):**
+  `bash tests/install/test-run-start-arming.sh` **24/0** — C1 armed happy path (exit 0, RUNNING,
+  scope.lock exists + `--validate` ACCEPTs, pointer set, `ARMED:` line, a LIVE `bash-radius`
+  out-of-scope write probe against the minted lock ⇒ deny rc4); C2 fail-closed teardown (malformed
+  scope-input ⇒ exit 3, `REFUSED-ARMING:`, no scope.lock, run SUSPENDED, pointer ABSENT); C3
+  back-compat SUCCESS (stdout + exit byte-identical to a direct RCORE start + exactly one WARNING
+  line); C4 back-compat REFUSE (DRAFT plan ⇒ exit + both streams byte-identical, bin/dmc adds
+  nothing); C5 usage mentions `--scope-input`; Z real-repo hermetic proof. `bash -n bin/dmc` clean
+  after every edit. `bin/dmc selftest` (no-arg) every section 0 FAIL. The three pinned consumers of
+  the changed `run` dispatch: `m6-suite` **104/0** (38+45+10+11 — incl. `test-adversarial.sh` vf-a's
+  REFUSE-path byte-identity capture and `test-e2e-ultrawork.sh`'s real `run start`), `m7-suite`
+  **85/0** (36+26+23), `m9-suite` **91/0** (56+35 — the whole-loop E2E drives `run start --root`).
+  `bin/dmc skills-mirror` clean; `bin/dmc agents-md --stdout | diff - AGENTS.md` empty (derived
+  artifact neutral); `tests/fixtures/m8/test-manifest-drift.sh` **10/0** (manifest-neutral change);
+  `bin/dmc linkcheck` clean (24 files); `bin/dmc mirror-check` PASS (55 files). Independent verifier
+  (fresh lane), `dmc gate release --full` (FLAG on `bin/dmc` expected; NO G4 override — `.claude/skills`
+  is not protected), and clean-tree `selftest --all` are the verifier's checks (T003).
+- **Chain:** authorized this session by wjlee (the standing fable-core envelope + the 2026-07-10
+  directive "2. 즉시 수정하여 이번에 반영"): critic-APPROVE-conditional, LOCAL-commit autonomy ceiling on
+  `claude/dmc-fable-core`. Plan `.harness/plans/dmc-fable-core-e-runstart.md` (Rev 2 — critic r1
+  NEEDS_CLARIFICATION on the shared-`exec` unreachability [B1] + cwd-relative composition [B2] →
+  split-start + `--root`-threaded Rev 2 → critic r2 APPROVE, 0 blockers). **push/CI/main-FF: human
+  gate.**

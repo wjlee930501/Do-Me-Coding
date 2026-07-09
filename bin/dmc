@@ -9,6 +9,7 @@ CORE="$HERE/lib/dmc-repo-intel.py"
 ICORE="$HERE/lib/dmc-instance-validate.py"
 LCORE="$HERE/lib/dmc-legacy-selftest.py"
 RCORE="$HERE/lib/dmc-run-lifecycle.py"
+SCOPELOCKLIB="$HERE/lib/dmc-scope-lock.py"
 RUNCORE="$HERE/lib/dmc-run-core-selftest.py"
 ROLESLIB="$HERE/lib/dmc-roles.py"
 VERDICTLIB="$HERE/lib/dmc-critic-verdict.py"
@@ -45,10 +46,19 @@ commands (M2):
               [--out FILE] | --validate FILE | --self-test
 
 commands (M4):
-  run         start --plan FILE [--root DIR] [--work-id ID]   mint + arm a run (refuses unless
-                                              the plan is APPROVED; refuses a second start while a
-                                              run is active; M6: refuses a plan-bound critic REJECT +
-                                              writes snapshot.txt) -> .harness/runs/<run-id>/run.json
+  run         start --plan FILE [--scope-input FILE] [--root DIR] [--work-id ID]   mint + arm a run
+                                              (refuses unless the plan is APPROVED; refuses a second
+                                              start while a run is active; M6: refuses a plan-bound
+                                              critic REJECT + writes snapshot.txt) ->
+                                              .harness/runs/<run-id>/run.json. WITH --scope-input
+                                              (v1.1.3): dispatch-composes the immutable scope.lock in
+                                              one fail-closed step (compile+validate the landmark
+                                              scope-input against the plan) -> prints `ARMED: <lock>
+                                              (validated)`; on compile/validate failure it prints
+                                              `REFUSED-ARMING:` (stderr), suspends + drops the run
+                                              pointer (no false-armed residue), exit 3. WITHOUT it:
+                                              back-compat behavior + a stderr `WARNING: run started
+                                              UNARMED` (L1 scope enforcement stands down until armed).
   run         suspend|resume|status [--root DIR] [--run-id ID]   drive/report the run state machine
                                               (INIT->RUNNING->SUSPENDED->RESUMING->RUNNING->DONE)
 
@@ -371,7 +381,62 @@ case "$cmd" in
     sub=${1:-}
     [ $# -gt 0 ] && shift
     case "$sub" in
-      start|suspend|resume|status|block|blocked-status|unblock)
+      start)
+        # `run start` gains an optional DISPATCH-level `--scope-input FILE` (E1). It is consumed
+        # HERE (bash) and NEVER passed into dmc-run-lifecycle.py, which stays byte-untouched: the
+        # run core still only mints run.json + snapshot.txt + pointer, and this layer composes the
+        # scope.lock compile+validate on top so arming is one fail-closed step. Flag parsing assumes
+        # the space-separated `--flag VALUE` form used by every pinned caller (m6/m7/m9 fixtures, the
+        # dmc-start-work skill). `--scope-input` is removed before delegation; `--plan`/`--root` are
+        # noted for the compose AND left in the delegated argv untouched (default root ".").
+        scope_input=""; scope_plan=""; scope_root="."
+        delegated=()
+        while [ $# -gt 0 ]; do
+          case "$1" in
+            --scope-input) scope_input=${2:-}; shift 2 || shift ;;
+            --plan)  scope_plan=${2:-};    delegated+=("$1" "${2:-}"); shift 2 || shift ;;
+            --root)  scope_root=${2:-.};   delegated+=("$1" "${2:-}"); shift 2 || shift ;;
+            *)       delegated+=("$1"); shift ;;
+          esac
+        done
+        # Delegate to RCORE as a CAPTURED (non-exec) call so control returns for the compose; the
+        # streams flow through UNTOUCHED (no capture, no redirect) so the success stdout AND every
+        # RCORE refuse path stay byte-identical to a direct `dmc-run-lifecycle.py start`.
+        if [ "${#delegated[@]}" -gt 0 ]; then
+          python3 "$RCORE" start "${delegated[@]}"
+        else
+          python3 "$RCORE" start
+        fi
+        rc=$?
+        # On ANY non-zero RCORE exit (the refuse paths) add NOTHING to either stream (byte-identity).
+        [ "$rc" -eq 0 ] || exit "$rc"
+        if [ -z "$scope_input" ]; then
+          # E2 honest unarmed warning: advisory only, success-path only, exit code unchanged.
+          printf 'WARNING: run started UNARMED — no scope.lock; L1 scope enforcement stands down (pass --scope-input FILE to arm)\n' >&2
+          exit 0
+        fi
+        # E1 arm: compile + validate the immutable scope.lock at the run's canonical path. Rooted at
+        # <scope_root> so the pointer read / compile --out / validate all resolve the same run.
+        run_id=$(head -1 "$scope_root/.harness/runs/current-run-id")
+        scope_lock="$scope_root/.harness/runs/$run_id/scope.lock.json"
+        if arm_out=$(python3 "$SCOPELOCKLIB" --compile --plan "$scope_plan" \
+                       --landmarks "$scope_input" --run-id "$run_id" --root "$scope_root" \
+                       --out "$scope_lock" 2>&1) \
+           && arm_out=$(python3 "$SCOPELOCKLIB" --validate "$scope_lock" --root "$scope_root" 2>&1); then
+          printf 'ARMED: %s (validated)\n' "$scope_lock"
+          exit 0
+        fi
+        # Fail-closed: a run that LOOKS started but has no validated lock is the false-"armed" state
+        # this cycle exists to kill. Tear it down deterministically — suspend FIRST (the pointer must
+        # still exist for suspend to resolve the run), THEN remove the pointer — and exit 3.
+        arm_reason=$(printf '%s\n' "$arm_out" | grep -E -m1 'REFUSED|SCOPE-LOCK|dmc-scope-lock')
+        [ -n "$arm_reason" ] || arm_reason="scope-lock compile/validate failed"
+        printf 'REFUSED-ARMING: %s\n' "$arm_reason" >&2
+        python3 "$RCORE" suspend --root "$scope_root" >/dev/null 2>&1
+        rm -f "$scope_root/.harness/runs/current-run-id"
+        exit 3
+        ;;
+      suspend|resume|status|block|blocked-status|unblock)
         exec python3 "$RCORE" "$sub" "$@"
         ;;
       *)
