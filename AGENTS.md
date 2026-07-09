@@ -198,6 +198,7 @@ Fields left `Unknown` (not derivable from the repository — resolve and fill in
 - `bin/lib/dmc-fixloop.py` — enforcement (enforcement-surface heuristic / dmc-protected-union)
 - `bin/lib/dmc-instance-validate.py` — enforcement (enforcement-surface heuristic / dmc-protected-union)
 - `bin/lib/dmc-legacy-selftest.py` — enforcement (enforcement-surface heuristic / dmc-protected-union)
+- `bin/lib/dmc-metrics-recorder.py` — enforcement (enforcement-surface heuristic / dmc-protected-union)
 - `bin/lib/dmc-orchestration-linkcheck.py` — enforcement (enforcement-surface heuristic / dmc-protected-union)
 - `bin/lib/dmc-postbash-diff.py` — enforcement (enforcement-surface heuristic / dmc-protected-union)
 - `bin/lib/dmc-release-gate.py` — enforcement (enforcement-surface heuristic / dmc-protected-union)
@@ -283,4 +284,4 @@ Never read, edit, or print these (secrets, DMC bindings, generated/vendored surf
   - `**/.ssh/*`, `**/.aws/credentials`
 - Version-control internals: `.git/`
 - DMC enforcement bindings (edit only through an approved plan scope): `.claude/`, `.agents/`, `.codex/`, `bin/dmc`, `bin/lib/`, `.harness/`
-- Repository enforcement / contract / release landmarks (see section 4): 106 enforcement / 82 contract / 1 release landmarks.
+- Repository enforcement / contract / release landmarks (see section 4): 107 enforcement / 82 contract / 1 release landmarks.
