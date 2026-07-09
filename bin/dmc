@@ -24,6 +24,9 @@ AGENTSMDLIB="$HERE/lib/dmc-agents-md.py"
 SKILLSMIRRORLIB="$HERE/lib/dmc-skills-mirror.py"
 DOCTORLIB="$HERE/lib/dmc-doctor.py"
 RGATELIB="$HERE/lib/dmc-release-gate.py"
+METRICSLIB="$HERE/lib/dmc-metrics-recorder.py"
+EFFORTLIB="$HERE/lib/dmc-v0.5.2-effort-controller.sh"
+COURSELIB="$HERE/lib/dmc-v0.5.3-dynamic-workflow-selector.sh"
 M6SUITEDIR="$HERE/../tests/fixtures/m6"
 M65SUITEDIR="$HERE/../tests/fixtures/m6.5"
 M8SUITEDIR="$HERE/../tests/fixtures/m8"
@@ -136,6 +139,26 @@ commands (M9 release gate):
                                               (architecture-named front door; <2s budget);
                                               same exit-code mapping as --full
 
+commands (v1.1 measurement layer — ADVISORY / opt-in; nothing here is an enforcement gate; no
+gate reads the ledger):
+  metrics     record --from RECORD.json [--ledger PATH]   validate RECORD via the FROZEN v0.5.0
+                                              run-metrics tool, then append ONE redacted JSONL row to
+                                              the append-only local ledger (default
+                                              .harness/metrics/ledger.jsonl; --ledger for out-of-tree
+                                              self-tests). Fail-closed: validator non-zero => no
+                                              append; symlink/secret/in-tree override ledger REFUSED.
+  metrics     rollup [--ledger PATH]          deterministic stdout aggregate over the ledger (counts
+                                              by outcome/effort/mode; retry/human-gate/blocker/finding
+                                              + tests sums; wall_clock_sec sum+median; malformed lines
+                                              counted as skipped_malformed, never fatal)
+  metrics     self-test                        recorder module self-test (hermetic; offline)
+  effort      --risk-class C [flags] | --from FILE | --self-test   advisory effort recommendation
+                                              (light/standard/deep/adversarial); passes argv through to
+                                              the frozen v0.5.2 effort controller (behavior unchanged)
+  course      --task-class C [flags] | --from FILE | --self-test   advisory workflow-lane selection;
+                                              passes argv through to the frozen v0.5.3 dynamic
+                                              workflow selector (behavior unchanged)
+
 commands (M3):
   validate    plan|run|verification <path>   instance validator (ACCEPT => 0, REFUSED => 3)
   validate    schemas-mirror                 mirrors == canonical roots modulo generated header
@@ -199,12 +222,17 @@ commands (M3):
                                               ->release gate->human-gate record) + latency rows.
                                               Named-only; also under --all; NOT in the no-arg
                                               default.
+  selftest    metrics                        v1.1 run-metrics recorder module self-test
+                                              (dmc-metrics-recorder.py): record append-only + fail-
+                                              closed refuse + redaction parity + rollup determinism +
+                                              offline self-audit. Included in the no-arg default AND
+                                              under --all.
   selftest    --all                          above + all 49 legacy tools (bin/lib) vs the
                                               pinned baseline + rollback-test + run-core/loop-core
                                               + the four M5 orchestration sections + m6-core + m6-suite
                                               + skills-mirror + agents-md + m65-suite + doctor
                                               + m8-suite + worker-check + m7-suite + release-gate
-                                              + m9-suite (slow: ~10+ min)
+                                              + m9-suite + metrics-recorder (slow: ~10+ min)
   help
 
 Artifacts conform to .harness/schemas/{orientation,landmarks,depsurface,radius}.schema.md.
@@ -428,6 +456,25 @@ case "$cmd" in
   linkcheck)
     exec python3 "$LINKLIB" "$@"
     ;;
+  metrics)
+    sub=${1:-}
+    [ $# -gt 0 ] && shift
+    case "$sub" in
+      record|rollup|self-test|selftest)
+        exec python3 "$METRICSLIB" "$sub" "$@"
+        ;;
+      *)
+        echo "dmc metrics: unknown verb: ${sub:-<none>} (record|rollup|self-test)" >&2
+        exit 2
+        ;;
+    esac
+    ;;
+  effort)
+    exec bash "$EFFORTLIB" "$@"
+    ;;
+  course)
+    exec bash "$COURSELIB" "$@"
+    ;;
   mirror-check)
     exec python3 "$LCORE" mirror --check
     ;;
@@ -471,10 +518,11 @@ case "$cmd" in
       run_m7_suite || rc=1
       python3 "$RGATELIB" --self-test || rc=1
       run_m9_suite || rc=1
+      python3 "$METRICSLIB" --self-test || rc=1
       exit "$rc"
     fi
     [ $# -eq 0 ] && set -- orient landmarks depsurface radius \
-      validate-plan validate-run validate-verification schemas-mirror legacy-mirror
+      validate-plan validate-run validate-verification schemas-mirror legacy-mirror metrics
     rc=0
     for t in "$@"; do
       case "$t" in
@@ -506,6 +554,7 @@ case "$cmd" in
         m7-suite)               run_m7_suite || rc=1 ;;
         release-gate)           python3 "$RGATELIB" --self-test || rc=1 ;;
         m9-suite)               run_m9_suite || rc=1 ;;
+        metrics)                python3 "$METRICSLIB" --self-test || rc=1 ;;
         *) echo "dmc selftest: unknown target: $t" >&2; exit 2 ;;
       esac
     done

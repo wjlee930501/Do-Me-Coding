@@ -800,3 +800,54 @@ entry above is unchanged by this patch.
   (inventory-last reframing + in-scope fixture rewrite + subset→count parity + dropped the
   over-claimed DEFAULT_PROTECTED override) → critic r2 APPROVE; run `dmc-run-02ba039531cf`; scope
   locked to the 4 files; LOCAL commit only. **push/CI/main-FF: human gate.**
+
+## v1.1 — measurement layer wiring (run-metrics recorder + effort/course reachability) — LOCAL (2026-07-09)
+
+- **What/why (memo §7-1 "wiring, not design"):** the run-metrics stack was dormant-but-complete —
+  a frozen validator/redactor (`dmc-v0.5.0-run-metrics.sh`) and two frozen advisory selectors
+  (effort `v0.5.2`, course `v0.5.3`) existed with ZERO callers. This cycle makes them reachable
+  and opt-in WITHOUT any enforcement/floor/ceremony change. Everything is additive + advisory;
+  nothing invokes the recorder automatically and **no gate reads the ledger** (it measures, it
+  never grades).
+- **What/where (one new module + four in-scope edits):**
+  - **New `bin/lib/dmc-metrics-recorder.py`** — `record --from <record.json> [--ledger <path>]`
+    DELEGATES all validation + secret redaction to the frozen v0.5.0 tool (never re-implements
+    those rules), parses the redacted free-form values from the frozen emit, and appends ONE
+    compact sorted-key JSONL row to the append-only local ledger. Fail-closed: a validator non-zero
+    => no append; the default in-tree ledger `.harness/metrics/ledger.jsonl` is the only in-tree
+    ALLOW (mkdir-on-write, symlink-refused), while any `--ledger` override runs an `out_refused`-
+    style guard (traversal/secret/symlink/in-tree REFUSED; repo-external temp permitted for
+    self-tests). `rollup [--ledger]` prints a deterministic stdout aggregate (counts by
+    outcome/effort/mode; retry/human-gate/blocker/finding + tests sums; wall-clock sum+median;
+    malformed lines counted as `skipped_malformed`, never fatal). Offline posture is machine-proven
+    by a structural self-audit assertion mirroring the frozen family's AC6 (no env-read/socket/
+    urllib/requests/curl/wget/--live in the operative source; sole subprocess target is the pinned
+    frozen validator).
+  - **`bin/dmc`** — `metrics` (record/rollup/self-test), `effort` (argv pass-through to
+    `v0.5.2`), and `course` (argv pass-through to `v0.5.3`) verbs + usage text; the recorder
+    self-test is wired into the `selftest` module list (no-arg default AND `--all`).
+  - **`.gitignore`** — `.harness/metrics/` (ledger is out-of-band, local-only by policy).
+  - **`docs/DMC_OPERATOR_HANDBOOK.md`** — one additive "Measuring a run (advisory, opt-in)"
+    section: course-before / record-after / rollup-weekly, with the anti-fake note that no gate
+    reads the ledger and that catch-rate/false-block tagging + manual-vs-auto recording are pending
+    §9 pilot decisions.
+- **Verification (implementer lane; independent verifier + release gate pending T003):** recorder
+  module self-test **9/0** (direct file run AND via `dmc metrics self-test` dispatch); `dmc effort
+  --self-test` **14/0**; `dmc course --self-test` **20/0**; `dmc effort --risk-class docs-only` =>
+  `light`; `dmc metrics rollup` on the empty default ledger => `row_count: 0` (no write); `dmc
+  selftest` every section 0 FAIL (orient 10 · landmarks 13 · depsurface 8 · radius 7 · plan 8 · run
+  6 · verification 6 · schemas-mirror 15 · legacy-mirror 55/55 · recorder 9); `dmc mirror-check`
+  PASS (recorder is NOT one of the pinned 55 legacy copies — no stray `dmc-v0.*` guard trip); `dmc
+  linkcheck` clean (24 files). Legacy `dmc selftest --all` = **802/3/3 EXACT** and the `--full`
+  release gate are the independent verifier's checks (T003).
+- **Landmark FLAG posture:** `bin/dmc` + the new `bin/lib/*` module are enforcement-class landmarks,
+  so the release gate raises its non-degrading landmark FLAG on them (expected; NO
+  `DMC_GATE_PROTECTED` override — same posture as v1.0.5's generator edit; the recorder is not among
+  the 49 legacy tools nor in the release-gate DEFAULT_PROTECTED set).
+- **Chain:** authorized this session by wjlee (AskUserQuestion envelope "전체 비준": cycles
+  A→D-core→C→B, critic-APPROVE-conditional, LOCAL-commit autonomy ceiling); plan
+  `.harness/plans/dmc-fable-core-d-runmetrics.md`; critic r1 NEEDS_CLARIFICATION (20-key REQ
+  off-by-one + AC5 vacuous-pass) => Rev 2 (default-ledger ALLOW vs override `out_refused`
+  clarification + structural offline self-audit AC) => critic r2 APPROVE; run
+  `dmc-run-c78c84750bcc` armed with scope.lock over the 5 in-scope paths. **push/CI/main-FF:
+  human gate.**

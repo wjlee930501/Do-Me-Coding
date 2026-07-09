@@ -28,6 +28,9 @@
 # Do-Me-Coding Worker Bridge provider runtime (live tasks/results/logs — always local-only)
 .harness/workers/providers/
 
+# Do-Me-Coding run-metrics ledger (out-of-band, local-only by policy; a rollup is committed by a human if ever)
+.harness/metrics/
+
 # Secret-class files — never track (CLAUDE.md "Secret Protection")
 .env
 .env.*

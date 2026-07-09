@@ -91,3 +91,41 @@ for DMC operators, honored by discipline and surfaced in review — it is not to
 Operational templates (parameterized, in DMC's own words) live in `DMC_AGENT_HANDOFF.md`: `critic`, `start-work`,
 `staging-review`, `commit-review`, `push-review`, `milestone-closure`. Each states its inputs, the gate it serves, its
 fail-closed conditions, and the exact outputs to print.
+
+## Measuring a run (advisory, opt-in)
+
+DMC ships an optional measurement layer (v1.1). It is **advisory only** — it recommends effort *before* a run and
+records efficiency data *after* one. Nothing here is an enforcement gate, and **no gate reads the ledger**: it measures,
+it never grades. Using it is a choice; skipping it changes no enforcement.
+
+- **Course the run before you start it.** Ask for the smallest sufficient effort/lane from the declared task facts:
+
+  ```text
+  dmc effort --risk-class docs-only            # => recommended_effort: light
+  dmc course --task-class additive --changed-paths bin/lib/x.py
+  ```
+
+  Both pass through to the frozen advisory selectors (v0.5.2 / v0.5.3) unchanged; the output is a recommendation, not a
+  gate. Fail-closed: unknown/danger facts escalate to the higher lane.
+
+- **Record one row after each real task.** Hand-author a metrics record (see
+  `.harness/schemas/run-metrics.schema.md`) and append it to the local ledger:
+
+  ```text
+  dmc metrics record --from my-run.json        # default ledger .harness/metrics/ledger.jsonl
+  ```
+
+  The record is validated + secret-redacted by the frozen v0.5.0 tool before a single redacted JSONL line is appended
+  (append-only; the ledger is never rewritten). A record that fails validation is refused with no append.
+
+- **Read the rollup weekly.** Aggregate the ledger for a deterministic snapshot (counts by outcome/effort/mode; retry,
+  human-gate, blocker, finding, and test sums; wall-clock sum + median):
+
+  ```text
+  dmc metrics rollup
+  ```
+
+**Anti-fake note.** The ledger is out-of-band and git-ignored (`.harness/metrics/`); it is data *for humans*, not an
+input to any gate, verdict, or stop-condition. Outcome rows are the pilot's data product — catch-rate / false-block
+tagging and the manual-vs-automatic recording question are pilot-time decisions (memo §9), still pending; this layer
+ships the manual/opt-in path only.
