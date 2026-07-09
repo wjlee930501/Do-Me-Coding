@@ -1,0 +1,22 @@
+{
+  "run_id": "dmc-run-c78c84750bcc",
+  "goal_type": "harness-infra: v1.1 run-metrics recorder wiring (fable-core Cycle D-core)",
+  "mode": "autonomous-local-commit",
+  "effort": "deep",
+  "context_files_count": 5,
+  "estimated_input_tokens": 200000,
+  "estimated_output_tokens": 30000,
+  "tool_calls": 60,
+  "wall_clock_sec": 5400,
+  "files_touched": 5,
+  "tests_selected": 9,
+  "tests_run": 9,
+  "tests_passed": 9,
+  "tests_failed": 0,
+  "review_findings_total": 2,
+  "blockers": 0,
+  "retry_count": 1,
+  "human_gates": 1,
+  "outcome": "completed",
+  "efficiency_notes": "first real ledger row - D-core build cycle under armed run; critic r1 NC(2 required) folded in Rev2; AC5 sentinel fix was the single retry"
+}
