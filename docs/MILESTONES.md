@@ -903,3 +903,75 @@ entry above is unchanged by this patch.
   `info/exclude` residue + case (vi) proving neutrality => critic r2 APPROVE; run
   `dmc-run-880cb5a91f23` armed with scope.lock over the 2 in-scope paths. **push/CI/main-FF: human
   gate.**
+
+## v1.1.1 — ask-tier bypass-awareness — LOCAL (2026-07-09)
+
+_(Numbered before v1.1.2 by plan sequence; built after it — cycle C followed cycle B in this
+session's A→D-core→C→B run order.)_
+
+- **What/why (memo risk #1 "friction / false-block"):** the direct source of the "why does DMC
+  keep prompting" adoption pain is the ask tier re-seeking consent the human already granted. This
+  session hit that live: benign package/read commands stalled on a DMC `ask` even though the host
+  was already running with blanket consent. `bypassPermissions` is the host-native record that the
+  human pre-granted blanket consent for the whole session, so a second DMC ask for the SAME consent
+  is redundant. This cycle downgrades ONLY that redundant ask to an advisory stand-down; the memo
+  §6 floor/advisory split applied to the ask tier. **Deny floors are not consent-seeking and never
+  stand down.**
+- **What/where (`pre-tool-guard.sh`, two additive touches — no other block changed):**
+  - **C1 permission-mode read:** `PERMISSION_MODE="$(json_get 'permission_mode')"` added right
+    after the `COMMAND` extraction (a PreToolUse-input field current Claude Code delivers but the
+    hooks ignored until now). Empty/absent when a host omits it.
+  - **C2 Block C bypass stand-down:** when the ask pattern matches AND `PERMISSION_MODE` is EXACTLY
+    `bypassPermissions`, the ask is downgraded — the matched class (`publish|audit-force|
+    schema-push|migrate|install`, derived for the notice/log ONLY, never affecting matching) is
+    appended as ONE value-blind line (`<utc> ask-tier-standdown class=<class>`, NEVER the command
+    text) to `.harness/metrics/ask-tier-advisory.log`, a `{"systemMessage":…}` advisory (built via
+    the existing `json_string` helper so the class can never malform the envelope) is emitted, and
+    the hook `exit 0`s (allow pass-through). Every log failure is swallowed (`mkdir -p … || true`,
+    stderr suppressed before the append) so the hook always exits 0. Any OTHER permission_mode value
+    (absent, empty, `default`, `acceptEdits`, `plan`, unknown) falls through to the byte-identical
+    frozen ask.
+- **Disclosed narrowing (surfaced for the human gate):** the authorizing envelope named cycle C as
+  "ask-tier 재설계: bypass-인식 + Block C 세분화". The **Block-C-list granularity half was NARROWED
+  during planning to bypass-awareness only** — the Block C pattern LIST is unchanged (no command
+  added/removed). Rationale: the frozen `bin/lib/dmc-v0.1.3-verify.sh` probes the hook with a
+  permission-mode-free `npm install` and REQUIRES `"ask"`; removing/re-slicing the list would break
+  that frozen baseline permanently. The fail-closed default keeps the list-level behavior
+  byte-identical; only the bypass axis is new. `acceptEdits`/native-allowlist sessions are
+  deliberately NOT stood down (acceptEdits consents to edits, not arbitrary Bash; the allowlist is
+  invisible to the hook) — registered as a v1.2+ pilot question.
+- **Honest posture (inert-if-absent):** live `bypassPermissions` delivery by a real bypass-mode
+  session is NOT provable from inside this non-bypass session — the branch is dead code until a host
+  actually sends the field, and the evidence records no false "live-proven" claim. The advisory log
+  is the pilot's measurement of real firings (including consequential classes like `migrate`) so the
+  narrowing can be reviewed against data rather than asserted safe.
+- **Verification (implementer lane; independent verifier + release gate pending T003):** new
+  standalone smoke test `tests/install/test-ask-tier-bypass.sh` **9/0** (8 plan cases + a value-blind
+  negative control: frozen-compat ask with no field / with `acceptEdits`; bypass stand-down with a
+  single `class=install` log line + parseable `systemMessage` + rc0; `git push --force` and `cat .env`
+  STILL deny under bypass; non-prisma `migrate reset` logs `class=migrate`; `mode=passive` ask
+  stand-down intact; read-only metrics dir still exits 0; a fake `sk-…` token in the command never
+  enters the log). `bash -n pre-tool-guard.sh` PASS after every edit. Frozen `bin/lib/dmc-v0.1.3-verify.sh`
+  (mode=active): the four pre-tool-guard behavior rows PASS (`npm ask`, `rm-rf deny`, `cat .env deny`,
+  `benign 0`) — the two suite FAILs are the pre-commit `existing hooks changed: pre-tool-guard.sh`
+  byte-compare (expected: this edit is uncommitted) and the anachronistic `GLM/worker code found`
+  row (a committed-tree condition — that frozen check predates the v0.2 worker bridge; not touched by
+  this change). A16/UPS parity `.harness/evidence/v011-verify.sh` = **39/2 EXACT** registered baseline
+  with `T009 mode-gate md5 unique=1` PASS (the md5-pinned mode preamble is untouched) and `active npm
+  ask` / `passive npm pass` / `off npm pass` all PASS; the two baseline FAILs (`active stop block`,
+  `6 existing skills present`) are the known non-all-pass rows, unrelated to Block C. `bin/dmc
+  selftest` every section 0 FAIL; `bin/dmc linkcheck` clean (24 files); `bin/dmc mirror-check` PASS
+  (the live hook is not one of the 55 pinned legacy copies). Installer-mirror question resolved:
+  `dmc-install.sh:302` path-copies the live hook (`cp "$SRC/.claude/hooks/$h"`) — no embedded payload
+  to sync. Legacy `dmc selftest --all` = **802/3/3 EXACT** (committed-replica + isolated-live) and the
+  `--full` release gate with the `DMC_GATE_PROTECTED` override (DEFAULT_PROTECTED minus `.claude/hooks`,
+  non-degrading landmark FLAG never suppressed) are the independent verifier's checks (T003).
+- **Divergence surfaced for the verifier:** `adapters/codex/dmc_codex_common.py` mirrors the Block C
+  ask floor in Python for the Codex host but is OUT OF SCOPE this cycle, so it does NOT yet carry
+  bypass-awareness — recorded here for a follow-up decision, not silently patched.
+- **Chain:** authorized this session by wjlee (AskUserQuestion envelope "전체 비준": cycles
+  A→D-core→C→B, critic-APPROVE-conditional, LOCAL-commit autonomy ceiling on `claude/dmc-fable-core`);
+  plan `.harness/plans/dmc-fable-core-c-asktier.md` (Rev 1); critic r1 APPROVE, 0 blockers
+  (`.harness/evidence/dmc-fable-core-c-critic-r1.json`); run `dmc-run-ea8cac7f910b` armed with
+  scope.lock over the in-scope files; independent verifier + `--full` gate pending. **push/CI/main-FF:
+  human gate.**

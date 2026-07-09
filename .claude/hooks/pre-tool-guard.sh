@@ -49,6 +49,11 @@ json_string() {
 COMMAND="$(json_get 'tool_input.command')"
 [ -n "$COMMAND" ] || exit 0
 
+# Host session permission mode (PreToolUse input; delivered by current Claude Code, ignored until
+# v1.1.1). Empty/absent when a host does not send it — Block C treats ONLY the EXACT literal
+# "bypassPermissions" as blanket-consent; every other value falls through to the unchanged ask.
+PERMISSION_MODE="$(json_get 'permission_mode')"
+
 deny() {
   reason="$1"
   reason_json="$(printf '%s' "$reason" | json_string)"
@@ -130,6 +135,28 @@ fi
 # Block C — ask tier (active mode only; less intrusive in passive/off)
 if [ "$DMC_MODE" = "active" ]; then
   if printf '%s' "$CMD_ONE_LINE" | grep -Eiq '(npm|pnpm|yarn|bun)[[:space:]]+publish|npm[[:space:]]+audit[[:space:]]+fix[[:space:]]+--force|schema[[:space:]]+push|migrate[[:space:]]+(deploy|dev|reset)|npm[[:space:]]+install|pnpm[[:space:]]+install|yarn[[:space:]]+install|bun[[:space:]]+install'; then
+    # Matched class — advisory notice/log ONLY (never affects matching or the ask). Falls back to
+    # install, the sole remaining alternative once publish/audit-force/schema-push/migrate are ruled out.
+    PTG_ASK_CLASS="install"
+    if printf '%s' "$CMD_ONE_LINE" | grep -Eiq '(npm|pnpm|yarn|bun)[[:space:]]+publish'; then PTG_ASK_CLASS="publish"
+    elif printf '%s' "$CMD_ONE_LINE" | grep -Eiq 'npm[[:space:]]+audit[[:space:]]+fix[[:space:]]+--force'; then PTG_ASK_CLASS="audit-force"
+    elif printf '%s' "$CMD_ONE_LINE" | grep -Eiq 'schema[[:space:]]+push'; then PTG_ASK_CLASS="schema-push"
+    elif printf '%s' "$CMD_ONE_LINE" | grep -Eiq 'migrate[[:space:]]+(deploy|dev|reset)'; then PTG_ASK_CLASS="migrate"
+    fi
+    # bypassPermissions is the host-native record that the human pre-granted blanket consent for this
+    # session; a second DMC ask for the SAME consent is redundant friction. Downgrade to an ADVISORY
+    # stand-down (allow pass-through) + one value-blind best-effort log line (class + UTC timestamp
+    # only, NEVER the command text). The deny floors above already fired and never reach here. Every
+    # log failure is swallowed so the hook always exits 0. Any other permission_mode value (absent,
+    # empty, default, acceptEdits, plan, unknown) falls through to the unchanged ask below.
+    if [ "$PERMISSION_MODE" = "bypassPermissions" ]; then
+      PTG_ADV_DIR="${CLAUDE_PROJECT_DIR:-$PWD}/.harness/metrics"
+      mkdir -p "$PTG_ADV_DIR" 2>/dev/null || true
+      printf '%s ask-tier-standdown class=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$PTG_ASK_CLASS" 2>/dev/null >> "$PTG_ADV_DIR/ask-tier-advisory.log" || true
+      adv_json="$(printf '%s' "DMC advisory: ask-tier stood down under bypassPermissions (class: $PTG_ASK_CLASS); deny floors remain active." | json_string)"
+      printf '{"systemMessage":%s}\n' "$adv_json"
+      exit 0
+    fi
     ask "Do-Me-Coding detected a package, migration, publish, or schema-changing command. Confirm this is intended."
   fi
 fi
