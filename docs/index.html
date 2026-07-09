@@ -1,0 +1,356 @@
+<title>Do-Me-Coding — prove the work</title>
+<style>
+  :root {
+    --paper: #eceee9; --surface: #f4f6f1; --raise: #f9faf6;
+    --ink: #191c1e; --ink-soft: #4a4f4d; --ink-faint: #6e746f;
+    --rule: #d4d8d0; --rule-strong: #b9beb4;
+    --verdict: #0e6a55; --verdict-deep: #0a4d3e; --verdict-wash: #dfe9e2;
+    --flag: #9c6a1c; --flag-wash: #efe6d3;
+    --shadow: 0 1px 0 rgba(25,28,30,.04), 0 12px 32px -18px rgba(14,106,85,.28);
+    --serif: "Iowan Old Style","Palatino Linotype","Palatino","Book Antiqua",Georgia,"Times New Roman",serif;
+    --sans: system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono: ui-monospace,"SF Mono","Menlo","Cascadia Code","Consolas",monospace;
+    --maxw: 1080px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #14171a; --surface: #1a1e21; --raise: #202528;
+      --ink: #e8eae5; --ink-soft: #a2a8a3; --ink-faint: #7d837e;
+      --rule: #2a3033; --rule-strong: #3a4145;
+      --verdict: #34b394; --verdict-deep: #7fd8c1; --verdict-wash: #143029;
+      --flag: #d6a24e; --flag-wash: #2c2415;
+      --shadow: 0 1px 0 rgba(0,0,0,.3), 0 18px 44px -22px rgba(0,0,0,.7);
+    }
+  }
+  :root[data-theme="light"] {
+    --paper: #eceee9; --surface: #f4f6f1; --raise: #f9faf6;
+    --ink: #191c1e; --ink-soft: #4a4f4d; --ink-faint: #6e746f;
+    --rule: #d4d8d0; --rule-strong: #b9beb4;
+    --verdict: #0e6a55; --verdict-deep: #0a4d3e; --verdict-wash: #dfe9e2;
+    --flag: #9c6a1c; --flag-wash: #efe6d3;
+    --shadow: 0 1px 0 rgba(25,28,30,.04), 0 12px 32px -18px rgba(14,106,85,.28);
+  }
+  :root[data-theme="dark"] {
+    --paper: #14171a; --surface: #1a1e21; --raise: #202528;
+    --ink: #e8eae5; --ink-soft: #a2a8a3; --ink-faint: #7d837e;
+    --rule: #2a3033; --rule-strong: #3a4145;
+    --verdict: #34b394; --verdict-deep: #7fd8c1; --verdict-wash: #143029;
+    --flag: #d6a24e; --flag-wash: #2c2415;
+    --shadow: 0 1px 0 rgba(0,0,0,.3), 0 18px 44px -22px rgba(0,0,0,.7);
+  }
+
+  :root { --on-accent: #fff; }
+  @media (prefers-color-scheme: dark){ :root { --on-accent: #06110d; } }
+  :root[data-theme="light"] { --on-accent: #fff; }
+  :root[data-theme="dark"] { --on-accent: #06110d; }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: var(--sans); line-height: 1.6;
+    -webkit-font-smoothing: antialiased; font-feature-settings: "kern";
+  }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+  a { color: var(--verdict-deep); text-decoration: none; }
+  a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  :focus-visible { outline: 2px solid var(--verdict); outline-offset: 3px; border-radius: 2px; }
+  h1,h2,h3 { font-family: var(--serif); font-weight: 600; text-wrap: balance; letter-spacing: -.01em; }
+  code, .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .eyebrow { font-family: var(--mono); font-size: .72rem; letter-spacing: .18em; text-transform: uppercase; color: var(--ink-faint); }
+
+  /* ---- header ---- */
+  header { border-bottom: 1px solid var(--rule); position: sticky; top: 0; background: color-mix(in srgb, var(--paper) 86%, transparent); backdrop-filter: saturate(1.1) blur(8px); z-index: 20; }
+  .bar { display: flex; align-items: center; justify-content: space-between; height: 60px; }
+  .brand { display: flex; align-items: center; gap: 11px; font-family: var(--serif); font-weight: 600; font-size: 1.06rem; letter-spacing: -.01em; }
+  .seal { width: 26px; height: 26px; flex: none; color: var(--verdict); }
+  .seal .dim { opacity: .38; }
+  nav.links { display: flex; gap: 26px; font-size: .9rem; font-family: var(--sans); }
+  nav.links a { color: var(--ink-soft); }
+  nav.links a:hover { color: var(--verdict-deep); text-decoration: none; }
+  @media (max-width: 720px){ nav.links { display: none; } }
+
+  /* ---- hero ---- */
+  .hero { padding: 84px 0 64px; border-bottom: 1px solid var(--rule); position: relative; }
+  .preamble { max-width: 42ch; }
+  .hero h1 { font-size: clamp(2.6rem, 6vw, 4.1rem); line-height: 1.02; margin: 18px 0 0; }
+  .hero h1 .em { color: var(--verdict); font-style: italic; }
+  .lede { font-size: 1.16rem; color: var(--ink-soft); max-width: 54ch; margin: 22px 0 0; }
+  .cta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; align-items: center; }
+  .btn { display: inline-flex; align-items: center; gap: 9px; font-family: var(--sans); font-size: .95rem; font-weight: 550; padding: 11px 18px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; }
+  .btn.primary { background: var(--verdict); color: var(--on-accent); box-shadow: var(--shadow); }
+  .btn.primary:hover { text-decoration: none; filter: brightness(1.05); }
+  .btn.ghost { border-color: var(--rule-strong); color: var(--ink); background: transparent; }
+  .btn.ghost:hover { text-decoration: none; border-color: var(--verdict); color: var(--verdict-deep); }
+
+  /* verdict card floats in hero */
+  .verdict-card { margin-top: 46px; background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; max-width: 560px; }
+  .vc-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--rule); background: var(--raise); }
+  .vc-title { font-family: var(--mono); font-size: .82rem; color: var(--ink-soft); }
+  .stamp { font-family: var(--mono); font-weight: 700; font-size: .78rem; letter-spacing: .12em; padding: 4px 10px; border-radius: 5px; border: 1.5px solid var(--verdict); color: var(--verdict); background: var(--verdict-wash); }
+  .vc-body { padding: 14px 16px; display: grid; gap: 7px; }
+  .vc-row { display: grid; grid-template-columns: 1fr auto; gap: 12px; font-family: var(--mono); font-size: .82rem; align-items: baseline; }
+  .vc-row .g { color: var(--ink-soft); }
+  .vc-row .v { color: var(--verdict); font-weight: 600; }
+  .vc-row .v.flag { color: var(--flag); }
+  .vc-foot { border-top: 1px dashed var(--rule-strong); padding: 11px 16px; font-family: var(--mono); font-size: .78rem; color: var(--ink-faint); display:flex; flex-wrap: wrap; gap: 2px 12px; justify-content:space-between; }
+
+  /* ---- section frame ---- */
+  section { padding: 76px 0; border-bottom: 1px solid var(--rule); }
+  .sec-head { display: flex; align-items: baseline; gap: 16px; margin-bottom: 40px; }
+  .sec-head .num { font-family: var(--mono); font-size: .8rem; color: var(--verdict); border: 1px solid var(--rule-strong); border-radius: 5px; padding: 3px 8px; }
+  .sec-head h2 { font-size: clamp(1.7rem, 3.2vw, 2.3rem); margin: 0; }
+  .sec-head p { margin: 6px 0 0; color: var(--ink-soft); max-width: 52ch; }
+
+  /* ---- loop ---- */
+  .loop { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0; border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; background: var(--surface); }
+  .stage { padding: 20px 16px 22px; border-right: 1px solid var(--rule); position: relative; }
+  .stage:last-child { border-right: none; }
+  .stage .n { font-family: var(--mono); font-size: .75rem; color: var(--ink-faint); }
+  .stage h3 { font-family: var(--sans); font-weight: 600; font-size: 1.02rem; margin: 8px 0 6px; letter-spacing: -.01em; }
+  .stage p { margin: 0; font-size: .84rem; color: var(--ink-soft); line-height: 1.5; }
+  .stage .arrow { position: absolute; right: -7px; top: 26px; width: 13px; height: 13px; color: var(--verdict); z-index: 3; background: var(--surface); }
+  .stage:last-child .arrow { display: none; }
+  @media (max-width: 860px){ .loop { grid-template-columns: repeat(2,1fr); } .stage { border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); } .stage:nth-child(2n){ border-right: none; } .stage .arrow{ display:none; } }
+  @media (max-width: 460px){ .loop { grid-template-columns: 1fr; } .stage, .stage:nth-child(2n){ border-right: none; } }
+  .loop-law { margin-top: 22px; display: flex; align-items: center; gap: 14px; font-family: var(--mono); font-size: .86rem; color: var(--ink); }
+  .loop-law .k { color: var(--flag); font-weight: 700; letter-spacing: .06em; }
+
+  /* ---- primitives grid ---- */
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; }
+  @media (max-width: 820px){ .grid { grid-template-columns: repeat(2,1fr); } }
+  @media (max-width: 520px){ .grid { grid-template-columns: 1fr; } }
+  .cell { background: var(--surface); padding: 24px 22px; }
+  .cell .tag { font-family: var(--mono); font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--verdict); }
+  .cell h3 { font-family: var(--sans); font-weight: 600; font-size: 1.06rem; margin: 12px 0 8px; }
+  .cell p { margin: 0; color: var(--ink-soft); font-size: .9rem; }
+
+  /* ---- install ---- */
+  .install-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 40px; align-items: start; }
+  @media (max-width: 820px){ .install-grid { grid-template-columns: 1fr; gap: 28px; } }
+  .term { background: #0e1113; border: 1px solid var(--rule-strong); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
+  .term-bar { display: flex; align-items: center; gap: 7px; padding: 11px 14px; border-bottom: 1px solid #23282b; }
+  .dot { width: 11px; height: 11px; border-radius: 50%; background: #33393c; }
+  .term-title { margin-left: 8px; font-family: var(--mono); font-size: .74rem; color: #6b726f; }
+  .term pre { margin: 0; padding: 18px 16px; overflow-x: auto; font-family: var(--mono); font-size: .84rem; line-height: 1.9; color: #cdd3cf; }
+  .term .c { color: #5f8f7f; } .term .p { color: #35b394; } .term .o { color: #7d837e; } .term .ok { color: #35b394; font-weight: 600; }
+  .steps { display: grid; gap: 18px; }
+  .step { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: start; }
+  .step .sn { font-family: var(--mono); font-size: .78rem; color: var(--verdict); border: 1px solid var(--rule-strong); border-radius: 50%; width: 27px; height: 27px; display: grid; place-items: center; }
+  .step h3 { font-family: var(--sans); font-size: 1rem; margin: 2px 0 4px; }
+  .step p { margin: 0; font-size: .88rem; color: var(--ink-soft); }
+  .step code { background: var(--verdict-wash); color: var(--verdict-deep); padding: 1px 6px; border-radius: 4px; font-size: .82rem; }
+
+  /* ---- commands table ---- */
+  .tbl { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  .tbl th, .tbl td { text-align: left; padding: 13px 14px; border-bottom: 1px solid var(--rule); vertical-align: baseline; }
+  .tbl th { font-family: var(--mono); font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); font-weight: 500; }
+  .tbl td.cmd { font-family: var(--mono); color: var(--verdict-deep); white-space: nowrap; font-size: .86rem; }
+  .tbl td.desc { color: var(--ink-soft); }
+  .tbl tr:last-child td { border-bottom: none; }
+  .tblwrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 12px; background: var(--surface); }
+
+  /* ---- constitution strip ---- */
+  .charter { display: grid; grid-template-columns: 1.3fr 1fr; gap: 40px; align-items: center; }
+  @media (max-width: 820px){ .charter { grid-template-columns: 1fr; gap: 26px; } }
+  .articles { display: grid; gap: 2px; font-family: var(--mono); font-size: .82rem; }
+  .art { display: grid; grid-template-columns: auto 1fr; gap: 12px; padding: 9px 0; border-bottom: 1px dashed var(--rule); color: var(--ink-soft); }
+  .art .r { color: var(--verdict); }
+  blockquote.oath { font-family: var(--serif); font-size: 1.4rem; line-height: 1.4; margin: 0; color: var(--ink); border-left: 3px solid var(--verdict); padding-left: 20px; }
+  blockquote.oath span { color: var(--ink-faint); font-style: italic; }
+
+  /* ---- footer ---- */
+  footer { padding: 54px 0 64px; }
+  .foot-grid { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; }
+  .foot-brand { display: flex; align-items: center; gap: 11px; font-family: var(--serif); font-weight: 600; }
+  .foot-note { font-family: var(--mono); font-size: .76rem; color: var(--ink-faint); }
+  .badge { display: inline-flex; align-items: stretch; font-family: var(--mono); font-size: .72rem; border-radius: 5px; overflow: hidden; border: 1px solid var(--rule-strong); }
+  .badge .bk { background: var(--surface); color: var(--ink-soft); padding: 4px 9px; }
+  .badge .bv { background: var(--verdict); color: var(--on-accent); padding: 4px 9px; font-weight: 600; }
+  @media (prefers-reduced-motion: reduce){ * { animation: none !important; transition: none !important; } }
+</style>
+
+<header>
+  <div class="wrap bar">
+    <div class="brand">
+      <svg class="seal" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <circle cx="16" cy="16" r="14.2" stroke="currentColor" stroke-width="1.5"/>
+        <circle class="dim" cx="16" cy="16" r="10.6" stroke="currentColor" stroke-width="1"/>
+        <path d="M10.8 16.4l3.4 3.4 7-7.4" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Do-Me-Coding
+    </div>
+    <nav class="links" aria-label="Primary">
+      <a href="#loop">The loop</a>
+      <a href="#enforce">Enforcement</a>
+      <a href="#install">Install</a>
+      <a href="#commands">Commands</a>
+      <a href="#charter">Constitution</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero" style="border-bottom:1px solid var(--rule)">
+    <div class="wrap">
+      <div class="preamble">
+        <div class="eyebrow">DMC · Claude-Code-first enforcement harness</div>
+        <h1>Your agent says it's done.<br>DMC makes it <span class="em">prove it.</span></h1>
+      </div>
+      <p class="lede">A control plane for AI coding agents that refuses to fake completion. Every change is planned, adversarially reviewed, scope-locked, verified, and backed by evidence — or it does not ship.</p>
+      <div class="cta-row">
+        <a class="btn primary" href="#install">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1v10M8 11L4.5 7.5M8 11l3.5-3.5M2 14h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Install DMC
+        </a>
+        <a class="btn ghost" href="#loop">See the loop</a>
+      </div>
+
+      <div class="verdict-card" role="img" aria-label="Example release gate output: PASS across nine sub-gates — the ninth a non-degrading, review-only landmark flag">
+        <div class="vc-head">
+          <span class="vc-title">$ dmc gate release --full</span>
+          <span class="stamp">◆ PASS</span>
+        </div>
+        <div class="vc-body">
+          <div class="vc-row"><span class="g">diff-scope · gate-checks · receipts</span><span class="v">PASS</span></div>
+          <div class="vc-row"><span class="g">findings · goal · decision · approvals</span><span class="v">PASS</span></div>
+          <div class="vc-row"><span class="g">worker-apply chain</span><span class="v">PASS</span></div>
+          <div class="vc-row"><span class="g">landmark-flag (review-only)</span><span class="v flag">FLAG</span></div>
+        </div>
+        <div class="vc-foot"><span>selftest --all → 802 / 3 / 3</span><span>evidence: sealed</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="loop">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="num">§</span>
+        <div>
+          <h2>The inviolable loop</h2>
+          <p>Six stages, in order, every substantial change. The critic is never skipped; the verifier never grades its own homework.</p>
+        </div>
+      </div>
+      <div class="loop">
+        <div class="stage"><div class="n">01</div><h3>Plan</h3><p>Decision-complete plan with explicit scope &amp; acceptance criteria.</p><svg class="arrow" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 2l5 4-5 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="stage"><div class="n">02</div><h3>Critic</h3><p>A non-authoring reviewer tries to falsify the plan before a line is written.</p><svg class="arrow" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 2l5 4-5 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="stage"><div class="n">03</div><h3>Scope</h3><p>A compiled scope-lock — edits are refused outside the approved files.</p><svg class="arrow" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 2l5 4-5 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="stage"><div class="n">04</div><h3>Execute</h3><p>Implementation happens only inside the lock, watched by post-Bash diff guards.</p><svg class="arrow" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 2l5 4-5 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="stage"><div class="n">05</div><h3>Verify</h3><p>An independent verifier reproduces the result — no self-approval.</p><svg class="arrow" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 2l5 4-5 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="stage"><div class="n">06</div><h3>Evidence</h3><p>Receipts, verdicts, and a release gate — the record that lets it ship.</p></div>
+      </div>
+      <div class="loop-law"><span class="k">LAW</span> No verification, no done. No accepted scope, no edit. No evidence, no completion claim.</div>
+    </div>
+  </section>
+
+  <section id="enforce">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="num">§</span>
+        <div>
+          <h2>Enforcement, not etiquette</h2>
+          <p>Guidance is a suggestion an agent can ignore. DMC ships deterministic guards that hold regardless of the model's mood.</p>
+        </div>
+      </div>
+      <div class="grid">
+        <div class="cell"><div class="tag">Scope-lock</div><h3>Edits stay in bounds</h3><p>A compiled lock lists exactly which files may change. Writes outside it — including Bash-mediated ones — are refused.</p></div>
+        <div class="cell"><div class="tag">Release gate</div><h3>Nine sub-gates to ship</h3><p>Diff-scope, receipts, findings, goals, decisions, approvals, chain. FAIL dominates; PARTIAL never passes.</p></div>
+        <div class="cell"><div class="tag">Evidence ledger</div><h3>Every claim has a receipt</h3><p>Completion is a record, not an assertion — verification refs, minted receipts, an append-only approvals chain.</p></div>
+        <div class="cell"><div class="tag">Secret guard</div><h3>Never reads your keys</h3><p><code class="mono">.env</code>, private keys, and credential files are off-limits to every tool, in every mode — by filename, defense-in-depth.</p></div>
+        <div class="cell"><div class="tag">Non-authoring critic</div><h3>Nothing grades itself</h3><p>The reviewer and the verifier run in separate lanes from whoever wrote the code. Self-approval is structurally impossible.</p></div>
+        <div class="cell"><div class="tag">Portable control plane</div><h3>One <code class="mono">bin/dmc</code></h3><p>A deterministic CLI + hooks that ride along with Claude Code and Codex. No daemon, no lock-in.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="num">§</span>
+        <div>
+          <h2>Install into any repo</h2>
+          <p>Drop the harness into an existing Claude Code or Codex project. First success is one command; the second command proves it worked.</p>
+        </div>
+      </div>
+      <div class="install-grid">
+        <div class="term" aria-label="Terminal: installing DMC">
+          <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="term-title">bash — install DMC</span></div>
+          <pre><span class="c"># 1 — get the harness</span>
+git clone https://github.com/wjlee930501/Do-Me-Coding
+<span class="p">cd</span> Do-Me-Coding
+
+<span class="c"># 2 — install into your project (Claude Code + Codex)</span>
+bash .claude/install/dmc-install.sh <span class="o">~/code/your-repo</span> --host both
+
+<span class="c"># 3 — verify it worked</span>
+bin/dmc doctor
+<span class="ok">doctor: ready · hooks dispatching · mode active</span></pre>
+        </div>
+        <div class="steps">
+          <div class="step"><span class="sn">1</span><div><h3>Get it</h3><p>Clone the repo — the whole control plane is <code>bin/</code>, hooks, and <code>.harness/</code> schemas. No install-time network calls.</p></div></div>
+          <div class="step"><span class="sn">2</span><div><h3>Adapt it</h3><p><code>dmc-install.sh</code> merges hooks &amp; skills into your repo without overwriting your files. Pick <code>--host claude</code>, <code>codex</code>, or <code>both</code>.</p></div></div>
+          <div class="step"><span class="sn">3</span><div><h3>Prove it</h3><p><code>bin/dmc doctor</code> confirms the guards actually dispatch in your host — enforcement you can see, not assume.</p></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="commands">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="num">§</span>
+        <div>
+          <h2>Drive it</h2>
+          <p>Slash commands for each stage — or just end any prompt with <code class="mono">dmc</code> and the router runs the full loop.</p>
+        </div>
+      </div>
+      <div class="tblwrap">
+        <table class="tbl">
+          <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td class="cmd">/dmc-plan-hard</td><td class="desc">Produce a decision-complete, schema-valid plan bound to the run.</td></tr>
+            <tr><td class="cmd">/dmc-critic</td><td class="desc">Adversarial review that must APPROVE before any implementation.</td></tr>
+            <tr><td class="cmd">/dmc-start-work</td><td class="desc">Arm a run and compile the scope-lock for an approved plan.</td></tr>
+            <tr><td class="cmd">/dmc-verify-hard</td><td class="desc">Independent verification before any completion claim.</td></tr>
+            <tr><td class="cmd">/dmc-ultrawork</td><td class="desc">The full plan → critic → scope → execute → verify → evidence cycle.</td></tr>
+            <tr><td class="cmd">… dmc</td><td class="desc">Natural trigger — end a request with <span class="mono">dmc</span> to route the whole loop automatically.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="charter">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="num">§</span>
+        <div>
+          <h2>Governed by a constitution</h2>
+          <p>DMC's own rules are written down, adversarially law-reviewed, and self-entrenching — not vibes in a prompt.</p>
+        </div>
+      </div>
+      <div class="charter">
+        <blockquote class="oath">Do not just suggest. Do the work. Prove the work.<br><span>Do not fake completion.</span></blockquote>
+        <div class="articles" aria-label="Constitution articles">
+          <div class="art"><span class="r">I–III</span><span>Supremacy, machine-fact primacy, the amendment procedure</span></div>
+          <div class="art"><span class="r">IV–V</span><span>Honesty discipline &amp; the human-gated override hatches</span></div>
+          <div class="art"><span class="r">VI–VII</span><span>Pinned baselines &amp; self-entrenchment</span></div>
+          <div class="art"><span class="r">VIII</span><span>Maintainer duties — the inviolable loop, anti-patchwork, escalation</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap foot-grid">
+    <div class="foot-brand">
+      <svg class="seal" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <circle cx="16" cy="16" r="14.2" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M10.8 16.4l3.4 3.4 7-7.4" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Do-Me-Coding
+    </div>
+    <span class="badge"><span class="bk">gate</span><span class="bv">PASS</span></span>
+    <span class="foot-note">Claude-Code-first · works with Codex · MIT</span>
+  </div>
+</footer>
