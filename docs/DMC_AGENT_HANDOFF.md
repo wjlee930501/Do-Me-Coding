@@ -46,6 +46,12 @@ DRAFT → CRITIC → APPROVED → START-WORK → VERIFY → STAGE → COMMIT →
 scope ambiguous · protected-file diff · credential/secret/token exposure risk · live-call risk without a gate ·
 any verification FAIL.
 
+## Runners without subagents — degradation rule (added 2026-07-09)
+
+- The critic and verifier lanes stay **non-authoring and fresh-context** even where subagent spawning is unavailable (Codex App, a bare CLI, a future host): run each pass as a **separate session / separate CLI invocation** whose input is only the artifact paths (the plan, the diff, the run dir) — never the authoring conversation itself.
+- If a genuinely fresh, separate context cannot be obtained, **STOP at that gate and surface to the human** (fail-closed; Constitution Art. VIII escalation duty). Self-approval in the authoring context is never a fallback.
+- Trajectory rule: forward-looking strategy/trajectory documents live **in the repo** (committed, with a pending-decisions banner while gates are open), never solely in out-of-repo agent memory — memory accelerates a successor; the repo is the **source of truth**.
+
 ## Anti-token-max reminder
 
 Smallest workflow that closes the problem E2E. Do not expand scope/files/tools because they are available.
