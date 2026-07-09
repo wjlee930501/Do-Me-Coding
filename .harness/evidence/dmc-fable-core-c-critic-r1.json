@@ -1,0 +1,22 @@
+{
+  "schema": "dmc.critic-verdict.v1",
+  "work_id": "dmc-fable-core-c-asktier",
+  "plan_hash": "9a706fdff837d3df04696aa83ad61563a72520bf98cc3d5562324479f551242a",
+  "repo_hash": "7376669698af51e9600ec210bde26425f8eaecf97f43eba21271174a4bd17d64",
+  "target_ref": ".harness/plans/dmc-fable-core-c-asktier.md",
+  "verdict": "APPROVE",
+  "lenses": ["correctness", "scope", "security", "enforcement"],
+  "criteria_checked": [
+    {"criterion_ref": "clarity-specificity", "result": "met", "note": "C1/C2 anchors verified exact: Block C at pre-tool-guard.sh:130-135, ask() at :59-64, json_get (:13-36) splits on '.' and supports top-level keys so json_get 'permission_mode' is valid. Change spec (add PERMISSION_MODE after COMMAND extraction; branch inside Block C on exact bypassPermissions) is unambiguous."},
+    {"criterion_ref": "verifiability", "result": "met", "note": "All 6 ACs have concrete methods; the 8 smoke cases are offline/synthetic and machine-checkable (chmod-readonly injection for case 8 works as non-root). ONE execution note is missing — see R1."},
+    {"criterion_ref": "completeness", "result": "met", "note": "Installer-mirror resolved empirically: dmc-install.sh:302 PATH-COPIES the live hook (cp $SRC/.claude/hooks/$h) — no embedded heredoc mirror, live edit self-syncs the installer; conditional mirror row resolves to no-op. INSTALL_MANIFEST.md correctly OMITTED: lists hook FILENAMES only (content-invisible) and does NOT enumerate tests/install/ (existing test-install-wrapper.sh absent from it), so the new test needs no manifest regen. .harness/metrics/ gitignore confirmed at .gitignore:31-32 (D-core dependency satisfied)."},
+    {"criterion_ref": "scope-discipline", "result": "met", "note": "Surgical: edit confined to Block C branch; Block A (:68-121), Block B (:123-128), Block D (:137-168) untouched. Evidence md kept in the separate records commit, correctly avoiding the registered G2<->G3 evidence-in-scope.lock catch-22. .codex/config.toml stays unstaged (must, else G1)."},
+    {"criterion_ref": "security-safety", "result": "met", "note": "Boundary is EXACT string equality [ \"$PERMISSION_MODE\" = \"bypassPermissions\" ]; fail-closed for absent/empty/other. Deny floors (Block A catastrophic+secret, Block B, Block D write-radius) never stand down — smoke cases 4 (git push --force) and 5 (cat .env) assert deny-under-bypass. Log value-blind (class+timestamp, never command text; case-3 regex + fake-sk-token negative control). Trust model honest: permission_mode is host-attested (host constructs the hook input, not the model), no model-forgeable spoof; standing down a redundant DMC ask under the host's own blanket-consent record does not weaken protection."},
+    {"criterion_ref": "alignment-intent", "result": "met", "note": "Envelope's 'Block C 세분화' half NARROWED to bypass-awareness only. Narrowing SOUND (subdividing/removing the list would break the frozen dmc-v0.1.3-verify.sh:31 npm-install⇒ask pin, repo law) and HONESTLY DISCLOSED in User Intent + Approval Status, surfaced for the human gate. A scope reduction cannot exceed the grant."},
+    {"criterion_ref": "risk-mitigation", "result": "met", "note": "Risk table accurate: prisma migrate reset is ALREADY Block A deny (:73) so never stands down under bypass; bare 'migrate reset' correctly hits Block C only. Fail-closed default preserves the frozen baseline byte-for-byte."},
+    {"criterion_ref": "testability", "result": "met", "note": "Frozen v0.1.3 rows :29-32 and v011-verify.sh parity probes are all permission_mode-FREE ⇒ fail-closed keeps them byte-identical. G4 override recipe verified working: dmc gate release --full → dmc-release-gate.py; sg_gate_checks shells the v0.2.6 runner via run_tool (subprocess.run, no env= ⇒ inherits DMC_GATE_PROTECTED); sg_landmark FLAGs the landmark independently (FLAG never degrades, :636). See R1 for the missing dirty-tree execution note on the 802/3/3 AC."}
+  ],
+  "blockers": [],
+  "advisory": true,
+  "context_provenance": "fresh"
+}
