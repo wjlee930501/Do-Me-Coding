@@ -23,6 +23,7 @@ Dangling-reference rule); DMC-internal provenance references are deliberately no
 - `bin/lib/dmc-fixloop.py`
 - `bin/lib/dmc-instance-validate.py`
 - `bin/lib/dmc-legacy-selftest.py`
+- `bin/lib/dmc-metrics-recorder.py`
 - `bin/lib/dmc-orchestration-linkcheck.py`
 - `bin/lib/dmc-postbash-diff.py`
 - `bin/lib/dmc-release-gate.py`
