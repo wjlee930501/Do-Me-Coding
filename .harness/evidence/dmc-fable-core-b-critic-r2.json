@@ -1,0 +1,22 @@
+{
+  "schema": "dmc.critic-verdict.v1",
+  "work_id": "dmc-fable-core-b-repointel",
+  "plan_hash": "7cca79e5645fcd5390df7aa940a1a8c2532059d1952df1efb0843c33d4136b3b",
+  "repo_hash": "a48456ff833cd54acb27e2dc0502b91438f3d60185bdbdce2197f82a40d6af74",
+  "target_ref": ".harness/plans/dmc-fable-core-b-repointel.md",
+  "verdict": "APPROVE",
+  "lenses": ["correctness", "scope", "security", "determinism"],
+  "criteria_checked": [
+    {"criterion_ref": "clarity", "result": "met", "note": "B1-B4 decomposition, out-of-scope, route/synchrony explicit and unambiguous. Rev2 additions (B2 neutralization, executor pre-check+HALT) are clearly worded."},
+    {"criterion_ref": "verification-methods-executable", "result": "met", "note": "B-1 RESOLVED: `diff <(bin/dmc agents-md --stdout) AGENTS.md` is empty on the current tree (verified), and AC#2's pre-check+HALT makes the baseline machine-checkable. Two advisory imprecisions do NOT block: AC#1 says '5 new cases' but 6 (i-vi) are enumerated (vi covered separately by AC#3); Verification-Commands line 195 `python3 bin/lib/dmc-repo-intel.py --self-test` errors as written (subcommand positional required) — real form is `orient --self-test` / `bin/dmc selftest`."},
+    {"criterion_ref": "context-grounded", "result": "met", "note": "AGENTS.md staleness (r1 B-1) reconciled by disclosed commit 87e76eb (ancestor of HEAD, +2/-1: recorder landmark line + count 106->107); recorder ref count=1, '107' count=1 verified. git helper correctly named git_head :92-108 (no live git_meta misref). One residual: Risks-table line 165 still says '3x this repo's worst case', contradicting the corrected line 76 ('not 3x / ~250x') — advisory only, understates headroom."},
+    {"criterion_ref": "real-file-references", "result": "met", "note": "Verified: SKIP_DIRS :31-32; walk_files :111-123 (no cap/timeout/gitignore); git_head :92-108; is_secret_path :41-63 applied at :120; docstring env-independence :8; generator run_dmc_json returns None on nonzero exit at dmc-agents-md.py:129-130 (B3 Unknown-degradation claim accurate)."},
+    {"criterion_ref": "business-logic-assumptions", "result": "met", "note": "r1 verified 'no frozen fixture depends on unbounded walk'. NEW empirical confirmation this pass: `git check-ignore` does NOT report a tracked file even when an ignore rule matches it (exit 1) while an untracked match IS reported — so B4's mitigation rationale ('tracked files are never gitignored') is TRUE, and byte-identity non-regression is genuinely safe since landmark sources are tracked."},
+    {"criterion_ref": "scope-control", "result": "met", "note": "Exactly 2 in-scope files (bin/lib/dmc-repo-intel.py, docs/MILESTONES.md); out-of-scope (agents-md edit, gitignore reimpl, budget policy, env knobs, push/CI/main) intact. r1's AC#2<->scope tension is resolved: AGENTS.md reconciliation happened OUTSIDE this plan (87e76eb), so AGENTS.md stays untouched here. No silent extra scope changes; revision notes match plan text except the one-line '3x' incompleteness."},
+    {"criterion_ref": "data-security-env-risks", "result": "met", "note": "B-2 neutralization EMPIRICALLY PROVEN in scratch repos: `-c core.excludesFile=/dev/null` + GIT_CONFIG_GLOBAL/SYSTEM=/dev/null neutralizes both a passed global excludes file and a global-config core.excludesFile; $GIT_DIR/info/exclude residue genuinely survives, matching the honest disclosure and amended determinism claim. Env-independence is STRENGTHENED (fixed subprocess env, module reads no ambient var). Security proper PASS: is_secret_path pre-filter before check-ignore, paths-only to subprocess, newline paths excluded, /dev/null overrides carry no secrets. Build nudge (non-blocking): inherit os.environ + override only GIT_CONFIG_* to avoid stripping PATH/HOME."},
+    {"criterion_ref": "rollback", "result": "met", "note": "Single-file mechanical change to repo-intel + append-only MILESTONES entry; trivially git-revertible; LOCAL-commit-only ceiling per the envelope."}
+  ],
+  "blockers": [],
+  "advisory": true,
+  "context_provenance": "fresh"
+}
