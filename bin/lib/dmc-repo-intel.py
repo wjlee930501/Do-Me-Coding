@@ -8,6 +8,10 @@ House rules (v0.6.x lineage): deterministic (sorted keys/lists, no wall-clock va
 env-independent output, offline (no network), fail-closed validators with negative controls,
 self-tests write only under mktemp, secret-bearing paths excluded by PATH ONLY (never opened),
 duplicate-key-rejecting JSON loads. Advisory tier: the enforcement floor stays the hooks.
+The walk's gitignore-aware filter is deterministic given the tree plus the repo's local
+ignore state ($GIT_DIR/info/exclude residue included); ambient user/system git config is
+neutralized (-c core.excludesFile=/dev/null + GIT_CONFIG_GLOBAL/GIT_CONFIG_SYSTEM=/dev/null)
+so it can never alter the output.
 """
 
 import argparse
@@ -18,6 +22,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 SCHEMAS = {
     "orient": "dmc.orientation.v1",
@@ -29,7 +34,10 @@ CLASSES = ["enforcement", "contract", "release", "data", "ordinary"]
 DEPSURFACE_NOTE = "regex tier; known-shapes-only; not a completeness guarantee"
 LANDMARK_SEED = "heuristics+dmc-protected-union-v1"
 SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv", "dist", "build",
-             ".pytest_cache", ".mypy_cache", ".DS_Store"}
+             ".pytest_cache", ".mypy_cache", ".DS_Store", "target", "out", ".next",
+             "coverage", "vendor", ".omc"}
+DEFAULT_MAX_FILES = 20000
+DEFAULT_MAX_SECONDS = 30
 LANG_EXTS = {".py": "py", ".js": "js", ".mjs": "js", ".cjs": "js", ".ts": "js",
              ".tsx": "js", ".jsx": "js", ".sh": "sh", ".bash": "sh"}
 COUNT_EXTS = (".py .js .mjs .cjs .ts .tsx .jsx .sh .bash .go .rs .java .rb .md .json "
@@ -108,11 +116,55 @@ def git_head(root):
         return "plain", "no-git", "no-git"
 
 
-def walk_files(root):
+def filter_ignored(root, paths):
+    """Filter git-ignored paths out of `paths` via ONE batched `git check-ignore --stdin -z`
+    subprocess call (git's own .gitignore semantics; no reimplemented parser). Best-effort:
+    no git on PATH, `root` not a work-tree, or a subprocess error => paths returned unchanged
+    (today's behavior). Ambient-config neutralization: invoked with
+    `-c core.excludesFile=/dev/null` and a subprocess env that inherits os.environ but
+    overrides GIT_CONFIG_GLOBAL and GIT_CONFIG_SYSTEM to /dev/null, so user-global/system git
+    config can never alter the output (PATH/HOME/etc. survive since only those two keys are
+    overridden). Paths containing a newline are excluded from the check defensively (returned
+    unfiltered) since NUL-delimiting them alongside the rest cannot be done safely.
+    """
+    git = shutil.which("git")
+    if not git:
+        return paths
+    safe = [p for p in paths if "\n" not in p]
+    unsafe = [p for p in paths if "\n" in p]
+    if not safe:
+        return paths
+    env = dict(os.environ)
+    env["GIT_CONFIG_GLOBAL"] = "/dev/null"
+    env["GIT_CONFIG_SYSTEM"] = "/dev/null"
+    try:
+        r = subprocess.run(
+            [git, "-C", root, "-c", "core.excludesFile=/dev/null",
+             "check-ignore", "--stdin", "-z"],
+            input="\x00".join(safe) + "\x00", capture_output=True, text=True,
+            timeout=30, env=env)
+    except Exception:
+        return paths
+    if r.returncode not in (0, 1):
+        return paths
+    ignored = set(r.stdout.split("\x00"))
+    ignored.discard("")
+    return [p for p in safe if p not in ignored] + unsafe
+
+
+def walk_files(root, max_files=DEFAULT_MAX_FILES, max_seconds=DEFAULT_MAX_SECONDS):
+    """Sorted relative file list under `root`, pruning SKIP_DIRS + secret paths + gitignored
+    files (filter_ignored). Enforces --max-files/--max-seconds; breach => die(...,3) (never a
+    silent partial scan). The time budget uses a monotonic clock internally only.
+    """
     out = []
+    start = time.monotonic()
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = sorted(d for d in dirnames if d not in SKIP_DIRS)
         for name in sorted(filenames):
+            if time.monotonic() - start > max_seconds:
+                die("walk exceeded --max-seconds=%s (raise the bound with --max-seconds N)"
+                    % max_seconds, 3)
             full = os.path.join(dirpath, name)
             if os.path.islink(full):
                 continue
@@ -120,7 +172,10 @@ def walk_files(root):
             if is_secret_path(rel):
                 continue
             out.append(rel)
-    return sorted(out)
+            if len(out) > max_files:
+                die("walk exceeded --max-files=%s (raise the bound with --max-files N)"
+                    % max_files, 3)
+    return sorted(filter_ignored(root, out))
 
 
 def write_out(text, out_path):
@@ -146,9 +201,9 @@ def rel_ok(p):
 
 # ---------------------------------------------------------------- orient (P1)
 
-def gen_orient(root):
+def gen_orient(root, max_files=DEFAULT_MAX_FILES, max_seconds=DEFAULT_MAX_SECONDS):
     root_kind, head, head_time = git_head(root)
-    files = walk_files(root)
+    files = walk_files(root, max_files=max_files, max_seconds=max_seconds)
     languages = {}
     for f in files:
         ext = os.path.splitext(f)[1]
@@ -291,10 +346,10 @@ def classify_landmark(rel):
     return None
 
 
-def gen_landmarks(root):
+def gen_landmarks(root, max_files=DEFAULT_MAX_FILES, max_seconds=DEFAULT_MAX_SECONDS):
     _, head, _ = git_head(root)
     marks = []
-    for rel in walk_files(root):
+    for rel in walk_files(root, max_files=max_files, max_seconds=max_seconds):
         hit = classify_landmark(rel)
         if hit:
             marks.append({"path": rel, "class": hit[0], "reason": hit[1]})
@@ -384,10 +439,10 @@ def resolve_sh(root, src_rel, spec):
     return cand if os.path.isfile(os.path.join(root, cand)) else None
 
 
-def gen_depsurface(root):
+def gen_depsurface(root, max_files=DEFAULT_MAX_FILES, max_seconds=DEFAULT_MAX_SECONDS):
     _, head, _ = git_head(root)
     files_out, unscanned = {}, []
-    all_files = walk_files(root)
+    all_files = walk_files(root, max_files=max_files, max_seconds=max_seconds)
     for rel in all_files:
         ext = os.path.splitext(rel)[1]
         lang = LANG_EXTS.get(ext)
@@ -594,6 +649,122 @@ def selftest_orient():
     bad2["manifests"] = ["does-not-exist.json"]
     t.ok("O5c negative control: stale path REFUSED (with --root)",
          validate_orient(bad2, root=os.path.join(fx, "node")) != [])
+
+    # B1/B4: skip-set extension pruning generated dirs (target/, vendor/, etc.)
+    tmp_skip = tempfile.mkdtemp(prefix="dmc-walk-skip-")
+    try:
+        os.makedirs(os.path.join(tmp_skip, "target"))
+        os.makedirs(os.path.join(tmp_skip, "vendor"))
+        os.makedirs(os.path.join(tmp_skip, "src"))
+        with open(os.path.join(tmp_skip, "target", "x.py"), "w") as f:
+            f.write("x = 1\n")
+        with open(os.path.join(tmp_skip, "vendor", "y.js"), "w") as f:
+            f.write("var y = 1;\n")
+        with open(os.path.join(tmp_skip, "src", "keep.py"), "w") as f:
+            f.write("keep = 1\n")
+        walked = walk_files(tmp_skip)
+        t.ok("O6 skip-set: target/x.py and vendor/y.js pruned", walked == ["src/keep.py"])
+        t.ok("O6b determinism: repeated walk on same tree is byte-identical",
+             walk_files(tmp_skip) == walked)
+    finally:
+        shutil.rmtree(tmp_skip, ignore_errors=True)
+
+    # B2: gitignore-aware filter (git present) + no-work-tree fallback (git absent)
+    tmp_gi = tempfile.mkdtemp(prefix="dmc-walk-gi-")
+    try:
+        subprocess.run(["git", "init", "-q"], cwd=tmp_gi, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "t@t"], cwd=tmp_gi,
+                       capture_output=True)
+        subprocess.run(["git", "config", "user.name", "t"], cwd=tmp_gi,
+                       capture_output=True)
+        with open(os.path.join(tmp_gi, ".gitignore"), "w") as f:
+            f.write("ignored.txt\n")
+        with open(os.path.join(tmp_gi, "ignored.txt"), "w") as f:
+            f.write("x\n")
+        with open(os.path.join(tmp_gi, "kept.txt"), "w") as f:
+            f.write("y\n")
+        walked_gi = walk_files(tmp_gi)
+        t.ok("O7 gitignore-aware: ignored.txt filtered, kept.txt + .gitignore retained",
+             "ignored.txt" not in walked_gi and "kept.txt" in walked_gi
+             and ".gitignore" in walked_gi)
+    finally:
+        shutil.rmtree(tmp_gi, ignore_errors=True)
+
+    tmp_nogit = tempfile.mkdtemp(prefix="dmc-walk-nogit-")
+    try:
+        with open(os.path.join(tmp_nogit, "ignored.txt"), "w") as f:
+            f.write("x\n")
+        t.ok("O7b no-work-tree fallback: file retained when root is not a git work tree",
+             "ignored.txt" in walk_files(tmp_nogit))
+    finally:
+        shutil.rmtree(tmp_nogit, ignore_errors=True)
+
+    # B3: hard cap, fail-LOUD (exit 3, message names the bound + the flag to raise it)
+    tmp_cap = tempfile.mkdtemp(prefix="dmc-walk-cap-")
+    try:
+        for i in range(30):
+            with open(os.path.join(tmp_cap, "f%02d.txt" % i), "w") as f:
+                f.write("x\n")
+        rc = subprocess.run(
+            [sys.executable, os.path.abspath(__file__), "orient", "--root", tmp_cap,
+             "--max-files", "10"],
+            capture_output=True, text=True)
+        t.ok("O8 negative control: --max-files 10 on a 30-file tree => REFUSED exit 3 "
+             "naming the bound",
+             rc.returncode == 3 and "--max-files" in rc.stderr and "10" in rc.stderr)
+    finally:
+        shutil.rmtree(tmp_cap, ignore_errors=True)
+
+    # B2: ambient-config neutrality with a POSITIVE CONTROL (critic r1 B-2)
+    tmp_amb = tempfile.mkdtemp(prefix="dmc-walk-ambient-")
+    cfg_dir = tempfile.mkdtemp(prefix="dmc-walk-ambient-cfg-")
+    try:
+        subprocess.run(["git", "init", "-q"], cwd=tmp_amb, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "t@t"], cwd=tmp_amb,
+                       capture_output=True)
+        subprocess.run(["git", "config", "user.name", "t"], cwd=tmp_amb,
+                       capture_output=True)
+        with open(os.path.join(tmp_amb, "candidate.log"), "w") as f:
+            f.write("x\n")
+        with open(os.path.join(tmp_amb, "kept.txt"), "w") as f:
+            f.write("y\n")
+        excludes_file = os.path.join(cfg_dir, "global-excludes")
+        with open(excludes_file, "w") as f:
+            f.write("*.log\n")
+        global_gitconfig = os.path.join(cfg_dir, "gitconfig")
+        with open(global_gitconfig, "w") as f:
+            f.write("[core]\n\texcludesFile = %s\n" % excludes_file)
+
+        ambient_env = dict(os.environ)
+        ambient_env["GIT_CONFIG_GLOBAL"] = global_gitconfig
+        ambient_env.pop("GIT_CONFIG_SYSTEM", None)
+
+        raw = subprocess.run(
+            [shutil.which("git"), "-C", tmp_amb, "check-ignore", "--stdin", "-z"],
+            input="candidate.log\x00kept.txt\x00", capture_output=True, text=True,
+            env=ambient_env)
+        raw_ignored = set(raw.stdout.split("\x00"))
+        t.ok("O9 positive control: RAW check-ignore under ambient global config DOES "
+             "filter candidate.log (proves the fixture bites)",
+             "candidate.log" in raw_ignored)
+
+        saved = os.environ.get("GIT_CONFIG_GLOBAL")
+        try:
+            os.environ["GIT_CONFIG_GLOBAL"] = global_gitconfig
+            with_ambient = filter_ignored(tmp_amb, ["candidate.log", "kept.txt"])
+        finally:
+            if saved is None:
+                os.environ.pop("GIT_CONFIG_GLOBAL", None)
+            else:
+                os.environ["GIT_CONFIG_GLOBAL"] = saved
+        without_ambient = filter_ignored(tmp_amb, ["candidate.log", "kept.txt"])
+        t.ok("O10 ambient-config neutrality: module output identical with/without the "
+             "ambient global config present",
+             with_ambient == without_ambient == ["candidate.log", "kept.txt"])
+    finally:
+        shutil.rmtree(tmp_amb, ignore_errors=True)
+        shutil.rmtree(cfg_dir, ignore_errors=True)
+
     t.done()
 
 
@@ -701,6 +872,8 @@ def main():
     ap.add_argument("command", choices=["orient", "landmarks", "depsurface", "radius"])
     ap.add_argument("--root", default=".")
     ap.add_argument("--out")
+    ap.add_argument("--max-files", type=int, default=DEFAULT_MAX_FILES)
+    ap.add_argument("--max-seconds", type=int, default=DEFAULT_MAX_SECONDS)
     ap.add_argument("--validate", metavar="FILE")
     ap.add_argument("--self-test", action="store_true")
     ap.add_argument("--depsurface", metavar="FILE")
@@ -750,7 +923,8 @@ def main():
         if not os.path.isdir(root):
             die("--root is not a directory: %s" % root, 2)
         out = {"orient": gen_orient, "landmarks": gen_landmarks,
-               "depsurface": gen_depsurface}[a.command](root)
+               "depsurface": gen_depsurface}[a.command](
+                   root, max_files=a.max_files, max_seconds=a.max_seconds)
 
     write_out(canon(out), a.out)
 

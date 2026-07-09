@@ -851,3 +851,55 @@ entry above is unchanged by this patch.
   clarification + structural offline self-audit AC) => critic r2 APPROVE; run
   `dmc-run-c78c84750bcc` armed with scope.lock over the 5 in-scope paths. **push/CI/main-FF:
   human gate.**
+
+## v1.1.2 — repo-intel scan bounding — LOCAL (2026-07-09)
+
+- **What/why (memo risk #7 "Timeout / scale on big or messy repos", closure-as-infrastructure):**
+  `bin/lib/dmc-repo-intel.py`'s walk had no timeout, no file cap, and no gitignore awareness —
+  v1.0.5 planning explicitly deferred this hardening as its own verified cycle. This cycle bounds
+  the walk with LOUD refusal instead of silent truncation, on a repo that already carries zero
+  derived-artifact drift.
+- **What/where (one module, three changes):**
+  - **B1 skip-set extension:** `SKIP_DIRS` (`:36-38`) gains `target`, `out`, `.next`, `coverage`,
+    `vendor`, `.omc` alongside the existing generated-dir set.
+  - **B2 gitignore-aware filter:** a new `filter_ignored(root, paths)` (`:119`) runs ONE batched
+    `git check-ignore --stdin -z` subprocess inside `walk_files`, applied before the final sort.
+    Best-effort (no git / not a work-tree / subprocess error => unchanged, today's behavior).
+    Ambient-config neutralized: `-c core.excludesFile=/dev/null` plus a subprocess env
+    overriding only `GIT_CONFIG_GLOBAL`/`GIT_CONFIG_SYSTEM` to `/dev/null` (PATH/HOME etc.
+    inherited from `os.environ`) — disclosed residue: `$GIT_DIR/info/exclude` still applies, so
+    the determinism claim is "deterministic given the tree + the repo's local ignore state;
+    ambient user/system config neutralized" (module docstring amended with this sentence).
+  - **B3 hard caps, fail-LOUD:** `DEFAULT_MAX_FILES=20000` / `DEFAULT_MAX_SECONDS=30`, threaded
+    through `walk_files` (`:155`) and `gen_orient`/`gen_landmarks`/`gen_depsurface`, exposed as
+    `--max-files`/`--max-seconds` on the `orient`/`landmarks`/`depsurface` verbs. A monotonic
+    clock budgets the loop INTERNALLY only (no timing value lands in output bytes); breach =>
+    `die(...)` exit 3 naming the bound and the flag to raise it. Never a silent partial scan.
+  - **Self-test:** 7 new `orient` cases (O6–O10, `:653-767`) — skip-set pruning + determinism,
+    gitignore-aware filter + no-work-tree fallback, `--max-files` breach naming the bound, and
+    ambient-config neutrality with a POSITIVE CONTROL (a raw, non-neutralized `check-ignore` call
+    under a simulated ambient global config IS shown to filter the candidate, proving the fixture
+    bites, before asserting the module's neutralized path is byte-identical with/without that
+    ambient config present).
+- **Verification (implementer lane; independent verifier + release gate pending T002):** module
+  self-test orient **17/0** (landmarks 13/0 · depsurface 8/0 · radius 7/0, all pre-existing cases
+  still passing unmodified); `bin/dmc selftest` (default suite) 0 FAIL across every section; `diff
+  <(bin/dmc agents-md --stdout) AGENTS.md` empty both before and after the change (zero derived
+  drift, baseline reconciled by `87e76eb`); `orient`/`landmarks`/`depsurface --validate` all VALID;
+  `bin/dmc orient` wall-clock ≈0.16s (well under the 30s default budget, matching the measured
+  ≈0.12s baseline); `mirror-check` PASS; `linkcheck` clean (24 files); manual temp-tree probes
+  confirm `target/`+`vendor/` pruning, gitignore-aware filtering, and `--max-files 10`/
+  `--max-seconds 0` both breaching exit 3 with the bound named in the message. Legacy `dmc
+  selftest --all` **802/3/3 EXACT** (clean-tree per registered gotcha #4) and the `--full` release
+  gate (FLAG expected on `bin/lib/*`, no `DMC_GATE_PROTECTED` override) are the independent
+  verifier's checks (T002).
+- **Chain:** authorized this session by wjlee (AskUserQuestion envelope "전체 비준": cycles
+  A→D-core→C→B, critic-APPROVE-conditional, LOCAL-commit autonomy ceiling on
+  `claude/dmc-fable-core`); plan `.harness/plans/dmc-fable-core-b-repointel.md`; critic r1 REJECT
+  (2 blockers, `.harness/evidence/dmc-fable-core-b-critic-r1.json`): B-1 the committed `AGENTS.md`
+  baseline was already stale (missing the D-core recorder landmark), resolved outside this plan by
+  the disclosed remediation commit `87e76eb` before Rev 2; B-2 raw `check-ignore` would have
+  coupled output to ambient git config, folded as the neutralized invocation + disclosed
+  `info/exclude` residue + case (vi) proving neutrality => critic r2 APPROVE; run
+  `dmc-run-880cb5a91f23` armed with scope.lock over the 2 in-scope paths. **push/CI/main-FF: human
+  gate.**
