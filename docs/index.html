@@ -278,17 +278,14 @@
 git clone https://github.com/wjlee930501/Do-Me-Coding
 <span class="p">cd</span> Do-Me-Coding
 
-<span class="c"># 2 — install into your project (Claude Code + Codex)</span>
-bash .claude/install/dmc-install.sh <span class="o">~/code/your-repo</span> --host both
-
-<span class="c"># 3 — verify it worked</span>
-bin/dmc doctor
+<span class="c"># 2 — one command: install + verify + mode</span>
+./install.sh <span class="o">~/code/your-repo</span> --host both
 <span class="ok">doctor: ready · hooks dispatching · mode active</span></pre>
         </div>
         <div class="steps">
           <div class="step"><span class="sn">1</span><div><h3>Get it</h3><p>Clone the repo — the whole control plane is <code>bin/</code>, hooks, and <code>.harness/</code> schemas. No install-time network calls.</p></div></div>
-          <div class="step"><span class="sn">2</span><div><h3>Adapt it</h3><p><code>dmc-install.sh</code> merges hooks &amp; skills into your repo without overwriting your files. Pick <code>--host claude</code>, <code>codex</code>, or <code>both</code>.</p></div></div>
-          <div class="step"><span class="sn">3</span><div><h3>Prove it</h3><p><code>bin/dmc doctor</code> confirms the guards actually dispatch in your host — enforcement you can see, not assume.</p></div></div>
+          <div class="step"><span class="sn">2</span><div><h3>Adapt it</h3><p><code>./install.sh</code> checks <code>python3</code>, runs the installer (merges hooks &amp; skills, never overwriting your files), then verifies. Pick <code>--host claude</code>, <code>codex</code>, or <code>both</code>.</p></div></div>
+          <div class="step"><span class="sn">3</span><div><h3>Prove it</h3><p><code>bin/dmc doctor</code> runs automatically at the end and confirms the guards actually dispatch in your host — enforcement you can see, not assume.</p></div></div>
         </div>
       </div>
     </div>

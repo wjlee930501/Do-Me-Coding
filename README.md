@@ -17,24 +17,26 @@ implement, verify, recover, and report — with evidence.
 
 ## Install
 
-DMC installs into an existing Claude Code or Codex repo. First success is one command;
-the second command proves it worked.
+DMC installs into an existing Claude Code or Codex repo. One command does install, verify, and mode:
 
 ```bash
-# 1 — get the harness
-git clone https://github.com/wjlee930501/Do-Me-Coding
-cd Do-Me-Coding
-
-# 2 — install into your project (Claude Code + Codex)
-bash .claude/install/dmc-install.sh ~/code/your-repo --host both
-
-# 3 — verify it worked
-bin/dmc doctor
+git clone https://github.com/wjlee930501/Do-Me-Coding && cd Do-Me-Coding
+./install.sh ~/code/your-repo --host both
 ```
 
-`--host` accepts `claude` (default), `codex`, or `both`. Add `--dry-run` to preview every file it
-would write, or `--mode active|passive|off` to set enforcement strength. The installer merges into
-your repo without overwriting your own files.
+`./install.sh` checks prerequisites (`python3`), runs the installer, verifies with `bin/dmc doctor`,
+and prints the resolved mode + next steps. `--host` accepts `claude` (default), `codex`, or `both`;
+add `--dry-run` to preview every file it would write, or `--mode active|passive|off` to set
+enforcement strength. The installer merges into your repo without overwriting your own files.
+
+<details>
+<summary>Or, step by step</summary>
+
+```bash
+bash .claude/install/dmc-install.sh ~/code/your-repo --host both   # install
+cd ~/code/your-repo && bin/dmc doctor                              # verify it worked
+```
+</details>
 
 ### Verify it worked
 
