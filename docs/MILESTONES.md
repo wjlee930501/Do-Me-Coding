@@ -1177,3 +1177,63 @@ session's A→D-core→C→B run order.)_
   the snake-vs-camelCase parity comment on `PERMISSION_MODE_KEYS`, and a fresh passive sandbox for the
   F7 no-log assertion → critic r2 hash re-bind); run `dmc-run-5d7b9cb3ca28` armed with scope.lock over
   the four in-scope files. **push/CI/main-FF: human gate.**
+
+## v1.1.6 — committed-replica default for the `selftest --all` legacy leg — LOCAL (2026-07-10)
+
+- **What/why (test-harness hardening; no enforcement-semantics change — bucket-A):** the single frozen
+  legacy-replay leg of `bin/dmc selftest --all` ran IN-PLACE against the live working tree, so two
+  couplings could flip the pinned 802/3/3 baseline: (1) TREE — frozen `dmc-v0.6.0-verify.sh` V15
+  asserts a clean `git status --porcelain` against a hardcoded allow-list, so the live dirty
+  `.codex/config.toml` flipped the leg to 801/4/3; (2) MODE — `dmc-v0.1.3-verify.sh` asserts an `ask`
+  verdict from the live `pre-tool-guard.sh`, which only fires in `active` mode, so `.harness/mode=passive`
+  flipped it. Both couplings live inside the SAME leg. This cycle redirects that one leg to a COMMITTED
+  REPLICA of HEAD by default, so the green baseline is independent of working-tree dirt AND of
+  `.harness/mode`. **Retired rituals:** the manual committed-replica clone, the `.codex/config.toml`
+  stash, and the mode-restore-to-active dance before every `--all` run.
+- **What ships (`bin/dmc` only for behavior; all frozen tools byte-untouched):**
+  - **`run_legacy_selftest_all()` helper** — DEFAULT path: require git + a git work tree; `git clone
+    --no-hardlinks --quiet` HEAD into a `mktemp -d`; `remote remove origin` (sever write-back); assert
+    replica HEAD sha == source HEAD sha; run the REPLICA's own `bin/lib/dmc-legacy-selftest.py
+    selftest-all`; inline `rm -rf` + a `trap … EXIT` belt so the temp dir is dropped on ALL exits. The
+    clone is FULL (never `--depth 1`) because the frozen tools may read git history. `.harness/mode` is
+    gitignored ⇒ absent in the clone ⇒ `active` — that IS the mode normalization (the live mode file is
+    deliberately NOT copied in).
+  - **Fail-LOUD, never silent-fallback:** no-git / not-a-work-tree / mktemp / clone / HEAD-mismatch ⇒ a
+    distinct `FATAL: selftest --all replica provisioning failed: <reason>` on stderr + nonzero return,
+    and the leg does NOT fall back to in-place (that would resurrect the flake class).
+  - **`--in-place` escape hatch** (`SELFTEST_IN_PLACE=1`) — a pre-scan pulls the flag out via array-free
+    `set --` reconstruction so both `selftest --all --in-place` and `selftest legacy-all --in-place` parse
+    correctly; it preserves today's byte-for-byte live-working-tree replay.
+  - **Focused `selftest legacy-all` target** routes through the SAME helper (a ~2-3 min entry vs the
+    ~10-min full `--all`), also honoring `--in-place`; the `--all` usage prose documents the
+    committed-replica default + the hatch.
+- **What does NOT change:** the SEPARATE `legacy-mirror` leg (`bin/dmc:562`, `mirror --self-test`) stays
+  IN-PLACE against the live tree — the frozen bin/lib↔`.harness/evidence` byte-equality is still verified
+  every run; `dmc-legacy-selftest.py`, `PINNED_BASELINE`, and every `dmc-v0.*` frozen tool are
+  byte-untouched; CI's advisory `--all` step is strictly better on its clean `actions/checkout` (the clone
+  lands in `$TMPDIR`, so the MID-sandwich porcelain check is unaffected). ENV-VAR coupling (the
+  leaked-provider-key 801/4/3 class) is explicitly NOT addressed — the replica inherits the parent env, a
+  shell-hygiene class outside this fix.
+- **The legacy 802/3/3 aggregate is UNCHANGED (no masking):** the count still comes from the replica's
+  unchanged `selftest_all()` against `PINNED_BASELINE`; the change only moves WHERE the leg runs (committed
+  replica vs live tree), not WHAT it counts. On a clean committed baseline `bin/dmc selftest legacy-all` ==
+  `tools=49 PASS=802 FAIL=3 N/A=3` EXACT.
+- **Verification (implementer lane; independent verifier + release gate pending):** `bash -n bin/dmc`
+  clean. `bash tests/install/test-selftest-replica-default.sh` — hermetic C1-C5 + Z: C1 default
+  `legacy-all` green ONCE in a DIRTY-tree + `passive`-mode sandbox asserting `tools=49 PASS=802 FAIL=3
+  N/A=3` EXACT (tree+mode independence in one shot); C2 two-tool FLIP on `dmc-v0.6.0-verify.sh` (replica
+  V15 PASS vs `--in-place`-dirty V15 FAIL); C3 two-tool FLIP on `dmc-v0.1.3-verify.sh` (replica active-PASS
+  vs `--in-place`-passive FAIL); C4 the `--in-place` arms ARE the hatch reproduction; C5 fail-loud (broken
+  clone precondition ⇒ distinct FATAL + nonzero, NO 802/3/3, NO silent in-place); Z real-repo `git status
+  --porcelain` byte-identical before/after. `bin/dmc selftest legacy-all` on the live repo PASSES via the
+  replica even with the dirty `.codex/config.toml` present (the whole point). `bin/dmc selftest m65-suite`
+  unchanged-green. Derived-artifact neutrality (bin/dmc content edits): `bin/dmc agents-md --root .
+  --stdout | diff - AGENTS.md` EMPTY and `bash .claude/install/dmc-install.sh --emit-manifest | diff -
+  INSTALL_MANIFEST.md` EMPTY. Full committed-replica `bin/dmc selftest --all` == 802/3/3 EXACT and `bin/dmc
+  gate release --full` are the independent verifier's checks.
+- **Chain:** authorized this session by wjlee (the standing fable-core envelope + the 2026-07-10
+  next-session register item "3번도 착수하자"): critic-APPROVE-conditional, LOCAL-commit autonomy ceiling on
+  `claude/dmc-fable-core`. Plan `.harness/plans/dmc-fable-core-replica-default.md` (Rev 2 — critic r1
+  APPROVE folding the AC C2-C4 two-tool-FLIP wording → critic r2 hash re-bind, sha256 b33f355c…); run
+  `dmc-run-6e707694161f` armed with scope.lock over the four in-scope files. **push/CI/main-FF: human
+  gate.**

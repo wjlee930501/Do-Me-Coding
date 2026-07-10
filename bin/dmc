@@ -238,12 +238,20 @@ commands (M3):
                                               closed refuse + redaction parity + rollup determinism +
                                               offline self-audit. Included in the no-arg default AND
                                               under --all.
-  selftest    --all                          above + all 49 legacy tools (bin/lib) vs the
-                                              pinned baseline + rollback-test + run-core/loop-core
-                                              + the four M5 orchestration sections + m6-core + m6-suite
-                                              + skills-mirror + agents-md + m65-suite + doctor
-                                              + m8-suite + worker-check + m7-suite + release-gate
-                                              + m9-suite + metrics-recorder (slow: ~10+ min)
+  selftest    legacy-all [--in-place]         Just the legacy leg: the 49 frozen v0.x tools
+                                              (bin/lib) vs the pinned baseline (tools=49 PASS=802
+                                              FAIL=3 N/A=3). DEFAULT runs against a COMMITTED REPLICA
+                                              of HEAD (a severed `git clone --no-hardlinks` in a
+                                              mktemp dir) so the baseline is independent of working-
+                                              tree dirt and of `.harness/mode`. `--in-place` replays
+                                              against the live working tree (today's behavior).
+                                              Provisioning failures fail LOUD, never fall back.
+  selftest    --all [--in-place]              above + the legacy-all leg (committed-replica DEFAULT;
+                                              `--in-place` for the live-tree replay) + rollback-test
+                                              + run-core/loop-core + the four M5 orchestration sections
+                                              + m6-core + m6-suite + skills-mirror + agents-md
+                                              + m65-suite + doctor + m8-suite + worker-check + m7-suite
+                                              + release-gate + m9-suite + metrics-recorder (slow: ~10+ min)
   help
 
 Artifacts conform to .harness/schemas/{orientation,landmarks,depsurface,radius}.schema.md.
@@ -330,6 +338,59 @@ run_m9_suite() {
       echo "dmc selftest m9-suite: missing suite script: $s" >&2; rc=1
     fi
   done
+  return "$rc"
+}
+
+# The legacy leg of `selftest --all`: the 49 frozen v0.x tools replayed against
+# PINNED_BASELINE (aggregate tools=49 PASS=802 FAIL=3 N/A=3). By DEFAULT this runs
+# against a COMMITTED REPLICA of HEAD — a fresh `git clone --no-hardlinks` into a
+# mktemp dir with origin severed — so the green baseline is independent of working-
+# tree dirt (frozen dmc-v0.6.0 V15 asserts a clean porcelain) and of `.harness/mode`
+# (gitignored => absent in the clone => active, the normalized default). The clone is
+# FULL, never `--depth 1`: the frozen tools may read git history, so a shallow source
+# clone could change their behavior. `--in-place` (SELFTEST_IN_PLACE=1) preserves the
+# byte-for-byte legacy behavior of replaying against the live working tree. Any
+# provisioning failure fails LOUD (distinct FATAL + nonzero) — NEVER a silent fallback
+# to in-place, which would resurrect the tree/mode flake class.
+run_legacy_selftest_all() {
+  if [ "${SELFTEST_IN_PLACE:-0}" = "1" ]; then
+    python3 "$LCORE" selftest-all
+    return "$?"
+  fi
+  local src replica src_head rep_head rc
+  src=$(cd "$HERE/.." && pwd)
+  command -v git >/dev/null 2>&1 || {
+    echo "FATAL: selftest --all replica provisioning failed: git not found on PATH" >&2
+    return 1
+  }
+  git -C "$src" rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
+    echo "FATAL: selftest --all replica provisioning failed: source not a git work tree ($src)" >&2
+    return 1
+  }
+  replica=$(mktemp -d "${TMPDIR:-/tmp}/dmc-legacy-replica.XXXXXX") || {
+    echo "FATAL: selftest --all replica provisioning failed: mktemp failed" >&2
+    return 1
+  }
+  # Belt: drop the replica on ANY exit (incl. signal); the inline rm on each return
+  # path below is the normal cleanup and makes this a redundant no-op.
+  trap 'rm -rf "$replica" 2>/dev/null' EXIT
+  if ! git clone --no-hardlinks --quiet "$src" "$replica/repo" 2>/dev/null; then
+    echo "FATAL: selftest --all replica provisioning failed: git clone failed" >&2
+    rm -rf "$replica"; trap - EXIT
+    return 1
+  fi
+  # Sever write-back to the source (defense-in-depth atop --no-hardlinks + mktemp-only writes).
+  git -C "$replica/repo" remote remove origin >/dev/null 2>&1
+  src_head=$(git -C "$src" rev-parse HEAD 2>/dev/null)
+  rep_head=$(git -C "$replica/repo" rev-parse HEAD 2>/dev/null)
+  if [ -z "$rep_head" ] || [ "$src_head" != "$rep_head" ]; then
+    echo "FATAL: selftest --all replica provisioning failed: replica HEAD ($rep_head) != source HEAD ($src_head)" >&2
+    rm -rf "$replica"; trap - EXIT
+    return 1
+  fi
+  python3 "$replica/repo/bin/lib/dmc-legacy-selftest.py" selftest-all
+  rc=$?
+  rm -rf "$replica"; trap - EXIT
   return "$rc"
 }
 
@@ -548,6 +609,20 @@ case "$cmd" in
     exec python3 "$LCORE" rollback-test
     ;;
   selftest)
+    # Pre-scan: pull out --in-place (works for both `selftest --all --in-place` and
+    # `selftest legacy-all --in-place`) so the target loop never mis-reads it as a target.
+    # Array-free `set --` reconstruction (rotate idiom: consume $1 off the front, re-append
+    # kept args to the end, iterate exactly the original arg count) — stays bash 3.2 safe.
+    SELFTEST_IN_PLACE=0
+    _n=$#
+    while [ "$_n" -gt 0 ]; do
+      _a="$1"; shift; _n=$((_n - 1))
+      if [ "$_a" = "--in-place" ]; then
+        SELFTEST_IN_PLACE=1
+      else
+        set -- "$@" "$_a"
+      fi
+    done
     if [ "${1:-}" = "--all" ]; then
       rc=0
       for t in orient landmarks depsurface radius \
@@ -562,7 +637,7 @@ case "$cmd" in
           legacy-mirror)          python3 "$LCORE" mirror --self-test || rc=1 ;;
         esac
       done
-      python3 "$LCORE" selftest-all || rc=1
+      run_legacy_selftest_all || rc=1
       python3 "$RUNCORE" run-core || rc=1
       python3 "$RUNCORE" loop-core || rc=1
       python3 "$ROLESLIB" --self-test || rc=1
@@ -599,6 +674,7 @@ case "$cmd" in
         validate-verification)  python3 "$ICORE" verification --self-test || rc=1 ;;
         schemas-mirror)         python3 "$ICORE" mirror --self-test || rc=1 ;;
         legacy-mirror)          python3 "$LCORE" mirror --self-test || rc=1 ;;
+        legacy-all)             run_legacy_selftest_all || rc=1 ;;
         run-core)               python3 "$RUNCORE" run-core || rc=1 ;;
         loop-core)              python3 "$RUNCORE" loop-core || rc=1 ;;
         roles)                  python3 "$ROLESLIB" --self-test || rc=1 ;;
