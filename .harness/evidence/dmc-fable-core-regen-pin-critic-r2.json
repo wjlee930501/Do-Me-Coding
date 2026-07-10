@@ -1,0 +1,20 @@
+{
+  "schema": "dmc.critic-verdict.v1",
+  "work_id": "dmc-fable-core-regen-pin",
+  "plan_hash": "0c45ea98f6c3ba1913fc3cf748963f11b9f8945796aea277ccefcbf9d6af8e49",
+  "repo_hash": "bbeb27702d23892a0482127996552f393b1fddad",
+  "target_ref": ".harness/plans/dmc-fable-core-regen-pin.md",
+  "verdict": "APPROVE",
+  "lenses": ["correctness", "scope", "security"],
+  "criteria_checked": [
+    {"criterion_ref": "r2-hash-rebind", "result": "met", "note": "Independently recomputed shasum -a 256 of the plan == 0c45ea98f6c3ba1913fc3cf748963f11b9f8945796aea277ccefcbf9d6af8e49, matching the claimed Rev 2 hash. This verdict re-binds the APPROVE to the current bytes; the r1 verdict (plan_hash 550c0042...) is correctly superseded since any plan byte change invalidates the prior gate binding (fail-closed working as intended)."},
+    {"criterion_ref": "r2-delta1-f5-citation", "result": "met", "note": "VERIFIED as claimed. F5 prose (lines 88-89) and Source (line 92) now cite dmc-fable-core-e-build-20260710.md:34 with the actual evidence text 'agents-md drift empty; m8 manifest-drift 10/0'; the broken r1 citation dmc-fable-core-e-runstart.md:103-107 is gone. This is exactly the fix my r1 claim4 ADVISORY requested and points to the real evidence I located in r1."},
+    {"criterion_ref": "r2-delta2-section-delete-regen-vs-copy", "result": "met", "note": "VERIFIED as claimed. Proposed Changes assertion (4) (lines 147-152) now copies COMMITTED to $TMP/dropped.md, deletes a required ## N. section from that copy, and asserts cmp -s $TMP/regen.md $TMP/dropped.md (REGEN OUTPUT vs the section-deleted COPY, explicitly NOT two tampered copies) still FAILS because the generator re-emits all 10 sections — mirroring test-manifest-drift.sh:85-89. AC criterion 2 (lines 193-194) mirrors this. Exactly my r1 openq-(b) advisory; the tightened control is strictly stronger (proves generator re-emission, not just inequality). The (3) one-byte deliberate-drift control (lines 145-147) is byte-unchanged."},
+    {"criterion_ref": "r2-delta3-approval-flip-c11", "result": "met", "note": "VERIFIED as claimed and C11-COMPLIANT. Approval Status (lines 287-289): Status APPROVED; Approver = human envelope gate (user directive 2026-07-10) + critic r1 APPROVE; Approved At 2026-07-10; Rev 2 note at line 297. The AUTHORIZING approver is the human envelope gate; the critic r1 APPROVE is cited as ADVISORY evidence feeding that gate, not as the grant itself — no laundered-ACCEPT. The Notes block (lines 291-296) still states it is NOT self-approved and opens NO gate, and that the verdict-gate binding is the enforcement. Compliant with roles.json invariant_C11 and the schema's advisory rule."},
+    {"criterion_ref": "r2-delta-exhaustive", "result": "met", "note": "Confirmed the change set is EXACTLY the three claimed sites and nothing else. Byte-consistent with the r1-reviewed draft: Goal, User Intent, F1-F4, F6, F7, Relevant Files scope, Out of Scope, Risks, Assumptions, Execution Tasks, and Verification Commands are all unchanged. No scope row, acceptance criterion, generator reference, or out-of-scope boundary was silently altered."},
+    {"criterion_ref": "r2-r1-claims-carried", "result": "met", "note": "All six r1 load-bearing CONFIRMED claims carry forward unchanged (INSTALL_MANIFEST already pinned; AGENTS.md gap genuine; 802/3/3 count-parity neutral; lockstep-neutrality live-verified incl. the --root <abs> form; no V15 flake as specified; scope/gate/ceiling with bin/dmc FLAG-not-blocker). See dmc-fable-core-regen-pin-critic-r1.json for the file:line evidence; the underlying plan findings those claims rest on are byte-identical in Rev 2. Residual non-blocking r1 nit (claim-3 stray-guard phrasing at lines 69/236) remains unfolded but the actual mechanism is stronger than described — does not affect buildability."}
+  ],
+  "blockers": [],
+  "advisory": true,
+  "context_provenance": "fresh"
+}
