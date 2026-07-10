@@ -65,7 +65,9 @@ commands (M4):
 commands (M6 hook-hardening — Ring-0 verdict CLIs the Ring-1 shims call):
   bash-radius [--cmd STR | JSON stdin] [--scope-lock FILE]   classify a Bash command's write radius
                                               (L0 deny git apply/patch always; L1 scope-lock
-                                              adjudication when armed) -> 0 allow / 3 ask / 4 deny
+                                              adjudication when armed — safe sinks/fd-dups allow,
+                                              residual-ambiguous deny) -> L1 emits 0 allow / 4 deny
+                                              (exit 3 is a shared M6 code L1 no longer reaches)
   postbash-diff --scope-lock FILE --snapshot FILE [--root DIR]   post-Bash out-of-scope change
                                               detector vs the arming snapshot -> 0 clean / 4 blocked
   verify-crosscheck --report FILE --run DIR   semantic verification-report cross-check (run-id bind,

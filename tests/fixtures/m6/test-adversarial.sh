@@ -182,7 +182,7 @@ case_gitapply() {
   # ---- Wrapper-form table. The L0 inline floor is command-position anchored, so an obfuscated
   # shell wrapper slips it UNARMED (allow — the accepted L0 boundary). ARMED, the L1 wrapper-exec
   # detector (BASH-L1-WRAPPER-EXEC) descends into `sh -c` / `bash -c` / `xargs` payloads and DENIES
-  # an inner git-apply/patch; a benign wrapper payload is ASK (wrapper opacity, not a hard deny). ----
+  # an inner git-apply/patch; a benign wrapper payload is DENY (fail-closed, v1.1.7 — undecidable radius). ----
   local tmp2="$SANDBOX/ga-armed" rid
   rid=$(arm_fixture "$tmp2" "dmc-adv-ga") || { record FAIL "ga arm fixture"; return; }
   wrapper_verdict() { # CMD  -> prints deny|ask|allow from the armed pre-tool-guard shim
@@ -207,9 +207,10 @@ case_gitapply() {
   assert_eq deny "$(wrapper_verdict 'xargs git apply')" \
     "ga-armed DENY: 'xargs git apply' wrapper-exec closed (BASH-L1-WRAPPER-EXEC)"
 
-  # A benign wrapper payload is ASK (wrapper opacity), not a hard deny — no over-blocking.
-  assert_eq ask "$(wrapper_verdict "sh -c 'echo hi'")" \
-    "ga-armed ASK: benign wrapper payload ('sh -c echo hi') -> ask (wrapper opacity, not over-blocked)"
+  # A benign wrapper payload is DENY (fail-closed, v1.1.7): an undecidable wrapper radius fails fast
+  # so the agent rewords to a concrete in-scope target, rather than stalling on an unattended ask.
+  assert_eq deny "$(wrapper_verdict "sh -c 'echo hi'")" \
+    "ga-armed DENY: benign wrapper payload ('sh -c echo hi') -> deny (undecidable radius fails closed, v1.1.7)"
 }
 
 # ============================================================================

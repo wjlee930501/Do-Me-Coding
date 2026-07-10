@@ -1237,3 +1237,62 @@ session's A→D-core→C→B run order.)_
   APPROVE folding the AC C2-C4 two-tool-FLIP wording → critic r2 hash re-bind, sha256 b33f355c…); run
   `dmc-run-6e707694161f` armed with scope.lock over the four in-scope files. **push/CI/main-FF: human
   gate.**
+
+## v1.1.7 — Bash write-radius safe-sink allowlist + L1-AMBIGUOUS ask->deny — LOCAL (2026-07-10)
+
+- **What/why (Ring-0 verdict-tool behavioral change; net-tightening once the Rev 1 holes were closed —
+  driven by the 2026-07-10 no-prompts e2e-autonomy directive):** the Block D Bash write-radius
+  classifier (`bin/lib/dmc-bash-radius.py`) had two failure modes that stalled an otherwise-autonomous
+  armed run on an unattended human `ask` prompt. (1) A benign redirect to a working-tree-inert sink
+  (`echo x > /dev/null`, `2>/dev/null`) adjudicated OUTSIDE the locked scope and DENIED, and the
+  fd-duplication idiom `2>&1` mis-segmented — `split_segments` broke `echo x 2>&1` into
+  `['echo x 2>', '1']`, leaving a dangling empty target that flagged AMBIGUOUS -> ASK. (2) Every
+  residual L1-AMBIGUOUS case (`python -c` / glob / `$(...)` / directory / single-operand mv-cp /
+  tee-no-file / wrapper-exec benign payload) returned `ask` (exit 3), stalling the session for hours
+  instead of failing fast. This cycle makes safe sinks + fd-dups no-write ALLOWs and converts every
+  residual `ask` to `deny` (exit 4) so an agent rewords to a concrete in-scope target in seconds.
+- **What ships (`bin/lib/dmc-bash-radius.py` core + lockstep docs + a new integration test):**
+  - **(a1) split_segments fd-dup guard** — the `&` control-op split is skipped when the preceding
+    buffered char is `>`/`<` (a contiguous `>&`/`<&` dup operator); a real backgrounding `cmd &`
+    (space/other char before `&`) still splits, so `sleep 1 & echo done` is not swallowed.
+  - **(a2/B1) `_redirect_targets` companion** — a new `FDDUP_RE = ^(\d*)>&(.*)$` is parsed BEFORE the
+    plain `>` regexes: a bare-fd/`-` operand drops (descriptor dup/close, no file target); ANY other
+    operand (glued `>&FILE`, or the next token for a bare `>&`) surfaces as a real file write target
+    adjudicated like any redirect. Closes the Rev 1 CRITICAL fail-open where `echo pwned >& src/other.py`
+    orphaned its file token to ALLOW-NO-WRITE. `&>`/`&>>` keep the plain redirect path.
+  - **(b/B2) safe-sink allowlist** — `SAFE_SINKS = {/dev/null,/dev/stderr,/dev/stdout}` EXACT-set +
+    `FD_SINK_RE = ^/dev/fd/[0-9]+$` anchored (NO startswith/prefix anywhere), filtered from the resolved
+    targets before the state-hit/adjudicate checks. Closes the Rev 1 HIGH traversal fail-open
+    (`/dev/fd/../../etc/passwd` is NOT a sink -> adjudicated -> DENY).
+  - **(c) ask->deny** — the single terminal `if ambiguous:` funnel returns `deny` (exit 4); the
+    `BASH-L1-AMBIGUOUS` reason prefix is preserved (grep stability), the "human decides" tail rewritten
+    to a fail-closed reword instruction. `EXIT_ASK`/`emit()` stay intact (a shared M6 code the classifier
+    no longer reaches); the wrapper W4 benign-payload verdict flips to DENY with it.
+  - **(d) lockstep docs** — module docstring L1 semantics + exit-code note, `bin/dmc` bash-radius verb
+    help, and the `docs/DMC_V1_ENFORCEMENT_MATRIX.md` L1 row all now read "L1 emits 0 allow / 4 deny
+    (safe-sinks/fd-dups allow, residual-ambiguous deny; no ask)".
+  - **(e/B3) MODULE self-test rows (CI-covered via `selftest --all` + the m6 legs)** — B1 negatives +
+    in-scope allow, fd-dup allow, B2 traversal control + safe-sink allow, a NO-ASK invariant battery
+    (every former-ask input asserts rc!=3 and decision!=ask), the ambiguous + W4 ASK->DENY conversions,
+    an L0 `git apply x.patch 2>&1` regression, and backgrounding-not-swallowed unit rows. Module
+    self-test observed at **95 PASS / 0 FAIL**.
+  - **(f/B3) INTEGRATION test** — new `tests/install/test-v1.1.7-safesink-askdeny.sh` mints a real armed
+    scope.lock (mirrors `test-run-start-arming.sh`) and drives the LIVE `bin/dmc bash-radius` battery
+    end-to-end (all probes inert-if-executed): fd-dup/safe-sink/in-scope ALLOW; out-of-scope `>&` /
+    run-state / python-c / command-sub / glob DENY-not-ASK; L0 git-apply DENY; NO-ASK invariant;
+    real-repo porcelain byte-identical.
+- **What does NOT change:** the L0 static floor (git-apply/patch/rm -rf/catastrophic/secret verbs), the
+  Block C consent `ask` tier (npm/pnpm publish etc.), `dmc-postbash-diff`, scope-guard, secret-guard, the
+  frozen `dmc-v0.*` mirrors, and `PINNED_BASELINE` are untouched. The legacy `selftest --all` aggregate is
+  UNCHANGED at 802/3/3 (bash-radius is uncounted there) — the change adds/converts module self-test cases
+  only; no masking of any count.
+- **Rev chain (honest):** Rev 1 -> critic r1 REJECT (B1 CRITICAL `>&FILE` orphaned-target fail-open; B2
+  HIGH `/dev/fd` prefix traversal; B3 MEDIUM security rows must live in the CI-covered module selftest, not
+  the CI-uninvoked standalone file) -> Rev 2 folds all three (a2 FDDUP_RE adjudication; exact-set + anchored
+  fd sink; module-selftest security rows) -> critic r2 APPROVE with an adversarial security battery -> critic
+  r3 hash re-bind (plan sha256 d337a410…).
+- **Chain:** authorized this session by wjlee (the standing fable-core envelope + the 2026-07-10
+  next-session register item "3번도 착수하자" + the no-prompts e2e-autonomy directive fixing this scope):
+  critic-APPROVE-conditional, LOCAL-commit autonomy ceiling on `claude/dmc-fable-core`. Plan
+  `.harness/plans/dmc-v1.1.7-safesink-askdeny-20260710.md`; run `dmc-run-7020c8701ee9` armed with scope.lock
+  over the five in-scope files. **push/CI/main-FF: human gate.**

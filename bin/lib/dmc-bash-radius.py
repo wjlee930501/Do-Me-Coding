@@ -17,15 +17,21 @@ the M6 ARMING SEMANTICS:
         - ALLOWED if it adjudicates INSIDE the scope lock (reused by subprocess from
           dmc-scope-lock.py — never re-implemented here);
         - DENIED if it adjudicates OUTSIDE the scope lock (out-of-scope / secret / traversal);
-        - ASK for an ambiguous / unparseable target (a `python -c` idiom, a glob/`$(...)` target,
-          a directory destination) — the human decides.
+        - a no-write NON-target (ALLOW) when it is a safe sink (`/dev/null`, `/dev/stderr`,
+          `/dev/stdout`, `/dev/fd/<n>`) or an fd-duplication idiom (`2>&1`, `>&2`, `2>&-`) — neither
+          can touch the working tree, so neither is adjudicated;
+        - DENIED (fail-closed) for an ambiguous / unparseable target (a `python -c` idiom, a
+          glob/`$(...)` target, a directory destination, a wrapper-exec payload) — the agent
+          rewords to a concrete in-scope target rather than stalling on an unattended human ask.
       An unparseable command in this armed context is fail-closed DENY.
 
 Input: JSON on stdin (`{"command": "..."}`, the Claude Code Bash tool_input) or `--cmd STRING`.
 Output: one line of JSON — {"tier","decision","reason","targets":[...]} — value-blind (the module
 never opens a target file; `targets` are PATHS only, the whole point of a write-radius check).
 
-Exit codes (consistent across the M6 verdict CLIs): 0 allow · 3 ask · 4 deny.
+Exit codes (shared across the M6 verdict CLIs): 0 allow · 3 (ask) · 4 deny. L1 itself emits only
+0 allow / 4 deny — safe-sink/fd-dup no-writes allow, every residual target is in-scope allow or
+out-of-scope/ambiguous deny; exit 3 remains a defined shared code this classifier no longer reaches.
 
 House rules (v0.6.x / M2-M6 lineage): stdlib-only, deterministic (no wall-clock, no randomness on
 the decision path), env-independent (no env reads), offline (no network), fail-closed, value-blind
@@ -66,8 +72,9 @@ SCOPE_LOCK_NAME = "dmc-scope-lock.py"
 SKIP_LEADERS = {"env", "sudo", "command", "nohup", "nice", "time", "builtin", "exec"}
 
 # Wrapper executors whose payload's write radius cannot be adjudicated statically. When ARMED (L1),
-# an inner git-apply/patch or write idiom ⇒ DENY, otherwise ⇒ ASK (never a silent allow). L0 and the
-# UNARMED path are untouched — this is armed-L1-only strictness.
+# an inner git-apply/patch or write idiom ⇒ DENY; an otherwise-undecidable payload also ⇒ DENY as
+# the NET armed verdict (classify_l1 folds the internal ambiguous signal into the terminal
+# fail-closed funnel; never a silent allow). L0 and the UNARMED path are untouched — armed-L1-only.
 WRAPPER_SHELLS = {"sh", "bash", "zsh", "dash"}
 # `xargs` own options that take a SEPARATE value token (so the inner command starts after them);
 # bundled forms (-n1, -I{}) and `--flag=value` are single tokens and consume only themselves.
@@ -76,8 +83,18 @@ XARGS_VALUE_FLAGS = {"-a", "-d", "-E", "-I", "-L", "-n", "-P", "-s"}
 # A redirection operator token: optional fd or `&`, then `>`/`>>`/`>|`.
 REDIR_FULL_RE = re.compile(r"^(?:\d+|&)?(?:>>|>\||>)$")
 REDIR_PREFIX_RE = re.compile(r"^((?:\d+|&)?(?:>>|>\||>))(.+)$")
+# The `>&`/`N>&` fd-dup-or-redirect operator: optional leading fd digits, then `>&`, then a possibly
+# glued operand. A bare-fd / `-` operand duplicates or closes a descriptor (no file target); any
+# other operand is a real file write target. `&>`/`&>>` (ampersand BEFORE `>`) do NOT match here —
+# they keep the plain REDIR_FULL/PREFIX path, which already resolves their file target.
+FDDUP_RE = re.compile(r"^(\d*)>&(.*)$")
 # A shell-metacharacter that makes a redirection target undecidable by static inspection.
 AMBIGUOUS_TARGET_RE = re.compile(r"[\$`*?~{}\[\]]")
+# Redirect targets that cannot mutate the working tree — classified as no-write (allow) wherever a
+# write target is adjudicated. EXACT-set membership + an ANCHORED fd regex; NEVER a startswith/prefix
+# test (which would admit a traversal like `/dev/fd/../../etc/passwd`).
+SAFE_SINKS = {"/dev/null", "/dev/stderr", "/dev/stdout"}
+FD_SINK_RE = re.compile(r"^/dev/fd/[0-9]+$")
 
 
 # ------------------------------------------------------------------- helpers
@@ -140,6 +157,11 @@ def split_segments(command):
         two = command[i:i + 2]
         if two in ("&&", "||"):
             segments.append("".join(buf)); buf = []; i += 2; continue
+        # A redirection-dup operator `>&`/`<&` must stay glued to its command: the shell requires the
+        # `&` contiguous with `>`/`<`, so a real backgrounding `cmd &` (a space/other char before the
+        # `&`) still splits — only skip the split when the preceding buffered char is `>` or `<`.
+        if c == "&" and buf and buf[-1] in (">", "<"):
+            buf.append(c); i += 1; continue
         if c in (";", "|", "&", "\n"):
             segments.append("".join(buf)); buf = []; i += 1; continue
         buf.append(c)
@@ -231,24 +253,50 @@ def _is_ambiguous(path):
         or path in (".", "..") or path.startswith("&")
 
 
+def _is_safe_sink(path):
+    """True iff `path` is a working-tree-inert redirect sink (exact-set + anchored fd regex only)."""
+    return path in SAFE_SINKS or bool(FD_SINK_RE.match(path))
+
+
 def _redirect_targets(tokens):
-    """Yield file targets of output redirections in a token list (skips fd dups like `2>&1`)."""
+    """Yield file targets of output redirections in a token list.
+
+    `>&`/`N>&` (fd-dup-or-redirect) is parsed BEFORE the plain `>` regexes: a bare-fd or `-` operand
+    is a descriptor duplication/close (no file target, dropped); ANY other operand is a real file
+    write target, surfaced and adjudicated like any redirect. `&>`/`&>>` keep the plain redirect path
+    (their file target is already resolved there). Operand is the glued suffix (consume 1 token) if
+    non-empty, else the NEXT token (consume 2).
+    """
     out = []
     i = 0
-    while i < len(tokens):
+    n = len(tokens)
+    while i < n:
         tok = tokens[i]
+        m = FDDUP_RE.match(tok)
+        if m:
+            glued = m.group(2)
+            if glued:
+                operand = glued
+                i += 1
+            else:
+                operand = tokens[i + 1] if i + 1 < n else ""
+                i += 2
+            if operand == "" or operand == "-" or re.match(r"^\d+$", operand):
+                continue                # fd duplication/close — no file write target
+            out.append(operand)         # a real file write target — adjudicate like any redirect
+            continue
         if REDIR_FULL_RE.match(tok):
-            tgt = tokens[i + 1] if i + 1 < len(tokens) else ""
+            tgt = tokens[i + 1] if i + 1 < n else ""
             out.append(tgt)
             i += 2
             continue
-        m = REDIR_PREFIX_RE.match(tok)
-        if m:
-            out.append(m.group(2))
+        m2 = REDIR_PREFIX_RE.match(tok)
+        if m2:
+            out.append(m2.group(2))
             i += 1
             continue
         i += 1
-    return [t for t in out if not re.match(r"^&\d*[-]?$", t)]   # drop `&1`, `&-` fd dups
+    return [t for t in out if not re.match(r"^&\d*[-]?$", t)]   # belt: drop residual bare fd dups
 
 
 def _operands(args):
@@ -328,7 +376,10 @@ def _wrapper_verdict(cw, args):
     Returns ('deny', reason) when the inner payload carries a git-apply/patch or write idiom, ('ask',
     None) when the payload's radius is otherwise undecidable, or (None, None) when `cw` is not a
     payload-bearing wrapper. Nested wrappers need no recursion — the outer scan either sees the inner
-    tokens (deny) or falls through to ask (never a silent allow)."""
+    tokens (deny) or falls through to the internal 'ask' signal (never a silent allow). NOTE: when
+    armed, classify_l1 folds that internal 'ask' into the terminal ambiguous funnel, so the NET
+    emitted verdict for a benign wrapper payload is DENY (fail-closed, v1.1.7) — the return tuples
+    above are the internal signal, not the emitted decision."""
     if cw in WRAPPER_SHELLS:
         payload, i = None, 0
         while i < len(args):
@@ -376,7 +427,7 @@ def classify_l1(command, scope_lock_path):
         if wv == "deny":
             return "deny", wreason, []
         if wv == "ask":
-            ambiguous = True     # any outer redirection was already captured above; ASK dominates
+            ambiguous = True     # outer redirection already captured; ambiguous dominates → terminal DENY (v1.1.7)
             continue
         if cw == "sed":
             tgts, in_place, amb = _sed_targets(args)
@@ -398,10 +449,13 @@ def classify_l1(command, scope_lock_path):
         elif cw in ("python", "python3") and ("-c" in args):
             ambiguous = True            # arbitrary Python write idiom — undecidable target
 
-    # Partition concrete targets; ambiguous-shaped ones become ASK, not a false ALLOW/DENY.
+    # Partition concrete targets: safe sinks are no-write NON-targets (dropped, allow); ambiguous-
+    # shaped ones become DENY (fail-closed), not a false ALLOW; the rest are adjudicated.
     resolved = []
     for raw in concrete:
         p = _norm_target(raw)
+        if _is_safe_sink(p):
+            continue                    # /dev/null etc. cannot touch the working tree — no target
         if _is_ambiguous(p):
             ambiguous = True
             continue
@@ -421,9 +475,9 @@ def classify_l1(command, scope_lock_path):
                         "scope (out-of-scope / secret / traversal)"), out_of_scope
 
     if ambiguous:
-        return "ask", ("BASH-L1-AMBIGUOUS: a write idiom has an undecidable target "
-                       "(python -c / glob / $(...) / directory / wrapper-exec payload) — "
-                       "human decides"), resolved
+        return "deny", ("BASH-L1-AMBIGUOUS: a write idiom has an undecidable target "
+                        "(python -c / glob / $(...) / directory / wrapper-exec payload) — "
+                        "denied fail-closed; reword to a concrete in-scope redirect target"), resolved
 
     if resolved:
         return "allow", "BASH-L1-IN-SCOPE: every Bash write target is inside the locked scope", resolved
@@ -608,14 +662,83 @@ def selftest():
         r = _run_cli("--cmd", "mv a.txt src/other.py", "--scope-lock", lock)
         t.ok("L1 deny: mv destination out-of-scope", r.returncode == EXIT_DENY)
 
-        # -- L1 ASK: ambiguous targets ------------------------------------------------------------
+        # -- v1.1.7 [ask->deny]: former-ambiguous targets now DENY fail-closed (never ASK) --------
         r = _run_cli("--cmd", "python3 -c 'open(\"src/app.py\",\"w\")'", "--scope-lock", lock)
-        t.ok("L1 ask: python -c write idiom (undecidable target)",
-             r.returncode == EXIT_ASK and json.loads(r.stdout)["decision"] == "ask")
+        t.ok("L1 deny: python -c write idiom (undecidable target, was ask)",
+             r.returncode == EXIT_DENY and json.loads(r.stdout)["decision"] == "deny"
+             and "AMBIGUOUS" in json.loads(r.stdout)["reason"])
         r = _run_cli("--cmd", "echo x > $OUT", "--scope-lock", lock)
-        t.ok("L1 ask: redirection to a variable target", r.returncode == EXIT_ASK)
+        t.ok("L1 deny: redirection to a variable target (was ask)", r.returncode == EXIT_DENY)
         r = _run_cli("--cmd", "echo x > src/*.py", "--scope-lock", lock)
-        t.ok("L1 ask: redirection to a glob target", r.returncode == EXIT_ASK)
+        t.ok("L1 deny: redirection to a glob target (was ask)", r.returncode == EXIT_DENY)
+
+        # -- v1.1.7 [a2/B1] `>&`/`N>&` file targets surface + adjudicate (no orphaned ALLOW) ------
+        # Unit-level parse checks (deterministic, no CLI): the operator surfaces the file, drops fd-dups.
+        t.ok("B1 unit: '>&' spaced surfaces the following file token",
+             _redirect_targets(["echo", "pwned", ">&", "src/other.py"]) == ["src/other.py"])
+        t.ok("B1 unit: '>&FILE' glued surfaces the file token",
+             _redirect_targets([">&src/other.py"]) == ["src/other.py"])
+        t.ok("B1 unit: 'N>&FILE' glued surfaces the file token",
+             _redirect_targets(["2>&/tmp/evil"]) == ["/tmp/evil"])
+        t.ok("fd-dup unit: '2>&1' yields no write target", _redirect_targets(["echo", "x", "2>&1"]) == [])
+        t.ok("fd-dup unit: '>& 2' spaced-numeric drops", _redirect_targets([">&", "2"]) == [])
+        t.ok("fd-dup unit: '2>&-' close drops", _redirect_targets(["2>&-"]) == [])
+        t.ok("fd-dup unit: '&>FILE' keeps the plain redirect path (file surfaces)",
+             _redirect_targets(["&>/tmp/evil"]) == ["/tmp/evil"])
+        # CLI-level B1: out-of-scope `>&` file targets DENY (glued + spaced + N>& + &>); in-scope ALLOW.
+        for cmd in ("echo pwned >& src/other.py", "echo pwned >&src/other.py",
+                    "echo x 2>& /tmp/evil", "echo x &> /tmp/evil"):
+            r = _run_cli("--cmd", cmd, "--scope-lock", lock)
+            t.ok("B1 deny: out-of-scope `>&`/`&>` file target ⇒ DENY (no orphaned allow): %r" % cmd,
+                 r.returncode == EXIT_DENY and "OUT-OF-SCOPE" in json.loads(r.stdout)["reason"])
+        r = _run_cli("--cmd", "echo ok >& src/app.py", "--scope-lock", lock)
+        t.ok("B1 allow: in-scope `>&` file target ⇒ ALLOW", r.returncode == EXIT_ALLOW)
+
+        # -- v1.1.7 [fd-dup] descriptor duplications carry no write target ⇒ ALLOW ----------------
+        for cmd in ("echo hi 2>&1", "echo hi >&2", "echo hi 1>&2", "echo hi 2>&-", "echo hi >& 2",
+                    "echo ok > src/app.py 2>&1"):
+            r = _run_cli("--cmd", cmd, "--scope-lock", lock)
+            t.ok("fd-dup allow: fd duplication is not a write idiom: %r" % cmd,
+                 r.returncode == EXIT_ALLOW and json.loads(r.stdout)["decision"] == "allow")
+
+        # -- v1.1.7 [b/B2] safe-sink allowlist (exact-set + anchored fd) --------------------------
+        t.ok("sink unit: /dev/null exact-set sink", _is_safe_sink("/dev/null"))
+        t.ok("sink unit: /dev/fd/2 anchored fd sink", _is_safe_sink("/dev/fd/2"))
+        t.ok("sink unit: /dev/fd/../../etc/passwd is NOT a sink (no prefix test)",
+             not _is_safe_sink("/dev/fd/../../etc/passwd"))
+        t.ok("sink unit: /dev/nullx is NOT a sink (exact-set)", not _is_safe_sink("/dev/nullx"))
+        t.ok("sink unit: relative dev/null is NOT a sink", not _is_safe_sink("dev/null"))
+        for cmd in ("echo x > /dev/null", "echo x 2>/dev/null", "echo x > /dev/stderr",
+                    "echo x > /dev/stdout", "echo x > /dev/fd/3", "echo x > /dev/null 2>&1"):
+            r = _run_cli("--cmd", cmd, "--scope-lock", lock)
+            t.ok("B2 allow: safe sink ⇒ ALLOW (no working-tree write): %r" % cmd,
+                 r.returncode == EXIT_ALLOW and json.loads(r.stdout)["decision"] == "allow")
+        r = _run_cli("--cmd", "echo x > /dev/fd/../../etc/passwd", "--scope-lock", lock)
+        t.ok("B2 deny: /dev/fd traversal is NOT a sink ⇒ adjudicated ⇒ DENY (out-of-scope)",
+             r.returncode == EXIT_DENY and "OUT-OF-SCOPE" in json.loads(r.stdout)["reason"])
+        r = _run_cli("--cmd", "echo x > /dev/nullx", "--scope-lock", lock)
+        t.ok("B2 deny: /dev/nullx is NOT a sink ⇒ DENY (out-of-scope)", r.returncode == EXIT_DENY)
+
+        # -- v1.1.7 [NO-ASK invariant] no L1 input yields verdict `ask` (exit 3) ------------------
+        for cmd in ("python3 -c 'open(\"src/app.py\",\"w\")'", "echo x > $OUT", "echo x > src/*.py",
+                    "echo x > $(mkfile)", "echo x > somedir/", "mv onlyone", "echo x | tee",
+                    'sh -c "echo hi"', "xargs echo", "cp onlyfile"):
+            r = _run_cli("--cmd", cmd, "--scope-lock", lock)
+            t.ok("NO-ASK: former-ask input never asks (rc!=3, decision!=ask): %r" % cmd,
+                 r.returncode != EXIT_ASK and json.loads(r.stdout)["decision"] != "ask")
+
+        # -- v1.1.7 [L0 regression] git-apply combined with a fd-dup still L0 DENY ----------------
+        r = _run_cli("--cmd", "git apply x.patch 2>&1", "--scope-lock", lock)
+        t.ok("L0 regression: `git apply x.patch 2>&1` (fd-dup not split off) ⇒ L0 DENY",
+             r.returncode == EXIT_DENY and json.loads(r.stdout)["tier"] == "L0")
+
+        # -- v1.1.7 [backgrounding] a real `&` still splits (not swallowed as an fd-dup) -----------
+        t.ok("bg unit: split_segments does not swallow a real backgrounding '&'",
+             split_segments("sleep 1 & echo done") == ["sleep 1", "echo done"])
+        t.ok("bg unit: split_segments keeps a contiguous '>&' fd-dup in one segment",
+             split_segments("echo x 2>&1") == ["echo x 2>&1"])
+        t.ok("bg unit: split_segments keeps a spaced '>&' redirect in one segment",
+             split_segments("echo x >& out") == ["echo x >& out"])
 
         # -- L1 allow: a pure read command (no write idiom) ---------------------------------------
         r = _run_cli("--cmd", "grep -r foo src/ < input.txt", "--scope-lock", lock)
@@ -626,7 +749,7 @@ def selftest():
         t.ok("L1 deny: unparseable (unbalanced quote) command fails closed",
              r.returncode == EXIT_DENY and "UNPARSEABLE" in json.loads(r.stdout)["reason"])
 
-        # -- L1 wrapper-exec (ARMED only): payload radius is undecidable ⇒ deny idiom / else ask -----
+        # -- L1 wrapper-exec (ARMED only): payload radius is undecidable ⇒ deny idiom / else deny (fail-closed) --
         # git-apply at the START of the -c payload is preceded by the quote, so L0's anchored scan
         # misses it — the wrapper path is what denies these (reason names the wrapper + inner form).
         for w in ('sh -c "git apply x.patch"', 'bash -c "git apply < d.patch"',
@@ -650,8 +773,9 @@ def selftest():
                  r.returncode == EXIT_DENY and "WRAPPER-EXEC" in json.loads(r.stdout)["reason"])
         for w in ('sh -c "echo hi"', "xargs echo", 'bash -c "ls -la src"'):
             r = _run_cli("--cmd", w, "--scope-lock", lock)
-            t.ok("W4 armed wrapper benign payload ⇒ ASK: %r" % w,
-                 r.returncode == EXIT_ASK and json.loads(r.stdout)["decision"] == "ask")
+            t.ok("W4 armed wrapper benign payload ⇒ DENY (was ASK; undecidable radius fails closed): %r" % w,
+                 r.returncode == EXIT_DENY and json.loads(r.stdout)["decision"] == "deny"
+                 and "AMBIGUOUS" in json.loads(r.stdout)["reason"])
         for w in ('sh -c "git apply x.patch"', "xargs git apply", 'sh -c "echo hi"'):
             r = _run_cli("--cmd", w)      # UNARMED: L1 stands down, behavior unchanged
             t.ok("W5 unarmed wrapper unchanged ⇒ allow (L0): %r" % w,

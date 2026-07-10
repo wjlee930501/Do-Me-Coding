@@ -105,7 +105,7 @@ that the 8-invariant JSON does not itself carry.
 | Surface | Tier | What it does |
 |---|---|---|
 | bash-radius L0 static floor (`pre-tool-guard.sh` + `dmc-bash-radius.py`) | ENFORCED-runtime | Command-position deny of git-apply/patch, rm -rf, catastrophic and secret-exposure verbs in ALL modes, armed or not. |
-| bash-radius L1 dynamic write-radius | ENFORCED-runtime | When armed+active, adjudicates each Bash write target against the scope lock (0 allow / 3 ask / 4 deny); fail-closed if the CLI is unreachable. |
+| bash-radius L1 dynamic write-radius | ENFORCED-runtime | When armed+active, adjudicates each Bash write target against the scope lock: safe sinks (`/dev/null`, `/dev/stderr`, `/dev/stdout`, `/dev/fd/<n>`) and fd-duplications (`2>&1`, `>&2`) are no-write allows, every remaining target is in-scope allow or out-of-scope/ambiguous deny (0 allow / 4 deny — L1 no longer asks); fail-closed if the CLI is unreachable. |
 | scope-guard L1 scope.lock adjudication (`scope-guard.sh`) | ENFORCED-runtime | Edit\|Write PreToolUse deny outside the compiled scope.lock; active-mode only; fail-closed when armed. |
 | secret-guard Read/Grep/Glob path-only deny (`secret-guard.sh`) | ENFORCED-runtime | Denies secret-shaped paths by string only in ALL modes (never opens the file, so cannot itself leak). |
 | C1-broadened Bash secret-read block (`pre-tool-guard.sh`) | ENFORCED-runtime | Denies read-verb + secret-operand combinations (closes the `cp .env x` → `Read x` two-step); audit C1 remediation, ALL modes. |
