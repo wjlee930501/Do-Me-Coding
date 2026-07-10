@@ -202,7 +202,8 @@ commands (M3):
                                               skills mirror/drift check (skills-mirror). Named-only;
                                               also under --all; NOT in the no-arg default.
   selftest    m65-suite                       M6.5 Codex-adapter suites (tests/fixtures/m6.5):
-                                              codex shims, skills mirror, host AGENTS.md generator.
+                                              codex shims, skills mirror, host AGENTS.md generator,
+                                              committed==regenerated AGENTS.md regen-drift pin.
                                               Named-only; also under --all; NOT in the no-arg default.
   selftest    doctor                          M8 host self-check module self-test (dmc-doctor.py):
                                               firing-probe positive control + Codex-scoped honesty
@@ -274,7 +275,7 @@ run_m6_suite() {
 # every suite passes.
 run_m65_suite() {
   local rc=0 s
-  for s in test-codex-shims.sh test-skills-mirror.sh test-agents-md.sh; do
+  for s in test-codex-shims.sh test-skills-mirror.sh test-agents-md.sh test-agents-md-drift.sh; do
     if [ -f "$M65SUITEDIR/$s" ]; then
       bash "$M65SUITEDIR/$s" || rc=1
     else

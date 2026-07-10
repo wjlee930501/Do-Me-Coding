@@ -1037,3 +1037,66 @@ session's A→D-core→C→B run order.)_
   NEEDS_CLARIFICATION on the shared-`exec` unreachability [B1] + cwd-relative composition [B2] →
   split-start + `--root`-threaded Rev 2 → critic r2 APPROVE, 0 blockers). **push/CI/main-FF: human
   gate.**
+
+## v1.1.4 — committed==regenerated selftest pins for the generated artifacts — LOCAL (2026-07-10)
+
+- **The defect (cycle-D-core, caught-by-luck):** DMC ships two GENERATED artifacts —
+  `INSTALL_MANIFEST.md` (from `.claude/install/dmc-install.sh --emit-manifest`) and `AGENTS.md` (from
+  `dmc agents-md`). During cycle D-core BOTH drifted out of lockstep with their generators;
+  `INSTALL_MANIFEST.md` drift was caught by the m8 suite's byte-equality pin, but `AGENTS.md` drift
+  had NO selftest pin and escaped to a later critic by luck
+  (`.harness/evidence/dmc-fable-core-e-build-20260710.md` "Registered follow-ups", item 1). This cycle
+  makes an AGENTS.md committed==regenerated drift escape no cycle.
+- **Honest scope (the pivotal finding):** `INSTALL_MANIFEST.md` is ALREADY permanently pinned —
+  `tests/fixtures/m8/test-manifest-drift.sh` (run under `run_m8_suite` + the BLOCKING CI `selftest
+  m8-suite` step) `cmp -s`-compares `--emit-manifest` against the committed manifest with hand-edit +
+  section-delete negative controls; NO new manifest code was needed. The net-new work is the AGENTS.md
+  side: a hermetic drift suite homed with its OWN generator's suite family (agents-md → M6.5, mirroring
+  manifest → M8). Re-homing the working manifest test into a unified drift suite was explicitly rejected
+  as an out-of-scope refactor (surgical discipline); each drift test lives with its generator.
+- **What ships:**
+  - **New `tests/fixtures/m6.5/test-agents-md-drift.sh`** — STANDALONE hermetic suite (no
+    `_m65common.sh` dependency; own `record`/PASS/FAIL; `ROOT=$SELF_DIR/../../..`; drives the real
+    `bin/dmc`). Five assertions: (1) POSITIVE — `dmc agents-md --root ROOT --stdout` == the committed
+    `AGENTS.md` BYTE-FOR-BYTE; (2) GUARD — the committed `AGENTS.md` exists and is non-empty (equality
+    cannot pass vacuously); (3) NEGATIVE one-byte — a one-byte mutation of a COPY is DETECTED (regen vs
+    the tampered copy FAILS: the pin has teeth); (4) NEGATIVE section-delete — deleting a required
+    `## N.` section from a COPY still FAILS against the REGEN OUTPUT (not two tampered copies — the
+    generator re-emits all ten sections, so deletion cannot defeat the pin, mirroring
+    `test-manifest-drift.sh`'s re-emit semantics); (5) HERMETIC — the live repo `git status --porcelain`
+    is byte-identical before/after (a DELTA check, never a pass/fail signal on tree state itself; all
+    writes confined to mktemp; the tracked `AGENTS.md` is READ, never written). Comparison base is the
+    WORKING-TREE `AGENTS.md` (what is about to be committed matches its generator), never HEAD; the
+    suite never branches on `git status` as a pass signal, so it adds NO second frozen-v0.6.0
+    tree-coupling flake source.
+  - **`bin/dmc`** — `test-agents-md-drift.sh` added to the `run_m65_suite` loop and the `selftest
+    m65-suite` usage prose names the new committed==regenerated AGENTS.md regen-drift pin. No other
+    dispatch change; this auto-wires the pin into `selftest --all`, the named `selftest m65-suite`, AND
+    the blocking CI `selftest m65-suite` step (which iterates the whole M6.5 script list — no workflow
+    edit; `.github/` is not in the diff).
+- **The legacy 802/3/3 aggregate is UNCHANGED:** the ONLY code-enforced pin (`PINNED_BASELINE` in
+  `dmc-legacy-selftest.py`) counts `dmc-v0.*` legacy tools only; a new `tests/fixtures/m6.5/*.sh` is not
+  a legacy tool, so the aggregate is untouched (the `dmc-metrics-recorder.py` precedent).
+  `PINNED_BASELINE` is byte-untouched (out of scope); clean-tree `selftest --all` == `tools=49 PASS=802
+  FAIL=3 N/A=3` EXACT re-affirmation is the independent verifier's check.
+- **Verification (implementer lane; independent verifier + release gate pending T003):** `bash
+  tests/fixtures/m6.5/test-agents-md-drift.sh` **8/0** (positive byte-equality + both negative controls
+  + porcelain hermeticity). `bash -n bin/dmc` clean after the edits. `bin/dmc selftest m65-suite` all
+  four RESULT lines 0 FAIL — `test-codex-shims.sh` **143/0**, `test-skills-mirror.sh` **19/0**,
+  `test-agents-md.sh` **35/0**, `test-agents-md-drift.sh` **8/0**. `bin/dmc selftest m8-suite` re-affirms
+  the INSTALL_MANIFEST pin — `test-install-roundtrip.sh` **83/0**, `test-idempotency.sh` **17/0**,
+  `test-doctor-negcontrols.sh` **16/0**, `test-manifest-drift.sh` **10/0** (byte-equality PASS,
+  unchanged). `bin/dmc selftest agents-md` **27/0** (generator self-test still green). Derived-artifact
+  neutrality (the lockstep irony — this change touched `bin/dmc` + added a test): `bin/dmc agents-md
+  --root . --stdout | diff - AGENTS.md` EMPTY and `bash .claude/install/dmc-install.sh --emit-manifest |
+  diff - INSTALL_MANIFEST.md` EMPTY — NEITHER generated artifact drifted, so the conditional lockstep
+  regen was a confirmed NO-OP (F5 held; the immediately-prior E-cycle empirically proved the same
+  class). Clean-tree `selftest --all` == 802/3/3 EXACT, an own re-run of the drift suite incl. the
+  negative controls, and `dmc gate release --full` (non-degrading FLAG on `bin/dmc` expected; NO G4
+  override — no protected path in scope) are the independent verifier's checks (T003).
+- **Chain:** authorized this session by wjlee (the standing fable-core envelope + the 2026-07-10
+  next-session register item 1 "committed==regen 셀프테스트 핀"): critic-APPROVE-conditional, LOCAL-commit
+  autonomy ceiling on `claude/dmc-fable-core`. Plan `.harness/plans/dmc-fable-core-regen-pin.md` (Rev 2
+  — critic r1 APPROVE folding two advisory nits: the F5 citation + the section-delete regen-vs-copy
+  semantics → critic r2 hash re-bind); run `dmc-run-e8b6a347af41` armed with scope.lock over the
+  in-scope files. **push/CI/main-FF: human gate.**
