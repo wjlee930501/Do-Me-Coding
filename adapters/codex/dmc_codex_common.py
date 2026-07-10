@@ -36,6 +36,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 
 # --------------------------------------------------------------------- constants
 
@@ -50,6 +51,13 @@ GREP_DIR_KEYS = ("path", "dir", "directory", "search_path", "searchPath")
 GLOB_KEYS = ("glob", "pattern", "glob_pattern", "globPattern")
 GREP_PATTERN_KEYS = ("pattern", "regex", "query", "search")
 PROMPT_KEYS = ("prompt", "user_prompt", "userPrompt", "text", "message")
+
+# Host session permission-mode key (v1.1.5 ask-tier bypass-awareness). The enum matches Claude Code
+# (default|acceptEdits|plan|dontAsk|bypassPermissions). snake `permission_mode` is the DOCUMENTED
+# parity key — exactly what `pre-tool-guard.sh` reads via `json_get 'permission_mode'`; camelCase
+# `permissionMode` is a defensive-only candidate for the TBD Codex schema. Read at the event TOP
+# level ONLY (never under tool_input); absent => "" => Block C's ask stays inert-if-absent.
+PERMISSION_MODE_KEYS = ("permission_mode", "permissionMode")
 
 # Project-dir resolution order. CLAUDE_PROJECT_DIR is honored FIRST so the cross-adapter parity
 # fixtures can pin one synthetic project dir for both adapters (as tests/fixtures/m6/_m6common.sh
@@ -120,6 +128,15 @@ def stop_hook_active(data):
     """Loop-guard flag (Codex mirrors Claude's `stop_hook_active`)."""
     v = _ci_get(data, ("stop_hook_active", "stopHookActive"))
     return v.strip().lower() == "true"
+
+
+def permission_mode(data):
+    """Top-level `permission_mode` read (mirrors `pre-tool-guard.sh`'s `json_get 'permission_mode'`).
+
+    The host session's blanket-consent record; "" when absent so Block C's ask stays inert-if-absent.
+    Read at the event TOP level ONLY (never under tool_input), byte-consistent with the Claude side.
+    """
+    return _ci_get(data, PERMISSION_MODE_KEYS)
 
 
 # ---------------------------------------------------------------- project / mode
@@ -315,6 +332,29 @@ def classify_bash_floors(command, mode):
     return None, None
 
 
+# Block C ask-class label (advisory only, v1.1.5). Byte-faithful mirror of pre-tool-guard.sh:140-145
+# PTG_ASK_CLASS precedence (publish > audit-force > schema-push > migrate > install-fallback). The
+# label feeds ONLY the value-blind stand-down notice/log; it NEVER affects matching or the ask
+# verdict and NEVER carries the command text.
+_ASK_CLASS_RULES = (
+    ("publish", re.compile(r"(npm|pnpm|yarn|bun)\s+publish", re.IGNORECASE)),
+    ("audit-force", re.compile(r"npm\s+audit\s+fix\s+--force", re.IGNORECASE)),
+    ("schema-push", re.compile(r"schema\s+push", re.IGNORECASE)),
+    ("migrate", re.compile(r"migrate\s+(deploy|dev|reset)", re.IGNORECASE)),
+)
+
+
+def ask_class(command):
+    """Return the Block C consequence class of `command` (publish|audit-force|schema-push|migrate|
+    install). `install` is the fallback once the four consequential forms are ruled out — the exact
+    precedence + fallback of pre-tool-guard.sh's PTG_ASK_CLASS."""
+    one = _oneline(command)
+    for label, rx in _ASK_CLASS_RULES:
+        if rx.search(one):
+            return label
+    return "install"
+
+
 # ------------------------------------------------------------- Ring-0 resolution
 
 def _script_root():
@@ -436,6 +476,27 @@ def pretool_ask(reason):
 
 def pretool_allow():
     """Allow == empty success (no envelope), byte-for-byte with the Claude shims' `exit 0`."""
+    sys.exit(0)
+
+
+def pretool_standdown(project_dir, cls):
+    """Block C ask-tier ADVISORY stand-down under host-attested bypassPermissions (v1.1.5 mirror of
+    pre-tool-guard.sh:152-158). Best-effort append ONE value-blind class/timestamp line (class + UTC
+    only, NEVER the command text) to .harness/metrics/ask-tier-advisory.log, emit the byte-identical
+    `{"systemMessage":…}` advisory, and exit 0 (allow pass-through). Every log failure is swallowed
+    so the shim always exits 0. Deny floors are not consent-seeking and never reach here."""
+    try:
+        metrics_dir = os.path.join(project_dir, ".harness", "metrics")
+        os.makedirs(metrics_dir, exist_ok=True)
+        stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        with open(os.path.join(metrics_dir, "ask-tier-advisory.log"), "a",
+                  encoding="utf-8") as f:
+            f.write("%s ask-tier-standdown class=%s\n" % (stamp, cls))
+    except Exception:
+        pass
+    _emit({"systemMessage":
+           "DMC advisory: ask-tier stood down under bypassPermissions (class: %s); "
+           "deny floors remain active." % cls})
     sys.exit(0)
 
 

@@ -1100,3 +1100,80 @@ session's A→D-core→C→B run order.)_
   — critic r1 APPROVE folding two advisory nits: the F5 citation + the section-delete regen-vs-copy
   semantics → critic r2 hash re-bind); run `dmc-run-e8b6a347af41` armed with scope.lock over the
   in-scope files. **push/CI/main-FF: human gate.**
+
+## v1.1.5 — Codex adapter Block C bypass-awareness mirror — LOCAL (2026-07-10)
+
+- **What/why (cross-adapter parity port of v1.1.1):** v1.1.1 shipped ask-tier bypass-awareness on the
+  Claude side (`pre-tool-guard.sh`) and explicitly surfaced the Codex mirror as an open divergence —
+  `adapters/codex/dmc_codex_common.py` reproduced the Block C ask floor but carried NO bypass-awareness
+  ("recorded here for a follow-up decision, not silently patched"). This cycle closes that divergence:
+  the ADVISORY Codex Block C now matches the Claude side under a host-attested `bypassPermissions`
+  mode, so a package/migration/publish command the human already blanket-consented to stops drawing a
+  redundant second `ask` on a Codex host too. **Deny floors are not consent-seeking and never stand
+  down** — only the redundant Block C ask is downgraded.
+- **What/where (two additive `.py` touches + a new test section — no other block changed):**
+  - **M1 `dmc_codex_common.py`:** `PERMISSION_MODE_KEYS = ("permission_mode", "permissionMode")`
+    (snake `permission_mode` is the DOCUMENTED parity key — exactly what `json_get 'permission_mode'`
+    reads; camelCase is a defensive-only Codex-schema candidate); `permission_mode(data)` reads it at
+    the event TOP level ONLY (mirrors the Claude top-level read; "" when absent); `ask_class(command)`
+    mirrors `PTG_ASK_CLASS`'s exact precedence + fallback (`publish` > `audit-force` > `schema-push` >
+    `migrate` > `install`); `pretool_standdown(project_dir, cls)` best-effort appends ONE value-blind
+    line (`<utc> ask-tier-standdown class=<cls>`, class + timestamp only, NEVER the command text) to
+    `.harness/metrics/ask-tier-advisory.log`, emits the byte-identical `{"systemMessage":…}` advisory,
+    and exits 0 (allow pass-through), swallowing every log failure. One stdlib `import time` added.
+  - **M2 `dmc-codex-pretooluse.py handle_bash`:** at the Block C `verdict == "ask"` branch ONLY
+    (reached only AFTER the deny floors above have returned — Block C is the sole `ask`-scoped floor),
+    when `permission_mode(data) == "bypassPermissions"` EXACTLY, downgrade to `pretool_standdown`;
+    every other/absent value falls through to the byte-identical `pretool_ask`. Block D write-radius,
+    the Edit/Write scope tree, and the Read/Grep/Glob secret floor are all untouched.
+- **The moat (deny floors + scope provably unaffected):** Block A/B deny floors (scope `all` /
+  `not-off`) are unchanged in every mode; the Block D dynamic write-radius (`bash-radius`) is
+  unchanged — it adjudicates SCOPE not consent, so bypass never stands it down; the Block C ask
+  pattern LIST is unchanged (no command added/removed). grep-AC: `grep -n bypassPermissions
+  adapters/codex/*.py` shows the token ONLY in the pretooluse Block C ask branch + the `common.py`
+  stand-down emitter/keys/docstring — NO deny-path reference. `git push --force` and `cat .env` STILL
+  deny under bypass (they are Block A floors that return before Block C is ever considered).
+- **Honest posture (inert-if-absent) — the standing Option-A ADVISORY caveat:** live delivery of
+  `bypassPermissions` by a real Codex bypass-mode session is NOT provable from inside this session —
+  it is **turn-free-unprovable**, exactly like whether the Codex hooks FIRE and whether these shims'
+  envelopes are HONORED at all (codex-cli 0.132.0 spike). The stand-down inherits the same ADVISORY
+  status as every other envelope the shim emits; **no enforcement-parity claim is added.** The branch
+  is inert-if-absent (absent/empty/`default`/`acceptEdits`/`plan`/unknown ⇒ the frozen ask fires,
+  byte-identical) — dead code until a host actually sends the field, and the evidence records no false
+  "live-proven" claim. The advisory log is the pilot's measurement of real firings (incl. consequential
+  classes like `migrate`). `acceptEdits`/native-allowlist sessions are deliberately NOT stood down
+  (same narrowing as v1.1.1; a registered v1.2+ pilot question).
+- **Verification (implementer lane; independent verifier + release gate pending T003):** `bash
+  tests/fixtures/m6.5/test-codex-shims.sh` **161/0** — the new `== F. ask-tier bypass-awareness
+  (v1.1.5) ==` section (F1 inert-if-absent ask; F2 `acceptEdits` ⇒ ask; F3 `npm install` + bypass ⇒
+  stand-down with no ask, rc0, a parseable `systemMessage`, and exactly one value-blind `class=install`
+  log line; F4/F5 `git push --force` / `cat .env` STILL deny under bypass; F6 non-prisma `sqlx migrate
+  reset` logs `class=migrate`; F7 mode=passive + bypass ⇒ no ask, no `systemMessage`, NO log file via a
+  fresh passive sandbox — mode composition; F8 a fake `sk-…` token in the command never enters the log;
+  F-PAR1 cross-adapter — the REAL Claude hook and the Codex shim on one bypass envelope both stand
+  down, their EXTRACTED `systemMessage` strings byte-EQUAL via ONE shared extractor, both log lines
+  share the `class=install` shape; F-PAR2 deny-under-bypass parity; F-PAR3 inert-if-absent ask parity)
+  plus the unchanged D-block and the real-repo porcelain guard (`git status --porcelain` byte-identical
+  before/after). `bin/dmc selftest m65-suite` all green — `test-codex-shims.sh` **161/0**,
+  `test-skills-mirror.sh` **19/0**, `test-agents-md.sh` **35/0**, `test-agents-md-drift.sh` **9/0**.
+  Derived-artifact neutrality (both edited `.py` files are enforcement landmarks listed by path+class in
+  `AGENTS.md` and by name in `INSTALL_MANIFEST.md`, content-agnostic): `bin/dmc agents-md --root .
+  --stdout | diff - AGENTS.md` EMPTY and `bash .claude/install/dmc-install.sh --emit-manifest | diff -
+  INSTALL_MANIFEST.md` EMPTY — NEITHER generated artifact drifted.
+- **The legacy 802/3/3 aggregate is UNCHANGED, count 143→161 is descriptive only:** `run_m65_suite`
+  asserts EXIT CODE only (no code-enforced count), so the +18 section-F assertions (143 → 161) break
+  no pin; the ONLY code-enforced count is legacy `PINNED_BASELINE` (`dmc-legacy-selftest.py`, `dmc-v0.*`
+  tools only) — `test-codex-shims.sh` is not a legacy tool, so 802/3/3 is untouched. The prior `143`
+  figure survives as frozen prose in earlier records (never retro-edited); this entry records the new
+  `161`. Committed-replica + isolated-live `bin/dmc selftest --all` == `tools=49 PASS=802 FAIL=3 N/A=3`
+  EXACT and `bin/dmc gate release --full` (non-degrading FLAG on the two enforcement landmarks, NO
+  `DMC_GATE_PROTECTED` override — `adapters/codex` is absent from `DEFAULT_PROTECTED`) are the
+  independent verifier's checks (T003).
+- **Chain:** authorized this session by wjlee (the standing fable-core envelope + the 2026-07-10
+  next-session register item 2 "Codex 어댑터 bypass 반영", "2번도 적용하자"): critic-APPROVE-conditional,
+  LOCAL-commit autonomy ceiling on `claude/dmc-fable-core`. Plan
+  `.harness/plans/dmc-fable-core-codex-bypass.md` (Rev 2 — critic r1 APPROVE, 0 blockers, three
+  executor advisories folded into the build brief: ONE shared `systemMessage` extractor for F-PAR1,
+  the snake-vs-camelCase parity comment on `PERMISSION_MODE_KEYS`, and a fresh passive sandbox for the
+  F7 no-log assertion → critic r2 hash re-bind); run `dmc-run-5d7b9cb3ca28` armed with scope.lock over
+  the four in-scope files. **push/CI/main-FF: human gate.**

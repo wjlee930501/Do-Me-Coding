@@ -383,6 +383,138 @@ pre_is "E5 [passive] deny-tier git reset --hard denies" deny  "$PRE" "$(c_bash '
 pre_is "E6 [passive] out-of-scope Bash write stands down -> allow" allow "$PRE" "$(c_bash 'echo x > src/other.py')" "$Q"
 rm -f "$Q/.harness/mode"
 
+# =============================================================================== F
+echo "== F. ask-tier bypass-awareness (v1.1.5) =="
+# Mirror of tests/install/test-ask-tier-bypass.sh for the Codex shim + cross-adapter parity. Block C
+# is active-only and PRECEDES arming (Block D), so fresh UNARMED active sandboxes (new_dir active)
+# reach the ask verdict without a run. Bypass envelopes are built INLINE via the sourced json_str.
+cbp() { printf '{"tool_name":"Bash","tool_input":{"command":%s},"permission_mode":%s}' \
+               "$(json_str "$1")" "$(json_str "$2")"; }
+f_has_ask()    { printf '%s' "$1" | grep -q '"permissionDecision":"ask"'; }
+f_has_sysmsg() { printf '%s' "$1" | grep -q '"systemMessage"'; }
+# ONE shared systemMessage extractor (critic advisory 1): the message value is quote-free ASCII, so
+# a single capture of "systemMessage":"..." is unambiguous across Claude's printf envelope and
+# Codex's compact json.dumps envelope. F-PAR1 compares EXTRACTED strings, not raw envelope bytes.
+f_sysmsg_of() { printf '%s' "$1" | sed -n 's/.*"systemMessage":"\([^"]*\)".*/\1/p'; }
+STANDDOWN_RE='^[0-9TZ:-]+ ask-tier-standdown class=install$'
+
+# F1 — npm install, NO permission_mode -> ask (inert-if-absent / frozen-compat).
+f1=$(new_dir active)
+pre_is "F1 codex: npm install (no permission_mode) -> ask [inert-if-absent]" \
+  ask "$PRE" "$(c_bash 'npm install')" "$f1"
+
+# F2 — npm install + acceptEdits -> ask (acceptEdits is NOT blanket bash consent).
+f2=$(new_dir active)
+pre_is "F2 codex: npm install + acceptEdits -> ask" \
+  ask "$PRE" "$(cbp 'npm install' 'acceptEdits')" "$f2"
+
+# F3 — npm install + bypassPermissions -> stand-down (no ask, rc0, systemMessage parseable, 1 log line).
+f3=$(new_dir active)
+o3=$(codex_run "$PRE" "$(cbp 'npm install' 'bypassPermissions')" "$f3"); rc3=$?
+log3="$f3/.harness/metrics/ask-tier-advisory.log"
+ok3=1
+f_has_ask "$o3" && ok3=0
+f_has_sysmsg "$o3" || ok3=0
+[ "$rc3" = 0 ] || ok3=0
+printf '%s' "$o3" | python3 -m json.tool >/dev/null 2>&1 || ok3=0
+logn3=0; [ -f "$log3" ] && logn3=$(wc -l < "$log3" | tr -d '[:space:]')
+[ "$logn3" = 1 ] || ok3=0
+{ [ -f "$log3" ] && grep -Eq "$STANDDOWN_RE" "$log3"; } || ok3=0
+[ "$ok3" = 1 ] \
+  && record PASS "F3 codex: npm install + bypass -> stand-down (no ask, rc0, systemMessage parseable, 1 value-blind log line class=install)" \
+  || record FAIL "F3 codex: npm install + bypass -> FAILED (rc=$rc3 logn=$logn3 out=$o3 log=$( [ -f "$log3" ] && cat "$log3" ))"
+
+# F4 — git push --force + bypass -> STILL deny (Block A floor never stands down).
+f4=$(new_dir active)
+pre_is "F4 codex: git push --force + bypass -> deny [Block A floor never stands down]" \
+  deny "$PRE" "$(cbp 'git push --force' 'bypassPermissions')" "$f4"
+
+# F5 — cat .env + bypass -> STILL deny (secret-exposure floor).
+f5=$(new_dir active)
+pre_is "F5 codex: cat .env + bypass -> deny [secret floor]" \
+  deny "$PRE" "$(cbp 'cat .env' 'bypassPermissions')" "$f5"
+
+# F6 — (non-prisma) sqlx migrate reset + bypass -> stand-down class=migrate. `prisma migrate reset`
+# is a Block A deny; a non-prisma migrate-reset reaches Block C so the consequential class is logged.
+f6=$(new_dir active)
+o6=$(codex_run "$PRE" "$(cbp 'sqlx migrate reset' 'bypassPermissions')" "$f6"); rc6=$?
+log6="$f6/.harness/metrics/ask-tier-advisory.log"
+if [ "$rc6" = 0 ] && ! f_has_ask "$o6" \
+   && [ -f "$log6" ] && grep -Eq '^[0-9TZ:-]+ ask-tier-standdown class=migrate$' "$log6"; then
+  record PASS "F6 codex: migrate reset + bypass -> stand-down class=migrate logged"
+else
+  record FAIL "F6 codex: migrate reset + bypass -> FAILED (rc=$rc6 out=$o6 log=$( [ -f "$log6" ] && cat "$log6" ))"
+fi
+
+# F7 — mode=passive + bypass -> no ask, no systemMessage, NO log file (fresh passive sandbox, critic
+# advisory 3). Passive stands the ask-tier down (Block C is active-only); bypass is never consulted,
+# proving mode composition and a clean no-log assertion.
+f7=$(new_dir passive)
+o7=$(codex_run "$PRE" "$(cbp 'npm install' 'bypassPermissions')" "$f7"); rc7=$?
+log7="$f7/.harness/metrics/ask-tier-advisory.log"
+if [ "$rc7" = 0 ] && ! f_has_ask "$o7" && ! f_has_sysmsg "$o7" && [ ! -f "$log7" ]; then
+  record PASS "F7 codex: passive + bypass -> no ask, no systemMessage, NO log file [mode composition]"
+else
+  record FAIL "F7 codex: passive + bypass -> FAILED (rc=$rc7 out=$o7 logfile=$( [ -f "$log7" ] && echo present || echo absent ))"
+fi
+
+# F8 — value-blind negctl: a fake sk- token in the command NEVER enters the log line.
+FAKE_TOKEN='sk-FAKE0000NOTAREALKEY'
+f8=$(new_dir active)
+o8=$(codex_run "$PRE" "$(cbp 'npm install # sk-FAKE0000NOTAREALKEY' 'bypassPermissions')" "$f8")
+log8="$f8/.harness/metrics/ask-tier-advisory.log"
+if [ -f "$log8" ] && grep -Eq "$STANDDOWN_RE" "$log8" && ! grep -q "$FAKE_TOKEN" "$log8"; then
+  record PASS "F8 codex: fake token in command -> log records class only, token absent [value-blind]"
+else
+  record FAIL "F8 codex: value-blind -> FAILED (log=$( [ -f "$log8" ] && cat "$log8" ))"
+fi
+
+# F-PAR1 — cross-adapter (SEPARATE active sandboxes per adapter): drive the REAL Claude hook AND the
+# Codex shim on the SAME npm install + bypass envelope; both stand down; the two EXTRACTED
+# systemMessage strings byte-EQUAL; both log lines match the value-blind class=install shape.
+fpc=$(new_dir active); fpx=$(new_dir active)
+PBYP=$(cbp 'npm install' 'bypassPermissions')
+opc=$(claude_run pre-tool-guard.sh "$PBYP" "$fpc")
+opx=$(codex_run "$PRE" "$PBYP" "$fpx")
+logpc="$fpc/.harness/metrics/ask-tier-advisory.log"
+logpx="$fpx/.harness/metrics/ask-tier-advisory.log"
+if ! f_has_ask "$opc" && ! f_has_ask "$opx"; then
+  record PASS "F-PAR1 parity: neither adapter asks under bypass"
+else
+  record FAIL "F-PAR1 parity: an adapter still asked (claude=$opc codex=$opx)"
+fi
+if f_has_sysmsg "$opc" && f_has_sysmsg "$opx"; then
+  record PASS "F-PAR1 parity: both adapters emit a systemMessage advisory"
+else
+  record FAIL "F-PAR1 parity: a systemMessage is missing (claude=$opc codex=$opx)"
+fi
+assert_eq "$(f_sysmsg_of "$opc")" "$(f_sysmsg_of "$opx")" \
+  "F-PAR1 parity: extracted systemMessage strings byte-equal across adapters"
+if grep -Eq "$STANDDOWN_RE" "$logpc" && grep -Eq "$STANDDOWN_RE" "$logpx"; then
+  record PASS "F-PAR1 parity: both log lines share the value-blind class=install shape"
+else
+  record FAIL "F-PAR1 parity: a log line missing/misshaped (claude=$( [ -f "$logpc" ] && cat "$logpc" ) codex=$( [ -f "$logpx" ] && cat "$logpx" ))"
+fi
+
+# F-PAR2 — cross-adapter: git push --force + bypass -> claude deny == codex deny.
+fqc=$(new_dir active); fqx=$(new_dir active)
+QBYP=$(cbp 'git push --force' 'bypassPermissions')
+cq=$(decision_of "$(claude_run pre-tool-guard.sh "$QBYP" "$fqc")")
+xq=$(decision_of "$(codex_run "$PRE" "$QBYP" "$fqx")")
+assert_eq deny "$cq" "F-PAR2 claude: git push --force + bypass -> deny"
+assert_eq deny "$xq" "F-PAR2 codex: git push --force + bypass -> deny"
+assert_eq "$cq" "$xq" "F-PAR2 PARITY: deny-under-bypass equal across adapters"
+
+# F-PAR3 — cross-adapter inert-if-absent: npm install, no permission_mode -> claude ask == codex ask
+# (explicit reaffirmation of the D9 class under the new bypass-aware code path).
+frc=$(new_dir active); frx=$(new_dir active)
+RNO=$(c_bash 'npm install')
+cr=$(decision_of "$(claude_run pre-tool-guard.sh "$RNO" "$frc")")
+xr=$(decision_of "$(codex_run "$PRE" "$RNO" "$frx")")
+assert_eq ask "$cr" "F-PAR3 claude: npm install (no permission_mode) -> ask"
+assert_eq ask "$xr" "F-PAR3 codex: npm install (no permission_mode) -> ask"
+assert_eq "$cr" "$xr" "F-PAR3 PARITY: inert-if-absent ask equal across adapters"
+
 # =============================================================================== summary
 echo
 m65_assert_repo_untouched

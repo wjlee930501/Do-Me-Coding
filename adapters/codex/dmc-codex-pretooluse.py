@@ -47,6 +47,13 @@ def handle_bash(data, project_dir, mode, armed):
     if verdict == "deny":
         dc.pretool_deny(reason)
     if verdict == "ask":
+        # v1.1.5 Block C bypass-awareness (mirror of pre-tool-guard.sh:146-159). Reached ONLY after
+        # the deny floors above returned (Block C is the sole ask-scoped floor). When the host reports
+        # blanket consent (permission_mode == bypassPermissions EXACTLY), a second DMC ask for the SAME
+        # consent is redundant -> advisory stand-down. Any other/absent value falls through to the
+        # frozen ask (inert-if-absent). Deny floors never reach here and never stand down.
+        if dc.permission_mode(data) == "bypassPermissions":
+            dc.pretool_standdown(project_dir, dc.ask_class(command))
         dc.pretool_ask(reason)
 
     # Block D — L1 dynamic write-radius (armed + active only; Ring-0 owns the verdict).
