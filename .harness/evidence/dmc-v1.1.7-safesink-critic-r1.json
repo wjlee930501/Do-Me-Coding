@@ -1,0 +1,28 @@
+{
+  "schema": "dmc.critic-verdict.v1",
+  "work_id": "dmc-v1.1.7-safesink-askdeny",
+  "plan_hash": "020b12c3a3120a88b30b16ea6eb2d4d2c74b47f7b0e5816c7aaca4f0745be51e",
+  "repo_hash": "d02062cdb15a367ca3ff46e97cb15be86628ef05",
+  "target_ref": ".harness/plans/dmc-v1.1.7-safesink-askdeny-20260710.md",
+  "verdict": "REJECT",
+  "lenses": ["security", "correctness", "scope", "test-adequacy"],
+  "criteria_checked": [
+    {"criterion_ref": "segmentation-discovery", "result": "met", "note": "2>&1 mis-segments to ['echo x 2>','1']; dangling empty target -> ask; :251 fd-dup drop dead. Confirmed at :143,:230,:251."},
+    {"criterion_ref": "four-sinks-currently-deny", "result": "met", "note": "/dev/null concrete non-ambiguous -> adjudicate OUTSIDE (:418) -> deny."},
+    {"criterion_ref": "change-a-split-guard-right-layer", "result": "unmet", "note": "REFUTED: split guard alone orphans the following FILE token -> fail-open B1."},
+    {"criterion_ref": "change-b-sink-prefix", "result": "unmet", "note": "PARTIALLY REFUTED: /dev/fd/ prefix admits /dev/fd/../../etc/passwd -> fail-open B2."},
+    {"criterion_ref": "change-c-ask-to-deny-funnel", "result": "met", "note": "single ask funnel :423-426; flips W4; python-c/$() still deny (if-ambiguous precedes final allow)."},
+    {"criterion_ref": "count-effects", "result": "met", "note": "802/3/3 unchanged (bash-radius uncounted); no test pins count or '3 ask'."},
+    {"criterion_ref": "consumer-greps", "result": "met", "note": "pre-tool-guard.sh:190 + dmc-codex-pretooluse.py:71 are translation branches, not assertions."},
+    {"criterion_ref": "doc-lockstep", "result": "met", "note": "ENFORCEMENT_MATRIX:108 + bin/dmc:68 in-scope; DMC.md ask sentences truthful; FABLE_WORKFLOW_TRANSFER.md:142 out of scope."},
+    {"criterion_ref": "bin-dmc-edit-justified", "result": "met", "note": "bin/dmc:68 verb help emits '3 ask' -> truthful-lockstep edit."},
+    {"criterion_ref": "authorization-framing", "result": "unmet", "note": "INVALID as written: B1/B2 open fail-opens so the diff is not strictly-tighter; valid only after fixes."}
+  ],
+  "blockers": [
+    {"id": "B1", "statement": "CRITICAL fail-open: the split guard makes >&/N>& cohere; _redirect_targets extracts & (dropped as fd-dup at :251) and orphans the following FILE token, so echo pwned >& src/other.py and cmd >& /tmp/evil (real out-of-scope writes) classify ALLOW-NO-WRITE (reproduced raw_targets=[]). Fix: parse >&/N>& whose operand is not a bare fd-number/- as an adjudicated file write target.", "evidence_ref": "bin/lib/dmc-bash-radius.py:234-251,:143,:401-408; in-memory simulation"},
+    {"id": "B2", "statement": "HIGH fail-open: safe-sink /dev/fd/ prefix (startswith) admits /dev/fd/../../etc/passwd -> ALLOW. Fix: anchor ^/dev/fd/[0-9]+$; keep /dev/null|/dev/stderr|/dev/stdout as exact-set membership.", "evidence_ref": "Rev1 plan lines 111-115,218; startswith admits traversal"},
+    {"id": "B3", "statement": "MEDIUM test-adequacy: the matrix omits the >&FILE/&>FILE/N>&FILE and /dev/fd/ traversal negative controls, and the standalone install test is not CI-wired (dmc-ci.yml invokes no install/ test). The fail-open negative controls + NO-ASK invariant + L0 git-apply-2>&1 regression must live in the module selftest() (CI path).", "evidence_ref": "Rev1 plan lines 128-133,145-151,248; .github/workflows/dmc-ci.yml"}
+  ],
+  "advisory": true,
+  "context_provenance": "fresh"
+}

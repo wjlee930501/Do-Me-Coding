@@ -1,0 +1,27 @@
+{
+  "schema": "dmc.critic-verdict.v1",
+  "work_id": "dmc-v1.1.7-safesink-askdeny",
+  "plan_hash": "a31d03266115ef501359c7d9cc39f567bf668d645fb717d0006472538a0cdbdd",
+  "repo_hash": "d02062cdb15a367ca3ff46e97cb15be86628ef05",
+  "target_ref": ".harness/plans/dmc-v1.1.7-safesink-askdeny-20260710.md",
+  "verdict": "APPROVE",
+  "lenses": ["security", "correctness", "scope", "test-adequacy"],
+  "criteria_checked": [
+    {"criterion_ref": "B1-closed-redirect-companion", "result": "met", "note": "Change a2: FDDUP_RE ^(\\d*)>&(.*)$ before the > regexes; bare >& / N>& consume next token, glued suffix else; numeric/- operand drops, any other operand surfaces as an adjudicated file target. Battery: >& FILE, N>& FILE, glued >&FILE all DENY out-of-scope; in-scope >& src/app.py ALLOW. No orphaned ALLOW-NO-WRITE remains."},
+    {"criterion_ref": "B2-closed-sink-anchor", "result": "met", "note": "Change b: SAFE_SINKS exact-set + FD_SINK_RE ^/dev/fd/[0-9]+$ anchored, no startswith. Battery: /dev/fd/../../etc/passwd, /dev/fd/, dev/null, /dev/nullx all reject; three sinks + /dev/fd/<n> allow."},
+    {"criterion_ref": "B3-module-selftest-CI-covered", "result": "met", "note": "Change e places B1/B2 negative controls, fd-dup ALLOW, NO-ASK invariant, ambiguous+W4 ASK->DENY conversion, L0 git-apply-with-2>&1 regression, and backgrounding-not-swallowed rows in the MODULE selftest() (CI path via selftest --all + m6-core); change f standalone is integration-only."},
+    {"criterion_ref": "ampersand-gt-untouched-path", "result": "met", "note": "&> / &>> excluded from FDDUP_RE stay on the existing REDIR_FULL/PREFIX path; a1 guard does not fire on & preceded by space, so &> FILE, &>> FILE, glued &>/FILE all split correctly and adjudicate (DENY out-of-scope confirmed)."},
+    {"criterion_ref": "segmentation-intact", "result": "met", "note": "cmd1 && cmd2, cmd1 & cmd2, trailing background & all split correctly (sleep 1 & echo done not swallowed)."},
+    {"criterion_ref": "L0-floor-and-python-c-unaffected", "result": "met", "note": "detect_l0 still fires on git-apply combined with 2>&1; the untouched classify_l1 command-word branch keeps python -c / $() / variable ambiguous -> DENY."},
+    {"criterion_ref": "OQ1-consumers-leave", "result": "met", "note": "Out of Scope + Relevant Files mark the three consumers read-only; ask/rc3 branches kept as shared-contract mappings."},
+    {"criterion_ref": "OQ2-prefix-kept-tail-rewritten", "result": "met", "note": "Change c keeps BASH-L1-AMBIGUOUS prefix, rewrites :426 tail to fail-closed; change d updates docstring :21 + exit-code note."},
+    {"criterion_ref": "OQ3-ci-wiring", "result": "met", "note": "security-critical rows required in module selftest per B3 finding; standalone install test acknowledged CI-uninvoked."},
+    {"criterion_ref": "authorization-reframe", "result": "met", "note": "Goal Rev-2 note + Out-of-Scope section-9 line: net-tightening framing valid only with B1/B2 closed; no pilot needed."},
+    {"criterion_ref": "task-split-and-status", "result": "met", "note": "T001=a1 split guard, T002=a2 redirect companion; Status stays DRAFT."},
+    {"criterion_ref": "count-effects-802-3-3", "result": "met", "note": "bash-radius uncounted in the legacy aggregate; module self-test checked by rc only; enlarged selftest keeps 802/3/3."},
+    {"criterion_ref": "csh-spaced-numeric-drop-edge", "result": "na", "note": "Accepted documented edge: >& <digits> spaced drops as fd-dup (a file literally named with bare digits via the csh form is a miss) — fail-closed-safe, pre-ruled accepted; realistic scope escapes use real paths and are adjudicated."}
+  ],
+  "blockers": [],
+  "advisory": true,
+  "context_provenance": "fresh"
+}

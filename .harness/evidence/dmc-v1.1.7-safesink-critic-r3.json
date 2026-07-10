@@ -1,0 +1,20 @@
+{
+  "schema": "dmc.critic-verdict.v1",
+  "work_id": "dmc-v1.1.7-safesink-askdeny",
+  "plan_hash": "d337a410479c4b74aa384fc2badeff1bbf1396a125dd4ab78264ed1f3e46196b",
+  "repo_hash": "d02062cdb15a367ca3ff46e97cb15be86628ef05",
+  "target_ref": ".harness/plans/dmc-v1.1.7-safesink-askdeny-20260710.md",
+  "verdict": "APPROVE",
+  "lenses": ["scope", "security", "correctness"],
+  "criteria_checked": [
+    {"criterion_ref": "delta-single-region-proven", "result": "met", "note": "Rev3 prefix (23284 bytes before '## Approval Status') + the Rev2 DRAFT block re-hashes to a31d0326 — the exact bytes approved in r2. Cryptographic proof that ZERO technical content changed; the delta is confined to the approval region."},
+    {"criterion_ref": "approval-flip-region-only", "result": "met", "note": "Only change vs a31d0326: Status DRAFT->APPROVED; Approver=human envelope gate (user directives 2026-07-10) + critic r2 APPROVE cited as evidence; Approved At 2026-07-10; plus an appended Revisions paragraph. Title line 1 still reads (Rev 2), not bumped — consistent with a single changed region."},
+    {"criterion_ref": "C11-clean-no-self-approve", "result": "met", "note": "Approval is a human-gate record: the human envelope gate is the grant, critic r2 APPROVE is cited as ADVISORY evidence only (never opens the gate), and the read-only planner did not self-approve; the orchestrator applied the mechanical flip. Same C11-clean routing the v1.1.5 sibling ruled compliant."},
+    {"criterion_ref": "plan-revalidates-VALID", "result": "met", "note": "dmc validate plan -> VALID (dmc.plan-instance.v1) on the d337a410 bytes."},
+    {"criterion_ref": "technical-approve-stands-cite-r2", "result": "met", "note": "All technical confirmations carry unchanged from r2 (plan_hash a31d0326): B1 closed (a2 FDDUP_RE companion adjudicates >&FILE/N>&FILE), B2 closed (exact-set + ^/dev/fd/[0-9]+$), B3 closed (security rows in module selftest, CI-covered), OQ1/OQ2/OQ3 folded, authorization reframed, T001/a1 + T002/a2 split, count effects 802/3/3. See the r2 verdict criteria — not re-litigated here."},
+    {"criterion_ref": "advisory-only-gate-reminder", "result": "met", "note": "This r3 verdict is advisory evidence (advisory=true, context_provenance=fresh); it re-binds the technical APPROVE to the new hash and does NOT itself constitute the release grant."}
+  ],
+  "blockers": [],
+  "advisory": true,
+  "context_provenance": "fresh"
+}
