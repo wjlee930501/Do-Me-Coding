@@ -1,0 +1,20 @@
+{
+  "schema": "dmc.critic-verdict.v1",
+  "work_id": "dmc-fable-core-replica-default",
+  "plan_hash": "b33f355c7abfeadb3b4e498e79b7cd29e1ccb6f6cece1611843f3c1b9c8725fb",
+  "repo_hash": "497ca4b71bc71f39916841e595eb1f95a6e7ece7",
+  "target_ref": ".harness/plans/dmc-fable-core-replica-default.md",
+  "verdict": "APPROVE",
+  "lenses": ["correctness", "scope", "security", "migration"],
+  "criteria_checked": [
+    {"criterion_ref": "rev2-delta-exact", "result": "met", "note": "Diff vs r1 76d5f7a3 is EXACTLY two regions: AC C2/C3/C4 (lines 95-100) two-tool FLIP rewording + Approval Status/Revisions (168-174). All other sections byte-identical; C1 untouched. Line count 171->174 (+3 Revisions)"},
+    {"criterion_ref": "rev2-rewording-faithful", "result": "met", "note": "C2 FLIP on dmc-v0.6.0-verify.sh (replica V15 PASS / in-place-dirty V15 FAIL); C3 FLIP on dmc-v0.1.3-verify.sh (replica active PASS / in-place-passive FAIL); C4 = in-place arms of C2/C3. Matches r1 ruling #2 and T003"},
+    {"criterion_ref": "rev2-c1-unweakened", "result": "met", "note": "C1 (full default leg == tools=49 PASS=802 FAIL=3 N/A=3 EXACT) is byte-identical; the flips are additive falsifiers, not replacements; exact-aggregate pin intact"},
+    {"criterion_ref": "rev2-approval-c11-clean", "result": "met", "note": "Approver = human envelope gate (user directive 2026-07-10); critic r1 cited as separate advisory evidence, not laundered; r2 remains advisory=true and opens no gate"},
+    {"criterion_ref": "r1-load-bearing-carryforward", "result": "met", "note": "All r1 confirmations still hold (couplings single-leg, replica-own-copy, mirror-pin separation, --live collision, mode-normalization, 4-file scope, fail-loud, CI advisory, basename empirically refuted via own clone test 802/3/3, env-var honesty, v1.1.5 disjointness) — unchanged sections"},
+    {"criterion_ref": "in-place-dispatch-flag-coverage", "result": "met", "note": "ADVISORY (non-blocking): --in-place dispatch-flag routing now pinned hermetically only by C5 default path + Verification Command 158 (tree-state-dependent outcome); direct consequence of the cheap-flip endorsed in r1. Optional: one --in-place full-leg run vs a dirty sandbox would pin the flag deterministically"}
+  ],
+  "blockers": [],
+  "advisory": true,
+  "context_provenance": "fresh"
+}
